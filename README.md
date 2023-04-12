@@ -4,6 +4,7 @@ Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular i
 
 https://github.com/ggerganov/whisper.cpp
 
+#
 
 This Linux script adds some new features:
 
@@ -11,7 +12,7 @@ This Linux script adds some new features:
 
 -Translate to English when auto is selected
 
-
+#
 
 Usage: ./livestream_video.sh stream_url [step_s] [model] [language]
 
