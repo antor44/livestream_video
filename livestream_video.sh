@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.02
+# livestream_video.sh v. 1.03
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -116,7 +116,7 @@ fi
 
 # if auto then traslate to english
 
-if [[ language == "auto" ]]; then
+if [[ $language == "auto" ]]; then
     language="auto -tr"
 fi
 
