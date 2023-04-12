@@ -9,4 +9,6 @@ This linux script adds some new features:
 
 Recomended linux video player: SMPlayer based in mvp, or any other video player based in mplaye, due to its capaccitites to timeshift online streams for sinchronice live vídeo with the trasncription. Most video stream should work.
 
+## Screenshot:
 
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
