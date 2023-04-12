@@ -11,6 +11,7 @@ This Linux script adds some new features:
 Usage: ./livestream_video.sh stream_url [step_s] [model] [language]
 
   Example (defaults if no options are specified):
+  
     ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 3 tiny.en en
 
 
@@ -163,7 +164,7 @@ ba , bashkir
 jw , javanese
 su , sundanese
 
-
+#
 
 Most video streams should work.
 
