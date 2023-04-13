@@ -1,6 +1,6 @@
 # livestream_video.sh
 
-Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
+Linux script/program to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
 https://github.com/ggerganov/whisper.cpp
 
@@ -50,7 +50,7 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 - Cross-platform compatibility
 
 #
-# FAQ - Linux Program
+# FAQ
 
 **Q: Why is the program not working?**
 
