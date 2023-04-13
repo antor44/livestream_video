@@ -55,7 +55,7 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 
 **Q: Why is the program not working?**
 
-A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The script should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary to download the Whisper model file from OpenAI and place it in the "models" directory with the correct format and name, as specified in the script available in the Whisper.cpp repository. This can be done using the following terminal commands:
+A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The script should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary to download the Whisper model file from OpenAI and place it in the "models" directory with the correct format and name, as specified in the script available in the Whisper.cpp repository. This can be done using terminal commands like the followings:
 
 make tiny.en
 
