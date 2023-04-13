@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.03
+# livestream_video.sh v. 1.04
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -11,11 +11,13 @@
 # -Translate to English when auto is selected
 #
 #
-# Usage: ./livestream_video.sh stream_url [step_s] [model] [language]
+# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [traslate]
 #
 #   Example (defaults if no options are specified):
 #  
 #    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 3 tiny.en en
+#
+# To addd an option, all the preceding options must be written in the same order.
 #
 # Script and Whisper executable (main) must reside in the same directory.
 #
@@ -28,6 +30,7 @@ fmt=aac # the audio format extension of the stream (TODO: auto detect)
 step_s=3
 model="tiny.en"
 language="en"
+traslate=""
 
 check_requirements()
 {
@@ -46,10 +49,10 @@ check_requirements
 
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 stream_url [step_s] [model] [language]"
+    echo "Usage: $0 stream_url [step_s] [model] [language] [traslate]"
     echo ""
     echo "  Example:"
-    echo "    $0 $url $step_s $model $language"
+    echo "    $0 $url $step_s $model $language $traslate"
     echo ""
     echo "No url specified, using default: $url"
 else
@@ -66,6 +69,10 @@ fi
 
 if [ -n "$4" ]; then
     language="$4"
+fi
+
+if [ -n "$5" ]; then
+    traslate="$5"
 fi
 
 
@@ -114,18 +121,20 @@ if [[ ! " ${languages[@]} " =~ " ${language} " ]]; then
     exit 1
 fi
 
-# if auto then traslate to english
-
-if [[ $language == "auto" ]]; then
-    language="auto -tr"
-fi
-
-
 running=1
 
 trap "running=0" SIGINT SIGTERM
 
-printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language' (press Ctrl+C to stop):\n\n"
+# if traslate then traslate to english
+
+if [[ $traslate == "traslate" ]]; then
+    traslate="-tr"
+    printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', traslate to english (press Ctrl+C to stop):\n\n"
+else
+    traslate=""
+    printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', NO traslate to english (press Ctrl+C to stop):\n\n"
+fi    
+    
 
 # continuous stream in native fmt (this file will grow forever!)
 ffmpeg -loglevel quiet -y -probesize 32 -i $url -map 0:a:0 /tmp/whisper-live0.${fmt} &
@@ -154,7 +163,7 @@ while [ $running -eq 1 ]; do
         err=$(cat /tmp/whisper-live.err | wc -l)
     done
 
-    ./main -l ${language} -t 8 -m ./models/ggml-${model}.bin -f /tmp/whisper-live.wav --no-timestamps -otxt 2> /tmp/whispererr | tail -n 1
+    ./main -l ${language} ${traslate} -t 8 -m ./models/ggml-${model}.bin -f /tmp/whisper-live.wav --no-timestamps -otxt 2> /tmp/whispererr | tail -n 1
 
     while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
         sleep 1
