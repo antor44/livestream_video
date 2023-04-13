@@ -1,6 +1,27 @@
-# livestream_video
+# playlist4whisper GUI and livestream_video.sh
 
-Linux script/program to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
+"playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
+
+Author: Antonio R. Version: 1.06 License: MIT
+
+
+Usage: 
+
+python playlist4whisper.py 
+
+The program will load default playlist.m3u 
+
+
+This program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The script livestream_video.sh should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary to download the Whisper model file from OpenAI and place it in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
+
+make tiny.en
+
+make small
+
+#
+
+
+livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
 https://github.com/ggerganov/whisper.cpp
 
@@ -44,7 +65,11 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 
 ## Screenshots:
-
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
+#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
