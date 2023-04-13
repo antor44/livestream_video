@@ -41,9 +41,17 @@ Most video streams should work.
 
 Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv/mplayer, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
-## Screenshot:
+#
+
+## Screenshots:
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV3.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV4.jpg)
 
 #
 # To Do List
