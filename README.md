@@ -35,7 +35,7 @@ Autodetected (auto), English (en), Chinese (zh), German (de), Spanish (es), Russ
 
 Most video streams should work.
 
-Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mplayer, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
+Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv/mplayer, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
 ## Screenshot:
 
