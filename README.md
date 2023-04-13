@@ -40,3 +40,36 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 ## Screenshot:
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
+
+#
+# To Do List
+
+- Advanced GUI, standalone application
+- Fix video desynchronization issue
+- GPU acceleration support
+- Cross-platform compatibility
+
+#
+# FAQ - Linux Program
+
+**Q: Why is the program not working?**
+
+A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The script should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary to download the Whisper model file from OpenAI and place it in the "models" directory with the correct format and name, as specified in the script available in the Whisper.cpp repository. This can be done using the following terminal commands:
+
+make tiny.en
+
+make small
+
+**Q: How to synchronize the video and transcription?**
+
+A: You can use the pause and forward/backward buttons of the video player to achieve the desired synchronization.
+
+**Q: Why does the video and transcription get desynchronized?**
+
+A: The video player and transcription application work independently, each with its own video stream. Over time, desynchronization can occur due to the method used to split the audio into chunks for transcription. It can also be affected by choosing a model that is too large for the processor capabilities.
+
+**Q: The transcriptions I get are not accurate?**
+
+A: The quality of transcriptions depends on several factors, especially the size of the chosen model. Larger models tend to perform better, but they also require more processing power. The English models generally work better than models in other languages. For example, for Spanish it is recommended to use at least the base or small model, and for other languages, a larger model may be necessary. If simultaneous translation to English is selected, it may also consume a significant amount of processor resources.
+
+
