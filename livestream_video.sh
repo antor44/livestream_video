@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.04
+# livestream_video.sh v. 1.06
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -8,7 +8,7 @@
 #
 # -Language command-line option: auto (for autodetection), en, es, fr, de, iw, ar, etc.
 #
-# -Translate to English when auto is selected
+# -Translate to English
 #
 #
 # Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [traslate]
