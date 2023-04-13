@@ -44,8 +44,9 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To Do List
 
-- Advanced GUI, standalone application
+- Advanced GUI
 - Fix video desynchronization issue
+- Standalone application
 - GPU acceleration support
 - Cross-platform compatibility
 
