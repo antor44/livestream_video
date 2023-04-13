@@ -1,4 +1,4 @@
-# livestream_video.sh
+# livestream_video
 
 Linux script/program to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
