@@ -60,16 +60,23 @@ make tiny.en
 
 make small
 
-**Q: How to synchronize the video and transcription?**
+**Q: How can I change the size of the transcribed text snippets?**
 
-A: You can use the pause and forward/backward buttons of the video player to achieve the desired synchronization.
+A: You can change the size of the text snippets in seconds with the "step_s" option, which determines the duration of each part into which the videos are divided for transcription.
+
+**Q: How can I change the size and colors of the transcription text?**
+
+A: You can change the size and colors of the transcription text in the options of the terminal program you are using.
+
+**Q: How can I synchronize the video and the transcription?**
+
+A: You can use the pause and forward/backward buttons of the video player to manually synchronize the video and transcription to your desired timing.
 
 **Q: Why does the video and transcription get desynchronized?**
 
-A: The video player and transcription application work independently, each with its own video stream. Over time, desynchronization can occur due to the method used to split the audio into chunks for transcription. It can also be affected by choosing a model that is too large for the processor capabilities.
+A: The video and transcription applications work independently, each with its own stream of video. Over time, the desynchronization can also vary, seemingly due to the method used to split the audio into chunks for transcription. Choosing a model that is too large for the processor's capabilities can also affect the synchronization.
 
-**Q: The transcriptions I get are not accurate?**
+**Q: The transcriptions I get are not accurate. What could be the issue?**
 
-A: The quality of transcriptions depends on several factors, especially the size of the chosen model. Larger models tend to perform better, but they also require more processing power. The English models generally work better than models in other languages. For example, for Spanish it is recommended to use at least the base or small model, and for other languages, a larger model may be necessary. If simultaneous translation to English is selected, it may also consume a significant amount of processor resources.
-
+A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models in other languages. For languages other than English, you may need to use a larger model. If you choose the option for simultaneous translation to English, it may also significantly increase processor consumption.
 
