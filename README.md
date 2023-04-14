@@ -18,7 +18,8 @@ make tiny.en
 
 make small
 
-playlist4whisper.py dependes on mpv video player and (gnome-terminal or konsole or xfce4-terminal).
+
+playlist4whisper.py dependes on (smplayer, mpv or mplayer) video player and (gnome-terminal or konsole or xfce4-terminal).
 #
 
 livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
