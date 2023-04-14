@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.06
+# livestream_video.sh v. 1.10
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -26,7 +26,7 @@
 set -eo pipefail
 
 url="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
-fmt=aac # the audio format extension of the stream (TODO: auto detect)
+fmt=mp3 # the audio format extension of the stream (TODO: auto detect)
 step_s=3
 model="tiny.en"
 language="en"
