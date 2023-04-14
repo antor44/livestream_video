@@ -64,12 +64,14 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 
 #
 
-## Screenshots:
+## playlist4whisper GUI Screenshots:
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV7.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
 #
+## livestream_video.sh screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
