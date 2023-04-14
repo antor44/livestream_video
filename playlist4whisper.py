@@ -3,7 +3,7 @@
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.06 License: MIT
+Author: Antonio R. Version: 1.10 License: MIT
 
 
 
@@ -21,7 +21,7 @@ make tiny.en
 make small
 
 
-playlist4whisper.py dependes on mpv video player and (gnome-terminal or konsole or xfce4-terminal).
+playlist4whisper.py dependes on (smplayer, mpv or mplayer) video player and (gnome-terminal or konsole or xfce4-terminal).
 
 
 Options for script:
@@ -81,7 +81,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk, simpledialog
 
 # Default options
-default_mpv_options = "--geometry=720x480+50%+10%"
+default_mpv_options = "-geometry 1280"
 default_bash_options = "4 base auto traslate"
 bash_script = "./livestream_video.sh"
 config_file = "config.json"
@@ -117,7 +117,7 @@ class M3uPlaylistPlayer(tk.Tk):
         self.options_frame = tk.Frame(self)
         self.options_frame.pack(side=tk.TOP)
 
-        self.mpv_options_label = tk.Label(self.options_frame, text="MPV Options:")
+        self.mpv_options_label = tk.Label(self.options_frame, text="Player Options:")
         self.mpv_options_label.pack(side=tk.LEFT)
 
         self.mpv_options_entry = tk.Entry(self.options_frame)
@@ -190,7 +190,7 @@ class M3uPlaylistPlayer(tk.Tk):
             bash_options = self.bash_options_entry.get()
             print("Playing channel:", url)
 
-            # Try launching gnome-terminal
+            # Try launching gnome-terminal, konsole or xfce4-terminal
             if os.path.exists(bash_script):
                 if os.system("gnome-terminal --version") == 0:
                     os.system(f"gnome-terminal --hold -e '{bash_script} {url} {bash_options}' &")
@@ -204,8 +204,18 @@ class M3uPlaylistPlayer(tk.Tk):
             else:
                 print("Script does not exist.")
                 simpledialog.messagebox.showerror("Error", "Script does not exist.")
-
-            os.system(f"mpv {url} {mpv_options} &")
+                
+            # Try launching smplayer, mpv or mplayer
+            if os.system("smplayer --help") == 0:
+                os.system(f"smplayer {url} {mpv_options} &")
+            elif os.system("mpv --version") == 0:
+                os.system(f"mpv {url} {mpv_options} &")
+            elif os.system("mplayer -v") == 0:
+                os.system(f"mplayer {url} {mpv_options} &")
+            else:
+                    print("No compatible video player found.")
+                    simpledialog.messagebox.showerror("Error", "No compatible video player found.")
+             
 
 
 
@@ -280,7 +290,7 @@ class M3uPlaylistPlayer(tk.Tk):
 
     # Function About
     def show_about_window(self):
-        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.06\nLicense: MIT")
+        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.10\nLicense: MIT")
 
 
 if __name__ == "__main__":
