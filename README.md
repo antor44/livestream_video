@@ -114,7 +114,7 @@ A: You can use the pause and forward/backward buttons of the video player to man
 
 **Q: Why does the video and transcription get desynchronized?**
 
-A: The video and transcription applications work independently, each with its own stream of video. Over time, the desynchronization can also vary, seemingly due to the method used to split the audio into chunks for transcription. Choosing a model that is too large for the processor's capabilities can also affect the synchronization.
+A: The video and transcription applications work independently, each with its own stream of video. Over time, the desynchronization can also vary, choosing a model that is too large for the processor's capabilities can also affect the synchronization.
 
 **Q: The transcriptions I get are not accurate. What could be the issue?**
 
