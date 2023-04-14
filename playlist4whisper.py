@@ -3,7 +3,7 @@
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.10 License: MIT
+Author: Antonio R. Version: 1.12 License: MIT
 
 
 
@@ -77,6 +77,7 @@ SOFTWARE.
 import os
 import re
 import json
+import urllib.parse
 import tkinter as tk
 from tkinter import filedialog, ttk, simpledialog
 
@@ -186,6 +187,7 @@ class M3uPlaylistPlayer(tk.Tk):
         if region == "cell":
             item = self.tree.selection()[0]
             url = self.tree.item(item, "values")[1]
+            url =  '"' + url + '"'
             mpv_options = self.mpv_options_entry.get()
             bash_options = self.bash_options_entry.get()
             print("Playing channel:", url)
@@ -290,7 +292,7 @@ class M3uPlaylistPlayer(tk.Tk):
 
     # Function About
     def show_about_window(self):
-        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.10\nLicense: MIT")
+        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.12\nLicense: MIT")
 
 
 if __name__ == "__main__":
