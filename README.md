@@ -65,9 +65,9 @@ Traslate: The "traslate" option provides automatic English translation (only Eng
 
 #
 
-Most video streams should work.
+The majority of online video streams should work, although video streams from YouTube, Twitch, or other online video services are not supported.
 
-Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv/mplayer, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
+Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
 #
 
