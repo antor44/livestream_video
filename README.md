@@ -131,7 +131,7 @@ A: The video and transcription applications work independently, each with its ow
 
 **Q: The transcriptions I get are not accurate. What could be the issue?**
 
-A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models in other languages. For languages other than English, you may need to use a larger model. If you choose the option for simultaneous translation to English, it may also significantly increase processor consumption.
+A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models in other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or traslate for simultaneous translation to English, it may also significantly increase processor consumption.
 
 **Q: Neither smplayer nor mplayer work with online TV?**
 
