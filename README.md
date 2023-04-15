@@ -12,7 +12,12 @@ python playlist4whisper.py
 The program will load default playlist.m3u 
 
 
-This program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The script livestream_video.sh should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary to download the Whisper model file from OpenAI and place it in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
+This program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
+
+sudo apt-get install mpv smplayer ffmpeg python3-tk
+
+
+The script livestream_video.sh should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary to download the Whisper model file from OpenAI and place it in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
 
 make tiny.en
 
@@ -124,4 +129,9 @@ A: The video and transcription applications work independently, each with its ow
 **Q: The transcriptions I get are not accurate. What could be the issue?**
 
 A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models in other languages. For languages other than English, you may need to use a larger model. If you choose the option for simultaneous translation to English, it may also significantly increase processor consumption.
+
+**Q: Neither smplayer nor mplayer work with online TV?**
+
+A: This program uses the system's installed versions of mpv or mplayer, not the python versions installed with pip or Anaconda. The installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv in its options.
+
 
