@@ -3,7 +3,7 @@
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.12 License: MIT
+Author: Antonio R. Version: 1.14 License: MIT
 
 
 
@@ -195,7 +195,7 @@ class M3uPlaylistPlayer(tk.Tk):
             # Try launching gnome-terminal, konsole or xfce4-terminal
             if os.path.exists(bash_script):
                 if os.system("gnome-terminal --version") == 0:
-                    os.system(f"gnome-terminal --hold -e '{bash_script} {url} {bash_options}' &")
+                    os.system(f"gnome-terminal --tab -- /bin/bash -c '{bash_script} {url} {bash_options}; exec /bin/bash -i' &")
                 elif os.system("konsole --version") == 0:
                     os.system(f"konsole --noclose -e '{bash_script} {url} {bash_options}' &")
                 elif os.system("xfce4-terminal --version") == 0:
@@ -292,7 +292,7 @@ class M3uPlaylistPlayer(tk.Tk):
 
     # Function About
     def show_about_window(self):
-        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.12\nLicense: MIT")
+        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.14\nLicense: MIT")
 
 
 if __name__ == "__main__":
