@@ -61,8 +61,6 @@ Autodetected (auto), English (en), Chinese (zh), German (de), Spanish (es), Russ
 
 Traslate: The "traslate" option provides automatic English translation (only English is available).
 
-***To add an option, all the preceding options must be written in the same order.***
-
 #
 
 The majority of online video streams should work, although video streams from YouTube, Twitch, or other online video services are not supported. For Twitch, you can try twitch.sh:
