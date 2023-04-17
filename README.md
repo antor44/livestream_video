@@ -65,7 +65,9 @@ Traslate: The "traslate" option provides automatic English translation (only Eng
 
 #
 
-The majority of online video streams should work, although video streams from YouTube, Twitch, or other online video services are not supported.
+The majority of online video streams should work, although video streams from YouTube, Twitch, or other online video services are not supported. For Twitch, you can try twitch.sh:
+
+https://github.com/ggerganov/whisper.cpp/tree/master/examples
 
 Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
@@ -135,6 +137,6 @@ A: The quality of the transcriptions depends on several factors, especially the 
 
 **Q: Neither smplayer nor mplayer work with online TV?**
 
-A: This program uses the system's installed versions of mpv or mplayer, not the python versions installed with pip or Anaconda. The installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv in its options.
+A: This program uses the system's installed versions of mpv or mplayer, not the python versions installed with pip or Anaconda. The installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
 
 
