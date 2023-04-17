@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.10
+# livestream_video.sh v. 1.12
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -17,17 +17,16 @@
 #  
 #    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 3 tiny.en en
 #
-# To addd an option, all the preceding options must be written in the same order.
 #
-# Script and Whisper executable (main) must reside in the same directory.
+# Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
 #
 
 
 set -eo pipefail
 
-url="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
-fmt=mp3 # the audio format extension of the stream (TODO: auto detect)
-step_s=3
+url_default="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
+fmt=mp3 # the audio format
+step_s=4
 model="tiny.en"
 language="en"
 traslate=""
@@ -45,61 +44,9 @@ check_requirements()
     fi
 }
 
-check_requirements
-
-
-if [ -z "$1" ]; then
-    echo "Usage: $0 stream_url [step_s] [model] [language] [traslate]"
-    echo ""
-    echo "  Example:"
-    echo "    $0 $url $step_s $model $language $traslate"
-    echo ""
-    echo "No url specified, using default: $url"
-else
-    url="$1"
-fi
-
-if [ -n "$2" ]; then
-    step_s="$2"
-fi
-
-if [ -n "$3" ]; then
-    model="$3"
-fi
-
-if [ -n "$4" ]; then
-    language="$4"
-fi
-
-if [ -n "$5" ]; then
-    traslate="$5"
-fi
-
-
-
-# Whisper models
-models=( "tiny.en" "tiny" "base.en" "base" "small.en" "small" "medium.en" "medium" "large-v1" "large" )
-
-# list available models
-function list_models {
-    printf "\n"
-    printf "  Available models:"
-    for model in "${models[@]}"; do
-        printf " $model"
-    done
-    printf "\n\n"
-}
-
-if [[ ! " ${models[@]} " =~ " ${model} " ]]; then
-    printf "Invalid model: $model\n"
-    list_models
-
-    exit 1
-fi
-
 # Whisper languages:
 
-# Autodetected (auto), English (en), Chinese (zh), German (de), Spanish (es), Russian (ru), Korean (ko), French (fr), Japanese (ja), Portuguese (pt), Catalan (ca), Dutch (nl), Arabic (ar), Italian (it), Hebrew (iw), Ukrainian (uk), Romanian (ro), Persian (fa), Swedish (sv), Indonesian (id), Hindi (hi), Finnish (fi), Vietnamese (vi), Hebrew (iw), Ukrainian (uk), Greek (el), Malay (ms), Czech (cs), Romanian (ro), Danish (da), Hungarian (hu), Tamil (ta), Norwegian (no), Thai (th), Urdu (ur), Croatian (hr), Bulgarian (bg), Lithuanian (lt), Latin (la), Maori (mi), Malayalam (ml), Welsh (cy), Slovak (sk), Telugu (te), Persian (fa), Latvian (lv), Bengali (bn), Serbian (sr), Azerbaijani (az), Slovenian (sl), Kannada (kn), Estonian (et), Macedonian (mk), Breton (br), Basque (eu), Icelandic (is), Armenian (hy), Nepali (ne), Mongolian (mn), Bosnian (bs), Kazakh (kk), Albanian (sq), Swahili (sw), Galician (gl), Marathi (mr), Punjabi (pa), Sinhala (si), Khmer (km), Shona (sn), Yoruba (yo), Somali (so), Afrikaans (af), Occitan (oc), Georgian (ka), Belarusian (be), Tajik (tg), Sindhi (sd), Gujarati (gu), Amharic (am), Yiddish (yi), Lao (lo), Uzbek (uz), Faroese (fo), Haitian Creole (ht), Pashto (ps), Turkmen (tk), Nynorsk (nn), Maltese (mt), Sanskrit (sa), Luxembourgish (lb), Myanmar (my), Tibetan (bo), Tagalog (tl), Malagasy (mg), Assamese (as), Tatar (tt), Hawaiian (haw), Lingala (ln), Hausa (ha), Bashkir (ba), Javanese (jw), Sundanese (su).
+# Autodetected (auto), English (en), Chinese (zh), German (de), Spanish (es), Russian (ru), Korean (ko), French (fr), Japanese (ja), Portuguese (pt), Catalan (ca), Dutch (nl), Arabic (ar), Italian (it), Hebrew (iw), Ukrainian (uk), Romanian (ro), Swedish (sv), Indonesian (id), Hindi (hi), Finnish (fi), Vietnamese (vi), Hebrew (iw), Ukrainian (uk), Greek (el), Malay (ms), Czech (cs), Romanian (ro), Danish (da), Hungarian (hu), Tamil (ta), Norwegian (no), Thai (th), Urdu (ur), Croatian (hr), Bulgarian (bg), Lithuanian (lt), Latin (la), Maori (mi), Malayalam (ml), Welsh (cy), Slovak (sk), Telugu (te), Persian (fa), Latvian (lv), Bengali (bn), Serbian (sr), Azerbaijani (az), Slovenian (sl), Kannada (kn), Estonian (et), Macedonian (mk), Breton (br), Basque (eu), Icelandic (is), Armenian (hy), Nepali (ne), Mongolian (mn), Bosnian (bs), Kazakh (kk), Albanian (sq), Swahili (sw), Galician (gl), Marathi (mr), Punjabi (pa), Sinhala (si), Khmer (km), Shona (sn), Yoruba (yo), Somali (so), Afrikaans (af), Occitan (oc), Georgian (ka), Belarusian (be), Tajik (tg), Sindhi (sd), Gujarati (gu), Amharic (am), Yiddish (yi), Lao (lo), Uzbek (uz), Faroese (fo), Haitian Creole (ht), Pashto (ps), Turkmen (tk), Nynorsk (nn), Maltese (mt), Sanskrit (sa), Luxembourgish (lb), Myanmar (my), Tibetan (bo), Tagalog (tl), Malagasy (mg), Assamese (as), Tatar (tt), Hawaiian (haw), Lingala (ln), Hausa (ha), Bashkir (ba), Javanese (jw), Sundanese (su).
 
 
 languages=( "auto" "en" "zh" "de" "es" "ru" "ko" "fr" "ja" "pt" "tr" "pl" "ca" "nl" "ar" "sv" "it" "id" "hi" "fi" "vi" "iw" "uk" "el" "ms" "cs" "ro" "da" "hu" "ta" "no" "th" "ur" "hr" "bg" "lt" "la" "mi" "ml" "cy" "sk" "te" "fa" "lv" "bn" "sr" "az" "sl" "kn" "et" "mk" "br" "eu" "is" "hy" "ne" "mn" "bs" "kk" "sq" "sw" "gl" "mr" "pa" "si" "km" "sn" "yo" "so" "af" "oc" "ka" "be" "tg" "sd" "gu" "am" "yi" "lo" "uz" "fo" "ht" "ps" "tk" "nn" "mt" "sa" "lb" "my" "bo" "tl" "mg" "as" "tt" "haw" "ln" "ha" "ba" "jw" "su" )
@@ -114,16 +61,88 @@ function list_languages {
     printf "\n\n"
 }
 
-if [[ ! " ${languages[@]} " =~ " ${language} " ]]; then
-    printf "Invalid language: $language\n"
+usage()
+{
+    echo "Usage: $0 stream_url [step_s] [model] [language] [traslate]"
+    echo ""
+    echo "  Example:"
+    echo "    $0 $url $step_s $model $language $traslate"
+    echo ""
+    
+    # Whisper models
+    models=( "tiny.en" "tiny" "base.en" "base" "small.en" "small" "medium.en" "medium" "large-v1" "large" )
+
+    # list available models
+    function list_models {
+        printf "\n"
+        printf "  Available models:"
+        for model in "${models[@]}"; do
+            printf " $model"
+        done
+        printf "\n\n"
+    }
+
     list_languages
 
+}
+
+
+check_requirements
+
+
+while (( "$#" )); do
+    case $1 in
+        http* ) url=$1;;
+        [1-9]|[1-5][0-9]|60 ) step_s=$1;;
+        tiny.en|tiny|base.en|base|small.en|small|medium.en|medium|large-v1|large ) model=$1;;
+        auto|[a-z][a-z]|haw ) language=$1;;
+        traslate ) traslate=$1;;
+        * ) echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1;;
+    esac
+    shift
+done
+
+
+# Whisper languages:
+
+# Autodetected (auto), English (en), Chinese (zh), German (de), Spanish (es), Russian (ru), Korean (ko), French (fr), Japanese (ja), Portuguese (pt), Catalan (ca), Dutch (nl), Arabic (ar), Italian (it), Hebrew (iw), Ukrainian (uk), Romanian (ro), Swedish (sv), Indonesian (id), Hindi (hi), Finnish (fi), Vietnamese (vi), Hebrew (iw), Ukrainian (uk), Greek (el), Malay (ms), Czech (cs), Romanian (ro), Danish (da), Hungarian (hu), Tamil (ta), Norwegian (no), Thai (th), Urdu (ur), Croatian (hr), Bulgarian (bg), Lithuanian (lt), Latin (la), Maori (mi), Malayalam (ml), Welsh (cy), Slovak (sk), Telugu (te), Persian (fa), Latvian (lv), Bengali (bn), Serbian (sr), Azerbaijani (az), Slovenian (sl), Kannada (kn), Estonian (et), Macedonian (mk), Breton (br), Basque (eu), Icelandic (is), Armenian (hy), Nepali (ne), Mongolian (mn), Bosnian (bs), Kazakh (kk), Albanian (sq), Swahili (sw), Galician (gl), Marathi (mr), Punjabi (pa), Sinhala (si), Khmer (km), Shona (sn), Yoruba (yo), Somali (so), Afrikaans (af), Occitan (oc), Georgian (ka), Belarusian (be), Tajik (tg), Sindhi (sd), Gujarati (gu), Amharic (am), Yiddish (yi), Lao (lo), Uzbek (uz), Faroese (fo), Haitian Creole (ht), Pashto (ps), Turkmen (tk), Nynorsk (nn), Maltese (mt), Sanskrit (sa), Luxembourgish (lb), Myanmar (my), Tibetan (bo), Tagalog (tl), Malagasy (mg), Assamese (as), Tatar (tt), Hawaiian (haw), Lingala (ln), Hausa (ha), Bashkir (ba), Javanese (jw), Sundanese (su).
+
+
+if [[ ! " ${languages[@]} " =~ " ${language} " ]]; then
+    echo ""
+    printf "*** Invalid language: $language\n"
+    echo ""
+    usage
+
     exit 1
+fi
+
+if [ ! -f ./models/ggml-${model}.bin ]; then
+    echo ""
+    echo "*** No file /models/ggml-${model}.bin for model ${model}"
+    echo ""
+    usage
+
+    exit 1
+fi
+
+
+
+
+if [ $url == "" ]; then
+    url=$url_default
+    echo ""
+    echo "*** No url specified, using default: $url"
+    echo ""
 fi
 
 running=1
 
 trap "running=0" SIGINT SIGTERM
+
+if [ -f /tmp/whisper-live.wav ]; then
+    rm /tmp/whisper* &>/dev/null
+fi
 
 # if traslate then traslate to english
 
@@ -152,13 +171,13 @@ set +e
 i=0
 SECONDS=0
 while [ $running -eq 1 ]; do
-    # extract the next piece from the main file above and transcode to wav. -ss sets start time and nudges it by -0.5s to catch missing words (??)
+    # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.5 seconds adjust
     err=1
     while [ $err -ne 0 ]; do
         if [ $i -gt 0 ]; then
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(($i*$step_s-1)) -t $step_s /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.5" | bc) -t $step_s /tmp/whisper-live.wav 2> /tmp/whisper-live.err
         else
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(($i*$step_s)) -t $step_s /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $step_s /tmp/whisper-live.wav 2> /tmp/whisper-live.err
         fi
         err=$(cat /tmp/whisper-live.err | wc -l)
     done
