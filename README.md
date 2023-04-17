@@ -13,7 +13,7 @@ The program will load default playlist.m3u
 
 #
 
-This program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
+This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 
 sudo apt-get install mpv smplayer ffmpeg python3-tk
 
