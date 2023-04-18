@@ -137,4 +137,6 @@ A: The quality of the transcriptions depends on several factors, especially the 
 
 A: This program uses the system's installed versions of mpv or mplayer, not the python versions installed with pip or Anaconda. The installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
 
+**Q: Is this program legal to watch TV channels?**
 
+A: Yes, of course. The URLs of channels found published on the internet are proactively accessible by companies, governments or public administrations for free use, as long as it is for personal use only. However, channels that may be restricted to a country or region due to copyright reasons cannot be viewed. The broadcasting company is responsible for blocking viewers with IPs from other countries. However, the playlists found on the internet may contain some channels with unclear legality, even if their URLs are publicly known. The distribution or commercialization of the TV channel may not be allowed.
