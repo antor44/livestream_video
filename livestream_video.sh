@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.12
+# livestream_video.sh v. 1.14
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -11,7 +11,7 @@
 # -Translate to English
 #
 #
-# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [traslate]
+# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 #
 #   Example (defaults if no options are specified):
 #  
@@ -27,9 +27,9 @@ set -eo pipefail
 url_default="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
 fmt=mp3 # the audio format
 step_s=4
-model="tiny.en"
-language="en"
-traslate=""
+model="base"
+language="auto"
+translate=""
 
 check_requirements()
 {
@@ -63,10 +63,10 @@ function list_languages {
 
 usage()
 {
-    echo "Usage: $0 stream_url [step_s] [model] [language] [traslate]"
+    echo "Usage: $0 stream_url [step_s] [model] [language] [translate]"
     echo ""
     echo "  Example:"
-    echo "    $0 $url $step_s $model $language $traslate"
+    echo "    $0 $url $step_s $model $language $translate"
     echo ""
     
     # Whisper models
@@ -92,11 +92,11 @@ check_requirements
 
 while (( "$#" )); do
     case $1 in
-        http* ) url=$1;;
-        [1-9]|[1-5][0-9]|60 ) step_s=$1;;
+        *://* ) url=$1;;
+        [2-9]|[1-5][0-9]|60 ) step_s=$1;;
         tiny.en|tiny|base.en|base|small.en|small|medium.en|medium|large-v1|large ) model=$1;;
         auto|[a-z][a-z]|haw ) language=$1;;
-        traslate ) traslate=$1;;
+        translate ) translate=$1;;
         * ) echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1;;
     esac
     shift
@@ -134,6 +134,10 @@ if [ $url == "" ]; then
     echo ""
     echo "*** No url specified, using default: $url"
     echo ""
+else
+    echo ""
+    echo "*** url specified by user: $url"
+    echo ""
 fi
 
 running=1
@@ -144,14 +148,14 @@ if [ -f /tmp/whisper-live.wav ]; then
     rm /tmp/whisper* &>/dev/null
 fi
 
-# if traslate then traslate to english
+# if translate then translate to english
 
-if [[ $traslate == "traslate" ]]; then
-    traslate="-tr"
-    printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', traslate to english (press Ctrl+C to stop):\n\n"
+if [[ $translate == "translate" ]]; then
+    translate="-tr"
+    printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', translate to english (press Ctrl+C to stop):\n\n"
 else
-    traslate=""
-    printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', NO traslate to english (press Ctrl+C to stop):\n\n"
+    translate=""
+    printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', NO translate to english (press Ctrl+C to stop):\n\n"
 fi    
     
 
@@ -171,21 +175,21 @@ set +e
 i=0
 SECONDS=0
 while [ $running -eq 1 ]; do
-    # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.5 seconds adjust
+    # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
     err=1
     while [ $err -ne 0 ]; do
         if [ $i -gt 0 ]; then
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.5" | bc) -t $step_s /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc) -t $(echo "$step_s + 0.1" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
         else
             ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $step_s /tmp/whisper-live.wav 2> /tmp/whisper-live.err
         fi
         err=$(cat /tmp/whisper-live.err | wc -l)
     done
 
-    ./main -l ${language} ${traslate} -t 8 -m ./models/ggml-${model}.bin -f /tmp/whisper-live.wav --no-timestamps -otxt 2> /tmp/whispererr | tail -n 1
+    ./main -l ${language} ${translate} -t 8 -m ./models/ggml-${model}.bin -f /tmp/whisper-live.wav --no-timestamps -otxt 2> /tmp/whispererr | tail -n 1
 
     while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
-        sleep 1
+        sleep 0.5
     done
     ((i=i+1))
 done
