@@ -3,7 +3,7 @@
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.14 License: MIT
+Author: Antonio R. Version: 1.16 License: MIT
 
 
 
@@ -26,7 +26,7 @@ playlist4whisper.py dependes on (smplayer, mpv or mplayer) video player and (gno
 
 Options for script:
 
-    ./livestream_video.sh stream_url [step_s] [model] [language] [traslate]
+    ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 
     Example (defaults if no options are specified):
  
@@ -41,7 +41,7 @@ Whisper languages:
 
 Autodetected (auto), English (en), Chinese (zh), German (de), Spanish (es), Russian (ru), Korean (ko), French (fr), Japanese (ja), Portuguese (pt), Catalan (ca), Dutch (nl), Arabic (ar), Italian (it), Hebrew (iw), Ukrainian (uk), Romanian (ro), Persian (fa), Swedish (sv), Indonesian (id), Hindi (hi), Finnish (fi), Vietnamese (vi), Hebrew (iw), Ukrainian (uk), Greek (el), Malay (ms), Czech (cs), Romanian (ro), Danish (da), Hungarian (hu), Tamil (ta), Norwegian (no), Thai (th), Urdu (ur), Croatian (hr), Bulgarian (bg), Lithuanian (lt), Latin (la), Maori (mi), Malayalam (ml), Welsh (cy), Slovak (sk), Telugu (te), Persian (fa), Latvian (lv), Bengali (bn), Serbian (sr), Azerbaijani (az), Slovenian (sl), Kannada (kn), Estonian (et), Macedonian (mk), Breton (br), Basque (eu), Icelandic (is), Armenian (hy), Nepali (ne), Mongolian (mn), Bosnian (bs), Kazakh (kk), Albanian (sq), Swahili (sw), Galician (gl), Marathi (mr), Punjabi (pa), Sinhala (si), Khmer (km), Shona (sn), Yoruba (yo), Somali (so), Afrikaans (af), Occitan (oc), Georgian (ka), Belarusian (be), Tajik (tg), Sindhi (sd), Gujarati (gu), Amharic (am), Yiddish (yi), Lao (lo), Uzbek (uz), Faroese (fo), Haitian Creole (ht), Pashto (ps), Turkmen (tk), Nynorsk (nn), Maltese (mt), Sanskrit (sa), Luxembourgish (lb), Myanmar (my), Tibetan (bo), Tagalog (tl), Malagasy (mg), Assamese (as), Tatar (tt), Hawaiian (haw), Lingala (ln), Hausa (ha), Bashkir (ba), Javanese (jw), Sundanese (su).
 
-Traslate: The "traslate" option provides automatic English translation (only English is available).
+translate: The "translate" option provides automatic English translation (only English is available).
 
 
 
@@ -83,7 +83,7 @@ from tkinter import filedialog, ttk, simpledialog
 
 # Default options
 default_mpv_options = "-geometry 1280"
-default_bash_options = "4 base auto traslate"
+default_bash_options = "4 base auto translate"
 bash_script = "./livestream_video.sh"
 config_file = "config.json"
 
@@ -158,11 +158,12 @@ class M3uPlaylistPlayer(tk.Tk):
         self.save_button = tk.Button(self, text="Save", command=self.save_playlist)
         self.save_button.pack(side=tk.LEFT)
 
-        self.load_label = tk.Label(self, text="", padx=20)
+        self.load_label = tk.Label(self, text="", padx=10)
         self.load_label.pack(side=tk.LEFT)
 
         self.load_button = tk.Button(self, text="About", command=self.show_about_window)
         self.load_button.pack(side=tk.LEFT)
+
 
     def populate_playlist(self, filename="playlist.m3u"):
         try:
@@ -171,15 +172,23 @@ class M3uPlaylistPlayer(tk.Tk):
 
             for i, line in enumerate(lines):
                 if line.startswith("#EXTINF"):
-                    name_match = re.search(r',(.+)$', line)
-                    url = lines[i + 1].strip()
+                    name = line[line.rfind(",")+1:].strip()
+                    url = None
 
-                    if name_match:
-                        name = name_match.group(1)
+                    for j in range(i+1, len(lines)):
+                        url_line = lines[j].strip()
+                        if url_line and not url_line.startswith("#"):
+                            url = url_line
+                            break
 
-                    self.tree.insert("", "end", values=(name, url))
+                    if url:
+                        self.tree.insert("", "end", values=(name, url))
         except FileNotFoundError:
             simpledialog.messagebox.showerror("File Not Found", "The default playlist.m3u file was not found.")
+
+
+
+
 
     def play_channel(self, event):
         region = self.tree.identify_region(event.x, event.y)
@@ -292,7 +301,7 @@ class M3uPlaylistPlayer(tk.Tk):
 
     # Function About
     def show_about_window(self):
-        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.14\nLicense: MIT")
+        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.16\nLicense: MIT")
 
 
 if __name__ == "__main__":
