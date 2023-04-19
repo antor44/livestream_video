@@ -46,7 +46,7 @@ Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 
   Example (defaults if no options are specified):
   
-    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 3 tiny.en en
+    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto
 
 
 Step:
