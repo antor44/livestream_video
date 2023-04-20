@@ -92,6 +92,8 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 
 - Advanced GUI
 - Fix video desynchronization issue
+- Silence detection for sound segmentation
+- Support for multi-instance and multi-user execution
 - Standalone application
 - GPU acceleration support
 - Cross-platform compatibility
