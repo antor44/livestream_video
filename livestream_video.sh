@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.16
+# livestream_video.sh v. 1.20
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -15,7 +15,7 @@
 #
 #   Example (defaults if no options are specified):
 #  
-#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 3 tiny.en en
+#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto
 #
 #
 # Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
@@ -179,9 +179,9 @@ while [ $running -eq 1 ]; do
     err=1
     while [ $err -ne 0 ]; do
         if [ $i -gt 0 ]; then
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc) -t $(echo "$step_s + 0.1" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.5" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
         else
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.7" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.5" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
         fi
         err=$(cat /tmp/whisper-live.err | wc -l)
     done
