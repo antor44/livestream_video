@@ -3,7 +3,7 @@
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.16 License: MIT
+Author: Antonio R. Version: 1.20 License: MIT
 
 
 
@@ -30,7 +30,7 @@ Options for script:
 
     Example (defaults if no options are specified):
  
-    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 3 tiny.en en
+    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto
 
 
 Step: Size of the parts into which videos are divided for inference, size in seconds.
@@ -83,7 +83,7 @@ from tkinter import filedialog, ttk, simpledialog
 
 # Default options
 default_mpv_options = "-geometry 1280"
-default_bash_options = "4 base auto translate"
+default_bash_options = "4 base auto"
 bash_script = "./livestream_video.sh"
 config_file = "config.json"
 
@@ -301,7 +301,7 @@ class M3uPlaylistPlayer(tk.Tk):
 
     # Function About
     def show_about_window(self):
-        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.16\nLicense: MIT")
+        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.20\nLicense: MIT")
 
 
 if __name__ == "__main__":
