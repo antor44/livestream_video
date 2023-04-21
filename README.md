@@ -2,7 +2,7 @@
 
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
-Author: Antonio R. Version: 1.20 License: MIT
+Author: Antonio R. Version: 1.22 License: MIT
 
 
 Usage: 
