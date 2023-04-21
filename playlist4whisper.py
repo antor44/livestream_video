@@ -5,7 +5,7 @@ the tkinter library. It plays online videos and transcribes livestreams by feedi
 whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.26 License: MIT
+Author: Antonio R. Version: 1.28 License: MIT
 
 
 
@@ -315,6 +315,9 @@ class M3uPlaylistPlayer(tk.Tk):
         filename = filedialog.askopenfilename(filetypes=[("Playlist Files", "*.m3u")])
         if filename:
             self.populate_playlist(filename)
+            # iterate over all items and update their list_number
+            for i, item in enumerate(self.tree.get_children()):
+                self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
 
     # Function to save a playlist
     def save_playlist(self):
@@ -418,7 +421,7 @@ class M3uPlaylistPlayer(tk.Tk):
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
                                          "Based on whisper.cpp.\n\n"
-                                         "Author: Antonio R.\nVersion: 1.26\nLicense: MIT")
+                                         "Author: Antonio R.\nVersion: 1.28\nLicense: MIT")
 
 
 if __name__ == "__main__":
