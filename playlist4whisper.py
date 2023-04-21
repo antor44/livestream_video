@@ -3,13 +3,13 @@
 "playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.20 License: MIT
+Author: Antonio R. Version: 1.22 License: MIT
 
 
 
-Usage: 
+Usage:
 
-python playlist4whisper.py 
+python playlist4whisper.py
 
 The program will load default playlist.m3u, and will store options in config.json
 
@@ -29,7 +29,7 @@ Options for script:
     ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 
     Example (defaults if no options are specified):
- 
+
     ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto
 
 
@@ -72,8 +72,6 @@ SOFTWARE.
 
 
 
-
-
 import os
 import re
 import json
@@ -86,6 +84,7 @@ default_mpv_options = "-geometry 1280"
 default_bash_options = "4 base auto"
 bash_script = "./livestream_video.sh"
 config_file = "config.json"
+rPadChars = 100 * " "
 
 
 class M3uPlaylistPlayer(tk.Tk):
@@ -96,16 +95,23 @@ class M3uPlaylistPlayer(tk.Tk):
         self.geometry("800x800")
 
         self.playlist = []
-        self.current_options = {} 
+        self.current_options = {}
+        self.list_number=0
         self.load_config()
-
+        self.override_options = tk.BooleanVar()
         self.create_widgets()
         self.populate_playlist()
+        self.mpv_fg = self.mpv_options_entry.cget("fg")
+        self.mpv_bg = self.mpv_options_entry.cget("bg")
+        self.bash_fg = self.bash_options_entry.cget("fg")
+        self.bash_bg = self.bash_options_entry.cget("bg")
 
     def create_widgets(self):
-        self.tree = ttk.Treeview(self, columns=("name", "url"), show="headings")
+        self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
+        self.tree.heading("list_number", text="#")
         self.tree.heading("name", text="Channel")
         self.tree.heading("url", text="URL")
+        self.tree.column("list_number", width=35, stretch=False, minwidth=15)
         self.tree.column("name", width=250, stretch=True, minwidth=50)
         self.tree.column("url", width=400, stretch=True, minwidth=50)
         self.tree.bind('<Double-Button-1>', self.play_channel)
@@ -114,6 +120,7 @@ class M3uPlaylistPlayer(tk.Tk):
         yscrollbar = ttk.Scrollbar(self.tree, orient="vertical", command=self.tree.yview)
         yscrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=yscrollbar.set)
+        self.tree.bind("<<TreeviewSelect>>", self.load_options)
 
         self.options_frame = tk.Frame(self)
         self.options_frame.pack(side=tk.TOP)
@@ -124,7 +131,6 @@ class M3uPlaylistPlayer(tk.Tk):
         self.mpv_options_entry = tk.Entry(self.options_frame)
         self.mpv_options_entry.insert(0, self.current_options.get("mpv_options", ""))
         self.mpv_options_entry.pack(side=tk.LEFT)
-        self.mpv_options_entry.bind("<FocusOut>", self.save_options)
 
         self.bash_options_label = tk.Label(self.options_frame, text="Script Options:", padx=10)
         self.bash_options_label.pack(side=tk.LEFT)
@@ -132,7 +138,15 @@ class M3uPlaylistPlayer(tk.Tk):
         self.bash_options_entry = tk.Entry(self.options_frame)
         self.bash_options_entry.insert(0, self.current_options.get("bash_options", ""))
         self.bash_options_entry.pack(side=tk.LEFT)
-        self.bash_options_entry.bind("<FocusOut>", self.save_options)
+
+        self.mpv_options_entry.bind("<KeyRelease>", self.schedule_save_options)
+        self.bash_options_entry.bind("<KeyRelease>", self.schedule_save_options)
+        self.save_options_id = None
+
+        self.override_options = tk.BooleanVar()
+        self.override_checkbox = tk.Checkbutton(self.options_frame, text='Override options', variable=self.override_options, command=self.change_override)
+        self.override_checkbox.pack(side=tk.LEFT, padx=10)
+
 
         self.add_label = tk.Label(self, text="Channel:", padx=10)
         self.add_label.pack(side=tk.LEFT)
@@ -158,7 +172,7 @@ class M3uPlaylistPlayer(tk.Tk):
         self.save_button = tk.Button(self, text="Save", command=self.save_playlist)
         self.save_button.pack(side=tk.LEFT)
 
-        self.load_label = tk.Label(self, text="", padx=10)
+        self.load_label = tk.Label(self, text="", padx=20)
         self.load_label.pack(side=tk.LEFT)
 
         self.load_button = tk.Button(self, text="About", command=self.show_about_window)
@@ -182,10 +196,11 @@ class M3uPlaylistPlayer(tk.Tk):
                             break
 
                     if url:
-                        self.tree.insert("", "end", values=(name, url))
+                        list_number=len(self.playlist)+1
+                        self.tree.insert("", "end", values=(list_number, name, url))
+                        self.playlist.append((name, url))
         except FileNotFoundError:
             simpledialog.messagebox.showerror("File Not Found", "The default playlist.m3u file was not found.")
-
 
 
 
@@ -195,7 +210,7 @@ class M3uPlaylistPlayer(tk.Tk):
 
         if region == "cell":
             item = self.tree.selection()[0]
-            url = self.tree.item(item, "values")[1]
+            url = self.tree.item(item, "values")[2]
             url =  '"' + url + '"'
             mpv_options = self.mpv_options_entry.get()
             bash_options = self.bash_options_entry.get()
@@ -215,7 +230,7 @@ class M3uPlaylistPlayer(tk.Tk):
             else:
                 print("Script does not exist.")
                 simpledialog.messagebox.showerror("Error", "Script does not exist.")
-                
+
             # Try launching smplayer, mpv or mplayer
             if os.system("smplayer --help") == 0:
                 os.system(f"smplayer {url} {mpv_options} &")
@@ -226,22 +241,24 @@ class M3uPlaylistPlayer(tk.Tk):
             else:
                     print("No compatible video player found.")
                     simpledialog.messagebox.showerror("Error", "No compatible video player found.")
-             
-
 
 
     # Function to add a channel
     def add_channel(self):
-        name = simpledialog.askstring("Add Channel", "Channel Name:")
-        url = simpledialog.askstring("Add Channel", "Channel URL:")
+        name = simpledialog.askstring("Add Channel", "Channel Name:"+rPadChars)
+        url = simpledialog.askstring("Add Channel", "Channel URL:"+rPadChars)
         if name and url:
-            self.tree.insert("", "end", values=(name, url))
+            self.list_number=len(self.tree.get_children())+1
+            self.tree.insert("", "end", values=(self.list_number, name, url))
 
     # Function to delete a channel
     def delete_channel(self):
         selection = self.tree.selection()
         if selection:
             self.tree.delete(selection[0])
+            # iterate over all items and update their list_number
+            for i, item in enumerate(self.tree.get_children()):
+                self.tree.item(item, values=(i+1,) + tuple(self.tree.item(item)['values'][1:]))
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to delete")
 
@@ -250,10 +267,11 @@ class M3uPlaylistPlayer(tk.Tk):
         selection = self.tree.selection()
         if selection:
             item = selection[0]
-            name = simpledialog.askstring("Edit Channel", "Channel Name:", initialvalue=self.tree.item(item, "values")[0])
-            url = simpledialog.askstring("Edit Channel", "Channel URL:", initialvalue=self.tree.item(item, "values")[1])
+            list_number, name, url = self.tree.item(item, "values")
+            name = simpledialog.askstring("Edit Channel", "Channel Name:"+rPadChars, initialvalue=self.tree.item(item, "values")[1])
+            url = simpledialog.askstring("Edit Channel", "Channel URL:"+rPadChars, initialvalue=self.tree.item(item, "values")[2])
             if name and url:
-                self.tree.item(item, values=(name, url))
+                self.tree.item(item, values=(list_number, name, url))
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to edit")
 
@@ -277,10 +295,30 @@ class M3uPlaylistPlayer(tk.Tk):
         if filename:
             with open(filename, "w") as file:
                 for item in self.tree.get_children():
-                    name, url = self.tree.item(item, "values")
+                    list_number, name, url = self.tree.item(item, "values")
                     file.write(f"#EXTINF:-1,{name}\n{url}\n")
 
     # Function to load and save config.json
+    def load_options(self, event):
+        self.load_config()
+        mpv_options = self.current_options["mpv_options"]
+        bash_options = self.current_options["bash_options"]
+        self.mpv_options_entry.config(highlightthickness=2, highlightbackground="black")
+        self.bash_options_entry.config(highlightthickness=2, highlightbackground="black")
+        if not self.override_options.get():
+            selection = self.tree.focus()
+            if selection:
+                url = self.tree.item(selection, "values")[2]
+                if url in self.current_options:
+                    mpv_options = self.current_options[url].get("mpv_options", "")
+                    bash_options = self.current_options[url].get("bash_options", "")
+                    self.mpv_options_entry.config(highlightthickness=2, highlightbackground="red")
+                    self.bash_options_entry.config(highlightthickness=2, highlightbackground="red")
+                self.mpv_options_entry.delete(0, tk.END)
+                self.mpv_options_entry.insert(0, mpv_options)
+                self.bash_options_entry.delete(0, tk.END)
+                self.bash_options_entry.insert(0, bash_options)
+
     def load_config(self):
         self.current_options["mpv_options"] = default_mpv_options
         self.current_options["bash_options"] = default_bash_options
@@ -288,20 +326,66 @@ class M3uPlaylistPlayer(tk.Tk):
             with open(config_file, "r") as file:
                 self.current_options = json.load(file)
 
-    def save_options(self, event):
+    def schedule_save_options(self, event):
+        if self.save_options_id:
+            self.after_cancel(self.save_options_id)
+        self.save_options_id = self.after(1000, self.save_options)
+
+    def save_options(self):
         mpv_options = self.mpv_options_entry.get()
-        self.current_options["mpv_options"] = mpv_options
         bash_options = self.bash_options_entry.get()
-        self.current_options["bash_options"] = bash_options
+        self.mpv_options_entry.config(highlightthickness=2, highlightbackground="black")
+        self.bash_options_entry.config(highlightthickness=2, highlightbackground="black")
+        if self.override_options.get():
+            self.current_options["mpv_options"] = mpv_options
+            self.current_options["bash_options"] = bash_options
+        else:
+            selection = self.tree.focus()
+            if selection:
+                self.mpv_options_entry.config(highlightthickness=2, highlightbackground="red")
+                self.bash_options_entry.config(highlightthickness=2, highlightbackground="red")
+                url = self.tree.item(selection, "values")[2]
+                self.current_options[url] = {}
+                self.current_options[url]["mpv_options"] = mpv_options
+                self.current_options[url]["bash_options"] = bash_options
         self.save_config()
 
     def save_config(self):
         with open(config_file, "w") as file:
-            json.dump(self.current_options, file) 
+            json.dump(self.current_options, file)
+
+    #Change override
+    def change_override(self):
+        mpv_options = self.mpv_options_entry.get()
+        bash_options = self.bash_options_entry.get()
+        self.mpv_options_entry.config(highlightthickness=2, highlightbackground="black")
+        self.bash_options_entry.config(highlightthickness=2, highlightbackground="black")       
+        if self.override_options.get():
+            self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg)
+            self.bash_options_entry.config(fg=self.bash_bg, bg=self.bash_fg)
+            self.current_options["mpv_options"] = mpv_options
+            self.current_options["bash_options"] = bash_options
+        else:
+            self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg)
+            self.bash_options_entry.config(fg=self.bash_fg, bg=self.bash_bg)
+            selection = self.tree.focus()
+            if selection:
+                url = self.tree.item(selection, "values")[2]
+                if url in self.current_options:
+                    self.mpv_options_entry.config(highlightthickness=2, highlightbackground="red")
+                    self.bash_options_entry.config(highlightthickness=2, highlightbackground="red")
+                    mpv_options = self.current_options[url].get("mpv_options", "")
+                    bash_options = self.current_options[url].get("bash_options", "")
+                self.mpv_options_entry.delete(0, tk.END)
+                self.mpv_options_entry.insert(0, mpv_options)
+                self.bash_options_entry.delete(0, tk.END)
+                self.bash_options_entry.insert(0, bash_options)
+        self.save_config()
+
 
     # Function About
     def show_about_window(self):
-        simpledialog.messagebox.showinfo("About", "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.20\nLicense: MIT")
+        simpledialog.messagebox.showinfo("About"+rPadChars, "playlist4whisper\n\nPlaylist for livestream_video.sh, a simple GUI using Python and tkinter library. It plays online videos and transcribe livestreams by feeding ffmpeg output to whisper.cpp, based on livestream.sh from whisper.cpp.\n\nAuthor: Antonio R.\nVersion: 1.22\nLicense: MIT")
 
 
 if __name__ == "__main__":
