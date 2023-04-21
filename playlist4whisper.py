@@ -5,7 +5,7 @@ the tkinter library. It plays online videos and transcribes livestreams by feedi
 whisper.cpp, based on livestream.sh from whisper.cpp.
 
 
-Author: Antonio R. Version: 1.24 License: MIT
+Author: Antonio R. Version: 1.26 License: MIT
 
 
 
@@ -385,13 +385,13 @@ class M3uPlaylistPlayer(tk.Tk):
     # Change override
     def change_override(self):
         self.load_config()
+        mpv_options = self.current_options["mpv_options"]
+        bash_options = self.current_options["bash_options"]
         self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
         self.bash_options_entry.config(highlightthickness=1, highlightbackground="black")
         if self.override_options.get():
             self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
             self.bash_options_entry.config(fg=self.bash_bg, bg=self.bash_fg, insertbackground=self.bash_bg)
-            mpv_options = self.current_options["mpv_options"]
-            bash_options = self.current_options["bash_options"]
         else:
             self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg, insertbackground=self.mpv_fg)
             self.bash_options_entry.config(fg=self.bash_fg, bg=self.bash_bg, insertbackground=self.bash_fg)
@@ -418,7 +418,7 @@ class M3uPlaylistPlayer(tk.Tk):
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
                                          "Based on whisper.cpp.\n\n"
-                                         "Author: Antonio R.\nVersion: 1.24\nLicense: MIT")
+                                         "Author: Antonio R.\nVersion: 1.26\nLicense: MIT")
 
 
 if __name__ == "__main__":
