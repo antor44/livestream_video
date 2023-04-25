@@ -121,6 +121,21 @@ A: You can change the size of the text snippets in seconds with the "step_s" opt
 
 A: You can change the size and colors of the transcription text in the options of the terminal program you are using.
 
+**Q: How can I position the terminal window for transcriptions in a fixed position?**
+
+A: You can use a program for placing windows in Linux, such as devilspie, and configure a name for the terminal window and another for the main program terminal, such as Konsole or Xterm, to avoid name conflicts. For example, a configuration for the Gnome terminal in devilspie would be:
+
+; generated_rule Terminal
+( if
+( and
+( matches (window_name) "Terminal" )
+)
+( begin
+( geometry "+644+831" )
+( println "match" )
+)
+)
+
 **Q: How can I synchronize the video and the transcription?**
 
 A: You can use the pause and forward/backward buttons of the video player to manually synchronize the video and transcription to your desired timing.
@@ -132,6 +147,10 @@ A: The video and transcription applications work independently, each with its ow
 **Q: The transcriptions I get are not accurate. What could be the issue?**
 
 A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models for other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or translate for simultaneous translation to English, it may also significantly increase processor consumption.
+
+**Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
+
+A:  Yes, if you have knowledge of Artificial Intelligence programming, you would need to fine-tune a default model by retraining the model with a dataset of voices along with their transcriptions in a specific language. These datasets can be found online, as well as sample codes for fine-tuning a Whisper model.
 
 **Q: Neither smplayer nor mplayer work with online TV?**
 
