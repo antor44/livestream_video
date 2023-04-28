@@ -92,7 +92,7 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 
 - Support for multi-instance and multi-user execution
 - Silence detection for sound segmentation
-...
+- ...
 - Standalone application
 - GPU acceleration support
 - Cross-platform compatibility
