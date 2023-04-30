@@ -36,9 +36,10 @@ https://github.com/ggerganov/whisper.cpp
 
 This Linux script adds some new features:
 
--Language command-line option: auto (for autodetection), en, es, fr, de, iw, ar, etc.
+-Support for multi-instance and multi-user execution
 
--Translate to English
+-Language command-line option "auto" (for autodetection), "en," "es," "fr," "de," "iw," "ar," etc., and "translate" for translation to English.
+
 
 #
 
@@ -74,6 +75,8 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 ## playlist4whisper GUI Screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
 #
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
+#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
@@ -90,7 +93,6 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To Do List
 
-- Support for multi-instance and multi-user execution
 - Silence detection for sound segmentation
 - ...
 - Standalone application
