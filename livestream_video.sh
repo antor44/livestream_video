@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.20
+# livestream_video.sh v. 1.24
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -14,7 +14,7 @@
 # Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 #
 #   Example (defaults if no options are specified):
-#  
+#
 #    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto
 #
 #
@@ -68,7 +68,7 @@ usage()
     echo "  Example:"
     echo "    $0 $url $step_s $model $language $translate"
     echo ""
-    
+
     # Whisper models
     models=( "tiny.en" "tiny" "base.en" "base" "small.en" "small" "medium.en" "medium" "large-v1" "large" )
 
@@ -126,17 +126,32 @@ if [ ! -f ./models/ggml-${model}.bin ]; then
     exit 1
 fi
 
+mypid=$(pgrep -n -f "livestream_video.sh")
 
+if [ -n "$mypid" ]; then
+    if [ -e "/tmp/whisper-live_${mypid}.wav" ] && ! [ -w "/tmp/whisper-live_${mypid}.wav" ]; then
+      echo ""
+      echo "Error: Permission denied to access files /tmp/whisper-live_${mypid}.*"
+      echo ""
+      exit 1
+    else
+      echo ""
+      echo "New script PID: $mypid"
+    fi
+else
+  echo ""
+  echo "An unknown error has occurred."
+  echo ""
+  exit 1
+fi
 
 
 if [ $url == "" ]; then
     url=$url_default
-    echo ""
-    echo "*** No url specified, using default: $url"
+    echo " *** No url specified, using default: $url"
     echo ""
 else
-    echo ""
-    echo "*** url specified by user: $url"
+    echo " *** url specified by user: $url"
     echo ""
 fi
 
@@ -144,9 +159,7 @@ running=1
 
 trap "running=0" SIGINT SIGTERM
 
-if [ -f /tmp/whisper-live.wav ]; then
-    rm /tmp/whisper* &>/dev/null
-fi
+
 
 # if translate then translate to english
 
@@ -156,11 +169,11 @@ if [[ $translate == "translate" ]]; then
 else
     translate=""
     printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', NO translate to english (press Ctrl+C to stop):\n\n"
-fi    
-    
+fi
+
 
 # continuous stream in native fmt (this file will grow forever!)
-ffmpeg -loglevel quiet -y -probesize 32 -i $url -map 0:a:0 /tmp/whisper-live0.${fmt} &
+ffmpeg -loglevel quiet -y -probesize 32 -i $url -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
 if [ $? -ne 0 ]; then
     printf "Error: ffmpeg failed to capture audio stream\n"
     exit 1
@@ -179,14 +192,14 @@ while [ $running -eq 1 ]; do
     err=1
     while [ $err -ne 0 ]; do
         if [ $i -gt 0 ]; then
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.5" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
         else
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.5" | bc) /tmp/whisper-live.wav 2> /tmp/whisper-live.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.8" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
         fi
-        err=$(cat /tmp/whisper-live.err | wc -l)
+        err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
     done
 
-    ./main -l ${language} ${translate} -t 8 -m ./models/ggml-${model}.bin -f /tmp/whisper-live.wav --no-timestamps -otxt 2> /tmp/whispererr | tail -n 1
+    ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
 
     while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
         sleep 0.5
