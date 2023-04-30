@@ -11,6 +11,8 @@ python playlist4whisper.py
 
 The program will load default playlist.m3u 
 
+For multi-instances with SMPlayer: Go to Preferences -> Interface -> Instances, and turn off the option to use only one instance.
+
 #
 The application has a simple GUI using Python and the Tkinter library. It transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on "livestream.sh" from whisper.cpp.
 
@@ -37,7 +39,7 @@ https://github.com/ggerganov/whisper.cpp
 
 This Linux script adds some new features:
 
--Support for multi-instance and multi-user execution
+-Support for multi-instance and multi-user execution (For SMPlayer: Go to Preferences -> Interface -> Instances, and turn off the option to use only one instance)
 
 -Language command-line option "auto" (for autodetection), "en," "es," "fr," "de," "iw," "ar," etc., and "translate" for translation to English.
 
