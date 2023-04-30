@@ -1,6 +1,6 @@
 # playlist4whisper GUI
 
-"playlist4whisper" is an application that displays a playlist for livestream_video.sh, a simple GUI using Python and the tkinter library. It plays online videos and transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on livestream.sh from whisper.cpp.
+"Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
 Author: Antonio R. Version: 1.28 License: MIT
 
@@ -12,6 +12,7 @@ python playlist4whisper.py
 The program will load default playlist.m3u 
 
 #
+The application has a simple GUI using Python and the Tkinter library. It transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on "livestream.sh" from whisper.cpp.
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 
