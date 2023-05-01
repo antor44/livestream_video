@@ -96,13 +96,13 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To Do List
 
-- Silence detection for sound segmentation
+- Silence detection for splitting audio into chunks
+- Temporal storage of the transcription text, take them into account for AI
+- Add option for video player/non-player mode
 - Quantized models support
+- GPU/ANE acceleration support
 - YouTube and Twitch support
 - ...
-- Standalone application
-- GPU acceleration support
-- Cross-platform compatibility
 
 #
 # FAQ
