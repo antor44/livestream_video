@@ -97,6 +97,8 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 # To Do List
 
 - Silence detection for sound segmentation
+- Quantized models support
+- YouTube and Twitch support
 - ...
 - Standalone application
 - GPU acceleration support
