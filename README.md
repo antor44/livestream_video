@@ -20,7 +20,7 @@ This program depends on other Linux programs and their libraries, such as Python
 
 sudo apt-get install mpv smplayer ffmpeg python3-tk
 
-The script livestream_video.sh should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary the Whisper model file from OpenAI in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
+The main executable of whisper.cpp, which is the primary example, should be compiled and placed in the same directory as the script livestream_video.sh. By default, the executable should be named 'main'. Additionally, it is necessary the Whisper model file from OpenAI in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
 
 make tiny.en
 
@@ -107,7 +107,7 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 
 **Q: Why is the program not working?**
 
-A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The script should be in the same directory as the compiled executable of whisper.cpp, which should have the default name "main". Additionally, it is necessary the Whisper model file from OpenAI in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
+A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The main executable of whisper.cpp, which is the primary example, should be compiled and placed in the same directory as the script livestream_video.sh. By default, the executable should be named 'main'. Additionally, it is necessary the Whisper model file from OpenAI in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
 
 make tiny.en
 
