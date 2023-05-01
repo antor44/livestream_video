@@ -20,7 +20,7 @@ This program depends on other Linux programs and their libraries, such as Python
 
 sudo apt-get install mpv smplayer ffmpeg python3-tk
 
-For this GUI to work properly, all of whisper.cpp files (from the official releases) should be copied to the same location of playlist4whisper.py. The main executable of whisper.cpp, which is the primary example, should be compiled and placed in the same directory as the script livestream_video.sh. By default, the executable should be named 'main'. Additionally, it is necessary the Whisper model file from OpenAI in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
+To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases), as well as the script livestream_video.sh, should be copied to the same location as playlist4whisper.py. The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the Whisper model file from OpenAI should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
 
 make tiny.en
 
