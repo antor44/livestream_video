@@ -103,6 +103,9 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 - GPU/ANE acceleration support
 - YouTube and Twitch support
 - ...
+- Advanced GUI as a standalone application
+- Support for different AI engines
+- Cross-platform compatibility
 
 #
 # FAQ
