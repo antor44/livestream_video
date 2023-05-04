@@ -107,7 +107,6 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 - Add option for video player/non-player mode
 - Quantized models support
 - GPU/ANE acceleration support
-- YouTube and Twitch support
 - ...
 - Advanced GUI as a standalone application
 - Support for different AI engines
@@ -123,6 +122,9 @@ A: There could be various reasons. This script/program depends on other Linux pr
 make tiny.en
 
 make small
+
+For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp).
+For Twitch streamlink is required (https://streamlink.github.io).
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
