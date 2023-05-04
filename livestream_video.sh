@@ -1,15 +1,14 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.28
+# livestream_video.sh v. 1.30
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
 #This Linux script adds some new features:
 #
 #-Support for multi-instance and multi-user execution
-#
+#-Support for IPTV, YouTube and Twitch
 #-Language command-line option "auto" (for autodetection), "en," "es," "fr," "de," "iw," "ar," etc., and "translate" for translation to English.
-#
 #
 # Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 #
@@ -146,8 +145,8 @@ else
 fi
 
 
-if [ $url == "" ]; then
-    url=$url_default
+if [ -z "$url" ]; then
+    url="$url_default"
     echo " *** No url specified, using default: $url"
     echo ""
 else
@@ -173,14 +172,42 @@ fi
 
 
 # continuous stream in native fmt (this file will grow forever!)
-ffmpeg -loglevel quiet -y -probesize 32 -i $url -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-if [ $? -ne 0 ]; then
-    printf "Error: ffmpeg failed to capture audio stream\n"
-    exit 1
-fi
+
+case $url in
+    *youtube* | *youtu.be* )
+        if ! command -v yt-dlp &>/dev/null; then
+            echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+            exit 1
+        fi
+        ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst[height<=1080]' -g $url) -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+        if [ $? -ne 0 ]; then
+            printf "Error: ffmpeg failed to capture audio stream\n"
+            exit 1
+        fi
+        ;;
+    *twitch* )
+        if ! command -v streamlink &>/dev/null; then
+            echo "streamlink is required (https://streamlink.github.io)"
+            exit 1
+        fi
+        streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 /tmp/whisper-live0_${mypid}.${fmt} &
+        if [ $? -ne 0 ]; then
+            printf "Error: ffmpeg failed to capture audio stream\n"
+            exit 1
+        fi
+        ;;
+    * )
+    ffmpeg -loglevel quiet -y -probesize 32 -i $url -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+        if [ $? -ne 0 ]; then
+            printf "Error: ffmpeg failed to capture audio stream\n"
+            exit 1
+        fi
+        ;;
+esac
+
 
 printf "Buffering audio. Please wait...\n\n"
-sleep $(($step_s))
+sleep $(($step_s+1))
 
 # do not stop script on error
 set +e
