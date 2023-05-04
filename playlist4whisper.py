@@ -5,7 +5,7 @@
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.30 License: MIT
+Author: Antonio R. Version: 1.32 License: MIT
 
 
 
@@ -215,8 +215,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.load_button = tk.Button(self, text="About", command=self.show_about_window)
         self.load_button.pack(side=tk.LEFT)
 
-    def populate_playlist(self):
-        filename = f'playlist_{self.spec}.m3u'
+
+    def populate_playlist(self, filename=None):
+        if filename is None:
+            filename = f'playlist_{self.spec}.m3u'
         try:
             with open(filename, "r", encoding='utf-8') as file:
                 lines = file.readlines()
@@ -431,7 +433,7 @@ class M3uPlaylistPlayer(tk.Frame):
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
                                          "Based on whisper.cpp.\n\n"
-                                         "Author: Antonio R.\nVersion: 1.30\nLicense: MIT")
+                                         "Author: Antonio R.\nVersion: 1.32\nLicense: MIT")
 
 
 class MainApplication():
