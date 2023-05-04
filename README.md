@@ -2,14 +2,17 @@
 
 "Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
-Author: Antonio R. Version: 1.28 License: MIT
+Author: Antonio R. Version: 1.30 License: MIT
 
 
 Usage: 
 
 python playlist4whisper.py 
 
-The program will load default playlist.m3u 
+-Support for IPTV, YouTube and Twitch
+
+The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
+ and will store options in config_xxx.json.
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
@@ -19,6 +22,9 @@ The application has a simple GUI using Python and the Tkinter library. It transc
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 
 sudo apt-get install mpv smplayer ffmpeg python3-tk
+
+For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
+For Twitch streamlink is required (https://streamlink.github.io)
 
 To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases), as well as the script livestream_video.sh, should be copied to the same location as playlist4whisper.py. The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the Whisper model file from OpenAI should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
 
@@ -38,6 +44,8 @@ https://github.com/ggerganov/whisper.cpp
 #
 
 This Linux script adds some new features:
+
+-Support for IPTV, YouTube and Twitch
 
 -Support for multi-instance and multi-user execution (For SMPlayer: Go to Preferences -> Interface -> Instances, and turn off the option to use only one instance)
 
@@ -67,9 +75,7 @@ translate: The "translate" option provides automatic English translation (only E
 
 #
 
-The majority of online video streams should work, although video streams from YouTube, Twitch, or other online video services are not supported. For Twitch, you can try twitch.sh:
-
-https://github.com/ggerganov/whisper.cpp/tree/master/examples
+The majority of online video streams should work.
 
 Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
