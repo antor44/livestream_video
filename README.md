@@ -123,8 +123,7 @@ make tiny.en
 
 make small
 
-For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp).
-For Twitch streamlink is required (https://streamlink.github.io).
+For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch streamlink is required (https://streamlink.github.io).
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
