@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.32
+# livestream_video.sh v. 1.34
 #
 #Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
@@ -41,10 +41,10 @@ suffixes=( "-q4_0" "-q4_1" "-q4_2" "-q5_0" "-q5_1" "-q8_0" )
 
 model_list=()
 
-for model in "${models[@]}"; do
- model_list+=("$model")
+for modele in "${models[@]}"; do
+ model_list+=("$modele")
  for suffix in "${suffixes[@]}"; do
-   model_list+=("${model}${suffix}")
+   model_list+=("${modele}${suffix}")
  done
 done
 
@@ -85,8 +85,8 @@ usage()
 
     printf "\n"
     printf "  Available models:"
-    for model in "${model_list[@]}"; do
-        printf " $model"
+    for modele in "${model_list[@]}"; do
+        printf " $modele"
     done
     printf "\n\n"
 
