@@ -49,8 +49,9 @@ This Linux script adds some new features:
 
 -Support for multi-instance and multi-user execution (For SMPlayer: Go to Preferences -> Interface -> Instances, and turn off the option to use only one instance)
 
--Language command-line option "auto" (for autodetection), "en," "es," "fr," "de," "iw," "ar," etc., and "translate" for translation to English.
+-Language command-line option "auto" (for autodetection), "en," "es," "fr," "de," "iw," "ar," etc., and "translate" for translation to English
 
+-Quantized models support
 
 #
 
@@ -105,7 +106,6 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 - Silence detection for splitting audio into chunks
 - Temporal storage of the transcription text, take them into account for AI
 - Add option for video player/non-player mode
-- Quantized models support
 - GPU/ANE acceleration support
 - ...
 - Advanced GUI as a standalone application
