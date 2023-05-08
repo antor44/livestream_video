@@ -143,8 +143,7 @@ A: You can change the size and colors of the transcription text in the options o
 
 A: You can use a program for placing windows in Linux, such as devilspie, and configure a name for the terminal window and another for the main program terminal, such as Konsole or Xterm, to avoid name conflicts. For example, a configuration for the Gnome terminal in devilspie would be:
 
-; generated_rule Terminal
-
+    ; generated_rule Terminal
     ( if
     ( and
     ( matches (window_name) "Terminal" )
