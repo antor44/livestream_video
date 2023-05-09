@@ -105,7 +105,8 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To Do List
 
-- Silence detection for splitting audio into chunks
+- Voice activity detection (VAD) for splitting audio into chunks
+- Download one videostream for parallel processing, with the potential for a timeshift feature in the future.
 - Temporal storage of the transcription text, take them into account for AI
 - Add option for video player/non-player mode
 - GPU/ANE acceleration support
