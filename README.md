@@ -103,7 +103,7 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV4.jpg)
 
 #
-# To Do List
+# To-Do List
 
 - Voice activity detection (VAD) for splitting audio into chunks
 - Download one videostream for parallel processing, with the potential for a timeshift feature in the future.
