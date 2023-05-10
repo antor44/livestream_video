@@ -2,14 +2,14 @@
 #
 # livestream_video.sh v. 1.36
 #
-#Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
+# Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
 #
-#This Linux script adds some new features:
+# This Linux script adds some new features:
 #
-#-Support for multi-instance and multi-user execution
-#-Support for IPTV, YouTube and Twitch
-#-Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
-#-Quantized models support
+# -Support for multi-instance and multi-user execution
+# -Support for IPTV, YouTube and Twitch
+# -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
+# -Quantized models support
 #
 # Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
 #
