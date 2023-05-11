@@ -173,11 +173,11 @@ A:  Yes, if you have knowledge of Artificial Intelligence programming, you would
  
 You can also try using the quantized models option, which can improve execution speed on certain processors.
  
-Alternatively, instead of running the AI engine on the CPU, you can try compiling whisper.cpp with partial GPU support using the cuBLAS library for Nvidia graphics cards or GPUs, or compile it with partial OpenCL GPU support using the CLBlast library for all graphics cards or GPUs, including Nvidia, AMD, and Intel. By doing so, you can significantly increase the execution speed by at least x2 or even more, depending on the model you have, and this will allow you to run larger models:
+Alternatively, instead of running the AI engine on the CPU, you can try compiling whisper.cpp with partial GPU support using the cuBLAS library for Nvidia graphics cards or GPUs, or compile it with partial OpenCL GPU support using the CLBlast library for all graphics cards or GPUs, including Nvidia, AMD, and Intel. By doing so, you can significantly increase the execution speed by at least x2 or even more, depending on the GPU model you have, and this will allow you to run larger whisper models:
 
 https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas
 
-There should be no issues running the program on Apple computers by installing the dependencies via brew. For Apple computers with ARM processors, whisper.cpp can be compiled to be executed on the Apple Neural Engine (ANE) via Core ML. This can result in a significant speed-up, more than x3 faster compared to CPU-only execution:
+There should be no issues running the program on Apple computers by installing the dependencies via brew (https://brew.sh/). For Apple computers with ARM processors, whisper.cpp can be compiled to be executed on the Apple Neural Engine (ANE) via Core ML. This can result in a significant speed-up, more than x3 faster compared to CPU-only execution:
 
 https://github.com/ggerganov/whisper.cpp#core-ml-support
 
