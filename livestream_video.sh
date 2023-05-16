@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.40 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.42 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -43,6 +43,15 @@
 # "Up" and "down" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 #
 #"-p [player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
+#
+#Step: Size of the parts into which videos are divided for inference, size in seconds.
+#
+#Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large
+#
+#    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
+#
+#translate: The "translate" option provides automatic English translation (only English is available).
+#
 #
 # Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
 #
