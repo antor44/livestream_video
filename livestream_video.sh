@@ -1,22 +1,48 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.36
+# livestream_video.sh v. 1.40 - plays a video stream and transcribes the audio using AI technology.
 #
-# Transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp
+# Copyright (c) 2023 Antonio R.
 #
-# This Linux script adds some new features:
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 #
-# -Support for multi-instance and multi-user execution
-# -Support for IPTV, YouTube and Twitch
-# -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
-# -Quantized models support
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 #
-# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate]
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+#   https://github.com/antor44/livestream_video
+#
+#---------------------------------
+
+#
+#
+#livestream_video.sh transcribes a video livestream by regularly feeding the output of ffmpeg to whisper.cpp,
+# based on the implementation in livestream.sh from whisper.cpp
+#
+#This Linux script adds some new features:
+#
+#-Support for multi-instance and multi-user execution
+#-Support for IPTV, YouTube and Twitch
+#-Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
+#-Quantized models support
+#
+# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ -p [player executable + player options] ]
 #
 #   Example (defaults if no options are specified):
 #
-#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto
+#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw -p [smplayer]
 #
+# Quality: The valid options are "raw," "up," and "down." "Raw" is used to download another video stream without any modifications for the player.
+# "Up" and "down" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+#
+#"-p [player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
 #
 # Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
 #
@@ -30,9 +56,11 @@ step_s=4
 model="base"
 language="auto"
 translate=""
+mpv_options="smplayer"
+quality="raw"
 
 # Whisper languages:
-# auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (<Hebrew>), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
+# auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (<Hebrew>), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (<Hebrew>), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 languages=( "auto" "af" "am" "ar" "as" "az" "ba" "be" "bg" "bn" "bo" "br" "bs" "ca" "cs" "cy" "da" "de" "el" "en" "es" "et" "eo" "eu" "fa" "fi" "fo" "fr" "ga" "gl" "gu" "ha" "haw" "he" "hi" "hr" "ht" "hu" "hy" "id" "is" "it" "iw" "ja" "jw" "ka" "kk" "km" "kn" "ko" "ku" "ky" "la" "lb" "ln" "lo" "lt" "lv" "mg" "mi" "mk" "ml" "mn" "mr" "ms" "mt" "my" "ne" "nl" "nn" "no" "oc" "pa" "pl" "ps" "pt" "ro" "ru" "sa" "sd" "sh" "si" "sk" "sl" "sn" "so" "sq" "sr" "su" "sv" "sw" "ta" "te" "tg" "th" "tl" "tk" "tr" "tt" "ug" "uk" "ur" "uz" "vi" "vo" "wa" "xh" "yi" "yo" "zh" "zu")
 
 # Whisper models
@@ -103,7 +131,29 @@ while (( "$#" )); do
         *://* ) url=$1;;
         [2-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
-        *)
+        raw |up |down ) quality=$1;;
+        -p | --player )
+            shift
+            if [[ $1 != "["* ]]; then
+                echo "Error: Missing opening bracket '[' in the -p or --player parameter."
+                exit 1
+            fi
+            mpv_options=${1#"["}
+            if [[ $mpv_options == *"]"* ]]; then
+                mpv_options=${mpv_options%%"]"}
+            else
+                while [[ $1 != *"]"* ]]; do
+                    shift
+                    if [[ $1 == "" ]]; then
+                        echo "Error: Missing closing bracket ']' in the -p or --player parameter."
+                        exit 1
+                    fi
+                    mpv_options+=" $1"
+                done
+                mpv_options=${mpv_options%%"]"}
+            fi
+            ;;
+        * )
             if [[ "${model_list[@]}" =~ (^|[[:space:]])"$1"($|[[:space:]]) ]]; then
                 model=$1
             elif [[ "${languages[@]}" =~ (^|[[:space:]])"$1"($|[[:space:]]) ]]; then
@@ -175,41 +225,164 @@ fi
 
 # continuous stream in native fmt (this file will grow forever!)
 
-case $url in
-    *youtube* | *youtu.be* )
-        if ! command -v yt-dlp &>/dev/null; then
-            echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
-            exit 1
-        fi
-        ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst[height<=1080]' -g $url) -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-        if [ $? -ne 0 ]; then
-            printf "Error: ffmpeg failed to capture audio stream\n"
-            exit 1
-        fi
-        ;;
-    *twitch* )
-        if ! command -v streamlink &>/dev/null; then
-            echo "streamlink is required (https://streamlink.github.io)"
-            exit 1
-        fi
-        streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 /tmp/whisper-live0_${mypid}.${fmt} &
-        if [ $? -ne 0 ]; then
-            printf "Error: ffmpeg failed to capture audio stream\n"
-            exit 1
-        fi
-        ;;
-    * )
-    ffmpeg -loglevel quiet -y -probesize 32 -i $url -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-        if [ $? -ne 0 ]; then
-            printf "Error: ffmpeg failed to capture audio stream\n"
-            exit 1
-        fi
-        ;;
-esac
 
+if [[ $quality == "up" ]]; then
+    case $url in
+        *youtube* | *youtu.be* )
+            if ! command -v yt-dlp &>/dev/null; then
+                echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                exit 1
+            fi
+            ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g "$url")" \
+                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            ;;
+        *twitch* )
+            if ! command -v streamlink &>/dev/null; then
+                echo "streamlink is required (https://streamlink.github.io)"
+                exit 1
+            fi
+            ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" -bufsize 440M \
+                -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            ;;
+        * )
+            ffmpeg -loglevel quiet -y -probesize 32 -i $url \
+                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            ;;
+    esac
+fi
+
+if [[ $quality == "down" ]]; then
+    case $url in
+        *youtube* | *youtu.be* )
+            if ! command -v yt-dlp &>/dev/null; then
+                echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                exit 1
+            fi
+            ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/worst' -g "$url")" \
+                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            ;;
+        *twitch* )
+            if ! command -v streamlink &>/dev/null; then
+                echo "streamlink is required (https://streamlink.github.io)"
+                exit 1
+            fi
+            ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
+                -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            ;;
+        * )
+            ffmpeg -loglevel quiet -y -probesize 32 -i $url \
+                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            ;;
+    esac
+fi
+
+if [[ $quality == "raw" ]]; then
+    case $url in
+        *youtube* | *youtu.be* )
+            if ! command -v yt-dlp &>/dev/null; then
+                echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                exit 1
+            fi
+            ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            ;;
+        *twitch* )
+            if ! command -v streamlink &>/dev/null; then
+                echo "streamlink is required (https://streamlink.github.io)"
+                exit 1
+            fi
+            streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            ;;
+        * )
+            ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+            ffmpeg_pid=$!
+            sleep 1
+            ffmpeg_exit_code=$?
+            if [ $ffmpeg_exit_code -ne 0 ]; then
+                printf "Error: ffmpeg failed to capture the stream\n"
+                exit 1
+            fi
+            ;;
+    esac
+    nohup $mpv_options $url >/dev/null 2>&1 &
+
+    if [ $? -ne 0 ]; then
+        printf "Error: The player could not play the stream. Please check your input or try again later\n"
+        exit 1
+    fi
+fi
 
 printf "Buffering audio. Please wait...\n\n"
+echo $mpv_options $url
 sleep $(($step_s+1))
+
 
 # do not stop script on error
 set +e
