@@ -30,7 +30,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.40 License: GPL 3.0
+Author: Antonio R. Version: 1.42 License: GPL 3.0
 
 
 
@@ -82,6 +82,8 @@ Quality: The valid options are "raw," "up," and "down." "Raw" is used to downloa
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
 Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large
+
+    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
 
 Whisper languages:
 
@@ -533,7 +535,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.40\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.42\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
