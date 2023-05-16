@@ -113,8 +113,6 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 ## livestream_video.sh screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
 #
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
-#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV3.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV4.jpg)
