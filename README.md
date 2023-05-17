@@ -2,7 +2,7 @@
 
 "Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
-Author: Antonio R. Version: 1.42 License: GPL 3.0
+Author: Antonio R. Version: 1.44 License: GPL 3.0
 
 
 Usage: 
@@ -13,6 +13,8 @@ python playlist4whisper.py
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
  and will store options in config_xxx.json.
+ 
+When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, and config_twitch.json.
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
@@ -55,17 +57,17 @@ This Linux script adds some new features:
 
 #
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ -p [player executable + player options] ]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
 
    Example (defaults if no options are specified):
 
-    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw -p [smplayer]
+    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw [smplayer]
 
 
-Quality: The valid options are "raw," "up," and "down." "Raw" is used to download another video stream without any modifications for the player.
- "Up" and "down" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
+ "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 
-"-p [player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
+"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[true]" for no player.
 
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
@@ -73,7 +75,7 @@ Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium
 
 ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
 
-Whisper languages:
+Whisper languages (not all already fully supported):
 
 auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian),
 bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish),
