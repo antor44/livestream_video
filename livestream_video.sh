@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.42 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.44 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -19,8 +19,7 @@
 #
 #   https://github.com/antor44/livestream_video
 #
-#---------------------------------
-
+#--------------------------------------------------------------------------------------------------------
 #
 #
 #livestream_video.sh transcribes a video livestream by regularly feeding the output of ffmpeg to whisper.cpp,
@@ -33,22 +32,22 @@
 #-Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
 #-Quantized models support
 #
-# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ -p [player executable + player options] ]
+# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
 #
 #   Example (defaults if no options are specified):
 #
-#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw -p [smplayer]
+#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw [smplayer]
 #
-# Quality: The valid options are "raw," "up," and "down." "Raw" is used to download another video stream without any modifications for the player.
-# "Up" and "down" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+# Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
+# "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 #
-#"-p [player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
+#"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
 #
 #Step: Size of the parts into which videos are divided for inference, size in seconds.
 #
 #Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large
 #
-#    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
+#    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0
 #
 #translate: The "translate" option provides automatic English translation (only English is available).
 #
@@ -140,13 +139,8 @@ while (( "$#" )); do
         *://* ) url=$1;;
         [2-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
-        raw |up |down ) quality=$1;;
-        -p | --player )
-            shift
-            if [[ $1 != "["* ]]; then
-                echo "Error: Missing opening bracket '[' in the -p or --player parameter."
-                exit 1
-            fi
+        raw |upper |lower ) quality=$1;;
+        [* )
             mpv_options=${1#"["}
             if [[ $mpv_options == *"]"* ]]; then
                 mpv_options=${mpv_options%%"]"}
@@ -235,7 +229,7 @@ fi
 # continuous stream in native fmt (this file will grow forever!)
 
 
-if [[ $quality == "up" ]]; then
+if [[ $quality == "upper" ]]; then
     case $url in
         *youtube* | *youtu.be* )
             if ! command -v yt-dlp &>/dev/null; then
@@ -246,12 +240,7 @@ if [[ $quality == "up" ]]; then
                 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
+
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         *twitch* )
@@ -263,12 +252,7 @@ if [[ $quality == "up" ]]; then
                 -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
+
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         * )
@@ -276,18 +260,13 @@ if [[ $quality == "up" ]]; then
                 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
+
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
     esac
 fi
 
-if [[ $quality == "down" ]]; then
+if [[ $quality == "lower" ]]; then
     case $url in
         *youtube* | *youtu.be* )
             if ! command -v yt-dlp &>/dev/null; then
@@ -298,12 +277,7 @@ if [[ $quality == "down" ]]; then
                 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
+
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         *twitch* )
@@ -315,12 +289,7 @@ if [[ $quality == "down" ]]; then
                 -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
+
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         * )
@@ -328,12 +297,7 @@ if [[ $quality == "down" ]]; then
                 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
+
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
     esac
@@ -348,36 +312,18 @@ if [[ $quality == "raw" ]]; then
             fi
             ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
             ;;
         *twitch* )
             if ! command -v streamlink &>/dev/null; then
                 echo "streamlink is required (https://streamlink.github.io)"
                 exit 1
             fi
-            streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+            streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
             ;;
         * )
             ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
             ffmpeg_pid=$!
-            sleep 1
-            ffmpeg_exit_code=$?
-            if [ $ffmpeg_exit_code -ne 0 ]; then
-                printf "Error: ffmpeg failed to capture the stream\n"
-                exit 1
-            fi
             ;;
     esac
     nohup $mpv_options $url >/dev/null 2>&1 &
@@ -389,9 +335,12 @@ if [[ $quality == "raw" ]]; then
 fi
 
 printf "Buffering audio. Please wait...\n\n"
-echo $mpv_options $url
 sleep $(($step_s+1))
 
+if ! ps -p $ffmpeg_pid > /dev/null; then
+    printf "Error: ffmpeg failed to capture the stream\n"
+    exit 1
+fi
 
 # do not stop script on error
 set +e
