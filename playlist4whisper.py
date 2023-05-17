@@ -30,7 +30,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.42 License: GPL 3.0
+Author: Antonio R. Version: 1.44 License: GPL 3.0
 
 
 
@@ -67,23 +67,23 @@ For Twitch streamlink is required (https://streamlink.github.io)
 Options for script:
 
 
- Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ -p [player executable + player options] ]
+ Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
 
    Example (defaults if no options are specified):
 
-    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw -p [smplayer]
+    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw [smplayer]
 
 
-Quality: The valid options are "raw," "up," and "down." "Raw" is used to download another video stream without any modifications for the player.
- "Up" and "down" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
+ "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 
-"-p [player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
+"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[true]" for no player.
 
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
 Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large
 
-    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
+    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0
 
 Whisper languages:
 
@@ -190,7 +190,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.bash_options_entry.bind("<KeyRelease>", self.schedule_save_options)
 
         # Quality
-        quality = ["raw", "up", "down"]
+        quality = ["raw", "upper", "lower"]
 
         self.quality_label = tk.Label(self.options_frame0, text="Quality")
         self.quality_label.pack(side=tk.LEFT)
@@ -199,16 +199,22 @@ class M3uPlaylistPlayer(tk.Frame):
         self.quality_frame.pack(side=tk.LEFT)
 
         self.quality = tk.StringVar(value="raw")
-        self.quality_option_menu = tk.OptionMenu(self.quality_frame, self.quality, "raw")
 
-        quality_menu = tk.Menu(self.quality_option_menu["menu"], tearoff=0)
-        for qua in quality:
-            quality_menu.add_radiobutton(label=qua, value=qua, variable=self.quality)
+        def update_quality_button():
+            selected_option = self.quality.get()
+            self.quality_option_menu.configure(text=selected_option)
+            self.save_options()
 
-        self.quality_option_menu["menu"] = quality_menu
+        self.quality_option_menu = tk.Menubutton(self.quality_frame, textvariable=self.quality, indicatoron=True, relief="raised")
         self.quality_option_menu.pack(side=tk.LEFT)
 
-        self.quality_option_menu.bind("<<ComboboxSelected>>", self.save_options)
+        quality_menu = tk.Menu(self.quality_option_menu, tearoff=0)
+        self.quality_option_menu.configure(menu=quality_menu)
+
+        for qua in quality:
+            quality_menu.add_radiobutton(label=qua, value=qua, variable=self.quality, command=update_quality_button)
+
+        self.quality_option_menu.bind("<<MenuSelect>>", lambda e: update_quality_button())
 
         self.override_options = tk.BooleanVar()
         self.override_checkbox = tk.Checkbutton(self.options_frame0, text='Override options', variable=self.override_options, command=self.change_override)
@@ -227,21 +233,27 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_frame.pack(side=tk.LEFT)
 
         self.player = tk.StringVar(value="smplayer")
-        self.player_option_menu = tk.OptionMenu(self.player_frame, self.player, "")
 
-        player_menu = tk.Menu(self.player_option_menu["menu"], tearoff=0)
-        for play in player:
-            player_menu.add_radiobutton(label=play, value=play, variable=self.player)
+        def update_player_button():
+            selected_option = self.player.get()
+            self.player_option_menu.configure(text=selected_option)
+            self.save_options()
 
-        self.player_option_menu["menu"] = player_menu
+        self.player_option_menu = tk.Menubutton(self.player_frame, textvariable=self.player, indicatoron=True, relief="raised")
         self.player_option_menu.pack(side=tk.LEFT)
 
-        self.player_option_menu.bind("<<ComboboxSelected>>", self.save_options)
+        player_menu = tk.Menu(self.player_option_menu, tearoff=0)
+        self.player_option_menu.configure(menu=player_menu)
+
+        for play in player:
+            player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button)
+
+        self.player_option_menu.bind("<<MenuSelect>>", lambda e: update_player_button())
 
         self.mpv_options_label = tk.Label(self.options_frame1, text="Player Options:", padx=4)
         self.mpv_options_label.pack(side=tk.LEFT)
 
-        self.mpv_options_entry = tk.Entry(self.options_frame1, width=25)
+        self.mpv_options_entry = tk.Entry(self.options_frame1, width=40)
         self.mpv_options_entry.insert(0, self.current_options.get("mpv_options", ""))
         self.mpv_options_entry.pack(side=tk.LEFT)
 
@@ -337,11 +349,11 @@ class M3uPlaylistPlayer(tk.Frame):
             # Try launching gnome-terminal, konsole or xfce4-terminal
             if os.path.exists(self.bash_script):
                 if os.system("gnome-terminal --version") == 0:
-                    os.system(f"gnome-terminal --tab -- /bin/bash -c '{self.bash_script} {url} {bash_options} -p {mpv_options}; exec /bin/bash -i' &")
+                    os.system(f"gnome-terminal --tab -- /bin/bash -c '{self.bash_script} {url} {bash_options} {mpv_options}; exec /bin/bash -i' &")
                 elif os.system("konsole --version") == 0:
-                    os.system(f"konsole --noclose -e '{self.bash_script} {url} {bash_options} -p {mpv_options}' &")
+                    os.system(f"konsole --noclose -e '{self.bash_script} {url} {bash_options} {mpv_options}' &")
                 elif os.system("xfce4-terminal --version") == 0:
-                    os.system(f"xfce4-terminal --hold -e '{self.bash_script} {url} {bash_options} -p {mpv_options}' &")
+                    os.system(f"xfce4-terminal --hold -e '{self.bash_script} {url} {bash_options} {mpv_options}' &")
                 else:
                     print("No compatible terminal found.")
                     simpledialog.messagebox.showerror("Error", "No compatible terminal found.")
@@ -435,10 +447,15 @@ class M3uPlaylistPlayer(tk.Frame):
                     self.quality_frame.config(highlightthickness=1, highlightbackground="red")
                     self.player_frame.config(highlightthickness=1, highlightbackground="red")
                     self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
+
                 self.bash_options_entry.delete(0, tk.END)
                 self.bash_options_entry.insert(0, bash_options)
+                self.quality_option_menu.unbind("<<MenuSelect>>")
                 self.quality.set(quality_option)
+                self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+                self.player_option_menu.unbind("<<MenuSelect>>")
                 self.player.set(player_option)
+                self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
                 self.mpv_options_entry.delete(0, tk.END)
                 self.mpv_options_entry.insert(0, mpv_options)
 
@@ -507,9 +524,13 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
         if self.override_options.get():
             self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
+            self.quality_frame.config(highlightthickness=1, highlightbackground="black")
+            self.player_frame.config(highlightthickness=1, highlightbackground="black")
             self.bash_options_entry.config(fg=self.bash_bg, bg=self.bash_fg, insertbackground=self.bash_bg)
         else:
             self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg, insertbackground=self.mpv_fg)
+            self.quality_frame.config(highlightthickness=1, highlightbackground="black")
+            self.player_frame.config(highlightthickness=1, highlightbackground="black")
             self.bash_options_entry.config(fg=self.bash_fg, bg=self.bash_bg, insertbackground=self.bash_fg)
             selection = self.tree.focus()
             if selection:
@@ -523,19 +544,25 @@ class M3uPlaylistPlayer(tk.Frame):
                     quality_option = self.current_options[url].get("quality_option", "")
                     player_option = self.current_options[url].get("player_option", "")
                     mpv_options = self.current_options[url].get("mpv_options", "")
+
         self.bash_options_entry.delete(0, tk.END)
         self.bash_options_entry.insert(0, bash_options)
+        self.quality_option_menu.unbind("<<MenuSelect>>")
         self.quality.set(quality_option)
+        self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+        self.player_option_menu.unbind("<<MenuSelect>>")
         self.player.set(player_option)
+        self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
         self.mpv_options_entry.delete(0, tk.END)
         self.mpv_options_entry.insert(0, mpv_options)
+
         self.save_config()
 
     # Function About
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.42\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.44\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
