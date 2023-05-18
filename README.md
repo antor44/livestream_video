@@ -122,12 +122,14 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To-Do List
 
+- All configs with mouse
 - Voice activity detection (VAD) for splitting audio into chunks
 - Temporal storage of the transcription text, take them into account for AI
 - Timeshift
 - ...
 - Advanced GUI as a standalone application
 - Support for different AI engines
+- Sound filters
 - GPU acceleration support
 - Cross-platform compatibility
 
