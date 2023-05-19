@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.46 License: GPL 3.0
+Author: Antonio R. Version: 1.48 License: GPL 3.0
 
 
 Usage:
@@ -105,6 +105,7 @@ translate: The "translate" option provides automatic English translation (only E
 
 import json
 import os
+import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog, PhotoImage
 
@@ -542,7 +543,6 @@ class M3uPlaylistPlayer(tk.Frame):
         if region == "cell":
             item = self.tree.selection()[0]
             url = self.tree.item(item, "values")[2]
-            url = '"' + url + '"'
             mpv_options = self.mpv_options_entry.get()
 
             language_text = self.language.get()
@@ -553,31 +553,45 @@ class M3uPlaylistPlayer(tk.Frame):
             else:
                 translate_value = ""
 
-            bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
-                           translate_value + " " + self.quality.get()
-
             print("Playing channel:", url)
-            print("Script Options:", bash_options)
+
             videoplayer = self.player.get()
+            quality = self.quality.get()
 
             # Try launching smplayer, mpv, or mplayer
-            if self.playeronly.get():
-                if videoplayer == "smplayer" and os.system("smplayer --help > /dev/null 2>&1") == 0:
-                    os.system(f"smplayer {url} {mpv_options} &")
-                elif videoplayer == "mpv" and os.system("mpv --version > /dev/null 2>&1") == 0:
-                    os.system(f"mpv {url} {mpv_options} &")
-                elif videoplayer == "mplayer" and os.system("mplayer -v > /dev/null 2>&1") == 0:
-                    os.system(f"mplayer {url} {mpv_options} &")
+            if self.playeronly.get() or quality == "raw":
+                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                    subprocess.Popen(["smplayer", url, mpv_options])
+                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                    subprocess.Popen(["mpv", url, mpv_options])
+                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                    subprocess.Popen(["mplayer", url, mpv_options])
+                elif videoplayer == "none":
+                    if self.playeronly.get():
+                        mpv_options = ""
+                        print("None video player selected.")
+                        simpledialog.messagebox.showerror("Error", "None video player selected.")
                 else:
                     mpv_options = ""
                     print(f"No {videoplayer} video player found.")
                     simpledialog.messagebox.showerror("Error", f"No {videoplayer} video player found.")
-            else:
-                if videoplayer == "smplayer" and os.system("smplayer --help > /dev/null 2>&1") == 0:
+
+            if quality == "raw":
+                videoplayer = "none"
+
+            # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
+            terminal = self.terminal.get()
+            bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
+                           translate_value + " " + quality
+            print("Script Options:", bash_options)
+
+            if not self.playeronly.get():
+                url = '"' + url + '"'
+                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[smplayer {mpv_options}]"
-                elif videoplayer == "mpv" and os.system("mpv --version > /dev/null 2>&1") == 0:
+                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[mpv {mpv_options}]"
-                elif videoplayer == "mplayer" and os.system("mplayer -v > /dev/null 2>&1") == 0:
+                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[mplayer {mpv_options}]"
                 elif videoplayer == "none":
                     mpv_options = f"[true]"
@@ -586,32 +600,35 @@ class M3uPlaylistPlayer(tk.Frame):
                     print(f"No {videoplayer} video player found.")
                     simpledialog.messagebox.showerror("Error", f"No {videoplayer} video player found.")
 
-            # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
-            if not self.playeronly.get():
                 if os.path.exists(self.bash_script):
-                    if os.system("gnome-terminal --version") == 0:
-                        os.system(
-                            f"gnome-terminal --tab -- /bin/bash -c '{self.bash_script} {url} {bash_options}"
-                            f" {mpv_options}; exec /bin/bash -i' &")
-                    elif os.system("konsole --version") == 0:
-                        os.system(f"konsole --noclose -e '{self.bash_script} {url} {bash_options} {mpv_options}' &")
-                    elif os.system("lxterm -version") == 0:
-                        os.system(f"lxterm -hold -e '{self.bash_script} {url} {bash_options} {mpv_options}' &")
-                    elif os.system("mate-terminal --version") == 0:
-                        os.system(f"mate-terminal -e '{self.bash_script} {url} {bash_options} {mpv_options}'"
-                                  f" & sleep 2 ; disown")
-                    elif os.system("mlterm --version") == 0:
-                        os.system(f"mlterm -e {self.bash_script} {url} {bash_options} {mpv_options} & sleep 2 ; disown")
-                    elif os.system("xfce4-terminal --version") == 0:
-                        os.system(f"xfce4-terminal --hold -e '{self.bash_script} {url} {bash_options} {mpv_options}' &")
-                    elif os.system("xterm -version") == 0:
-                        os.system(f"xterm -hold -e '{self.bash_script} {url} {bash_options} {mpv_options}' &")
-                    else:
-                        print("No compatible terminal found.")
-                        simpledialog.messagebox.showerror("Error", "No compatible terminal found.")
+                    try:
+                        if terminal == "gnome-terminal" and subprocess.run(["gnome-terminal", "--version"]).returncode == 0:
+                            subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"{self.bash_script} {url} {bash_options} {mpv_options}; exec /bin/bash -i"])
+                        elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
+                            subprocess.Popen(["konsole", "--noclose", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                        elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
+                            subprocess.Popen(["lxterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                        elif terminal == "mate-terminal" and subprocess.run(["mate-terminal", "--version"]).returncode == 0:
+                            subprocess.Popen(["mate-terminal", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                        elif terminal == "mlterm":
+                            result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
+                            mlterm_output = result.stdout
+                            if "mlterm" in mlterm_output:
+                                subprocess.Popen(["bash", "-c", f"mlterm -e {self.bash_script} {url} {bash_options} {mpv_options} & sleep 2 ; disown"])
+                        elif terminal == "xfce4-terminal" and subprocess.run(["xfce4-terminal", "--version"]).returncode == 0:
+                            subprocess.Popen(["xfce4-terminal", "--hold", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                        elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
+                            subprocess.Popen(["xterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                        else:
+                            print("No compatible terminal found.")
+                            simpledialog.messagebox.showerror("Error", "No compatible terminal found.")
+                    except OSError as e:
+                        print("Error executing command:", e)
+                        simpledialog.messagebox.showerror("Error", "Error executing command.")
                 else:
                     print("Script does not exist.")
                     simpledialog.messagebox.showerror("Error", "Script does not exist.")
+
 
     # Function to add a channel
     def add_channel(self):
@@ -942,7 +959,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.46\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.48\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
