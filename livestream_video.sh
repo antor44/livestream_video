@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.46 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.48 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -326,7 +326,8 @@ if [[ $quality == "raw" ]]; then
             ffmpeg_pid=$!
             ;;
     esac
-    nohup $mpv_options $url >/dev/null 2>&1 &
+
+    $mpv_options $url &>/dev/null &
 
     if [ $? -ne 0 ]; then
         printf "Error: The player could not play the stream. Please check your input or try again later\n"
