@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.48 License: GPL 3.0
+Author: Antonio R. Version: 1.50 License: GPL 3.0
 
 
 Usage:
@@ -118,7 +118,7 @@ class M3uPlaylistPlayer(tk.Frame):
         super().__init__(parent)
         self.spec = spec
         self.bash_script = bash
-        self.default_terminal_option = "genome-terminal"
+        self.default_terminal_option = "gnome-terminal"
         self.default_bash_options = "4 base auto raw"
         self.default_playeronly_option = False
         self.default_player_option = "smplayer"
@@ -207,10 +207,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.tree = None
         self.current_options = {}
         self.list_number = 0
-        self.override_options = tk.BooleanVar()
         self.create_widgets()
-        self.load_config()
         self.populate_playlist()
+        self.load_options()
 
     def create_widgets(self):
         self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
@@ -218,8 +217,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.tree.heading("name", text="Channel")
         self.tree.heading("url", text="URL")
         self.tree.column("list_number", width=35, stretch=False, minwidth=15)
-        self.tree.column("name", width=250, stretch=True, minwidth=50)
-        self.tree.column("url", width=250, stretch=True, minwidth=50)
+        self.tree.column("name", width=200, stretch=True, minwidth=50)
+        self.tree.column("url", width=400, stretch=True, minwidth=50)
         self.tree.bind('<Double-Button-1>', self.play_channel)
         self.tree.pack(fill=tk.BOTH, expand=True)
 
@@ -732,51 +731,53 @@ class M3uPlaylistPlayer(tk.Frame):
                     self.playeronly_frame.config(highlightthickness=1, highlightbackground="red")
                     self.player_frame.config(highlightthickness=1, highlightbackground="red")
                     self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
+        else:
+            self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
 
-                self.terminal_option_menu.unbind("<<MenuSelect>>")
-                self.terminal.set(terminal_option)
-                self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                self.translate.set(False)
+        self.terminal_option_menu.unbind("<<MenuSelect>>")
+        self.terminal.set(terminal_option)
+        self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+        self.translate.set(False)
 
-                models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium",
-                          "large-v1", "large"]
-                suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
+        models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium",
+                  "large-v1", "large"]
+        suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
 
-                model_list = models + [model + suffix for model in models for suffix in suffixes]
+        model_list = models + [model + suffix for model in models for suffix in suffixes]
 
-                options_list = bash_options.split()
-                while options_list:
-                    option = options_list.pop(0)
-                    if option.isdigit() and (2 <= int(option) <= 60):
-                        self.step_s.set(option)
-                        self.step_s_spinner.update()
-                    elif option == "translate":
-                        self.translate.set(True)
-                    elif option in ["raw", "upper", "lower"]:
-                        self.quality_option_menu.unbind("<<MenuSelect>>")
-                        self.quality.set(option)
-                        self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                    elif option in model_list:
-                        self.model_option_menu.unbind("<<MenuSelect>>")
-                        self.model.set(option)
-                        self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                    elif option in self.lang_codes:
-                        self.language_option_menu.unbind("<<MenuSelect>>")
-                        lang_name = self.lang_codes.get(option)
-                        full_language_name = f"{option} ({lang_name})"
-                        self.language.set(full_language_name)
-                        self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                    else:
-                        simpledialog.messagebox.showerror("Wrong option",
-                                                          f"Wrong option {option} found, try again after deleting"
-                                                          f" config_{self.spec}.json file")
+        options_list = bash_options.split()
+        while options_list:
+            option = options_list.pop(0)
+            if option.isdigit() and (2 <= int(option) <= 60):
+                self.step_s.set(option)
+                self.step_s_spinner.update()
+            elif option == "translate":
+                self.translate.set(True)
+            elif option in ["raw", "upper", "lower"]:
+                self.quality_option_menu.unbind("<<MenuSelect>>")
+                self.quality.set(option)
+                self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            elif option in model_list:
+                self.model_option_menu.unbind("<<MenuSelect>>")
+                self.model.set(option)
+                self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            elif option in self.lang_codes:
+                self.language_option_menu.unbind("<<MenuSelect>>")
+                lang_name = self.lang_codes.get(option)
+                full_language_name = f"{option} ({lang_name})"
+                self.language.set(full_language_name)
+                self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            else:
+                simpledialog.messagebox.showerror("Wrong option",
+                                                  f"Wrong option {option} found, try again after deleting"
+                                                  f" config_{self.spec}.json file")
 
-                self.playeronly.set(playeronly_option)
-                self.player_option_menu.unbind("<<MenuSelect>>")
-                self.player.set(player_option)
-                self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                self.mpv_options_entry.delete(0, tk.END)
-                self.mpv_options_entry.insert(0, mpv_options)
+        self.playeronly.set(playeronly_option)
+        self.player_option_menu.unbind("<<MenuSelect>>")
+        self.player.set(player_option)
+        self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+        self.mpv_options_entry.delete(0, tk.END)
+        self.mpv_options_entry.insert(0, mpv_options)
 
 
     def load_config(self):
@@ -835,7 +836,7 @@ class M3uPlaylistPlayer(tk.Frame):
             self.current_options["playeronly_option"] = playeronly_option
             self.current_options["player_option"] = player_option
             self.current_options["mpv_options"] = mpv_options
-            self.current_options["override option"] = True
+            self.current_options["override_option"] = True
         else:
             selection = self.tree.focus()
             if selection:
@@ -872,6 +873,7 @@ class M3uPlaylistPlayer(tk.Frame):
         playeronly_option = self.current_options["playeronly_option"]
         player_option = self.current_options["player_option"]
         mpv_options = self.current_options["mpv_options"]
+        self.current_options["override_option"] = self.override_options.get()
 
         self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
         self.step_frame.config(highlightthickness=1, highlightbackground="black")
@@ -959,7 +961,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.48\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.50\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
