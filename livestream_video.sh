@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.44 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.46 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -41,7 +41,7 @@
 # Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
 # "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 #
-#"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "-p [true]" for no player.
+#"[player executable + player options]", valid players: smplayer, mpv, mplayer, etc... or "[true]" for no player.
 #
 #Step: Size of the parts into which videos are divided for inference, size in seconds.
 #
@@ -134,32 +134,32 @@ usage()
 check_requirements
 
 
-while (( "$#" )); do
+while [[ $# -gt 0 ]]; do
     case $1 in
         *://* ) url=$1;;
         [2-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
-        raw |upper |lower ) quality=$1;;
-        [* )
-            mpv_options=${1#"["}
-            if [[ $mpv_options == *"]"* ]]; then
-                mpv_options=${mpv_options%%"]"}
+        raw | upper | lower ) quality=$1;;
+        \[* )
+            mpv_options=${1#\[}
+            if [[ $mpv_options == *\]* ]]; then
+                mpv_options=${mpv_options%\]}
             else
-                while [[ $1 != *"]"* ]]; do
+                while [[ $1 != *\]* ]]; do
                     shift
                     if [[ $1 == "" ]]; then
-                        echo "Error: Missing closing bracket ']' in the -p or --player parameter."
+                        echo "Error: Missing closing bracket ']' in the player parameter."
                         exit 1
                     fi
                     mpv_options+=" $1"
                 done
-                mpv_options=${mpv_options%%"]"}
+                mpv_options=${mpv_options%\]}
             fi
             ;;
         * )
-            if [[ "${model_list[@]}" =~ (^|[[:space:]])"$1"($|[[:space:]]) ]]; then
+            if [[ " ${model_list[@]} " =~ " $1 " ]]; then
                 model=$1
-            elif [[ "${languages[@]}" =~ (^|[[:space:]])"$1"($|[[:space:]]) ]]; then
+            elif [[ " ${languages[@]} " =~ " $1 " ]]; then
                 language=$1
             else
                 echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1
@@ -244,7 +244,7 @@ if [[ $quality == "upper" ]]; then
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         *twitch* )
-            if ! command -v streamlink &>/dev/null; then
+            if ! command -v streamlink >/dev/null 2>&1; then
                 echo "streamlink is required (https://streamlink.github.io)"
                 exit 1
             fi
@@ -281,11 +281,11 @@ if [[ $quality == "lower" ]]; then
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         *twitch* )
-            if ! command -v streamlink &>/dev/null; then
+            if ! command -v streamlink >/dev/null 2>&1; then
                 echo "streamlink is required (https://streamlink.github.io)"
                 exit 1
             fi
-            ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
+                ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
                 -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                 -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
             ffmpeg_pid=$!
@@ -314,7 +314,7 @@ if [[ $quality == "raw" ]]; then
             ffmpeg_pid=$!
             ;;
         *twitch* )
-            if ! command -v streamlink &>/dev/null; then
+            if ! command -v streamlink >/dev/null 2>&1; then
                 echo "streamlink is required (https://streamlink.github.io)"
                 exit 1
             fi
