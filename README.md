@@ -2,7 +2,7 @@
 
 "Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
-Author: Antonio R. Version: 1.44 License: GPL 3.0
+Author: Antonio R. Version: 1.46 License: GPL 3.0
 
 
 Usage: 
@@ -122,7 +122,6 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To-Do List
 
-- All configs with mouse
 - Voice activity detection (VAD) for splitting audio into chunks
 - Temporal storage of the transcription text, take them into account for AI
 - Timeshift
