@@ -28,11 +28,10 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.50 License: GPL 3.0
+Author: Antonio R. Version: 1.52 License: GPL 3.0
 
 
 Usage:
-
 python playlist4whisper.py
 
 -Support for multi-instance and multi-user execution
@@ -40,7 +39,6 @@ python playlist4whisper.py
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
  and will store options in config_xxx.json.
-
 
 
 To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases),
@@ -53,7 +51,6 @@ To ensure proper functioning of this GUI, all whisper.cpp files (from the offici
 make tiny.en
 
 make small
-
 
 playlist4whisper.py depends on (smplayer, mpv or mplayer) video player and (gnome-terminal or konsole or
 xfce4-terminal).
@@ -124,6 +121,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.default_player_option = "smplayer"
         self.default_mpv_options = "-geometry 1100"
         self.default_override_option = False
+        self.current_options = {}
+        self.list_number = 0
         self.playlist = []
         self.lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
                            'az': 'Azerbaijani', 'be': 'Belarusian', 'bg': 'Bulgarian', 'bn': 'Bengali', 'br': 'Breton',
@@ -159,6 +158,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.append_button = None
         self.options_frame2 = None
         self.override_checkbox = None
+        self.override_options = None
         self.steps_s_spinner = None
         self.save_options_id = None
         self.mpv_options_entry = None
@@ -205,8 +205,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.container_frame = None
         self.termninal = None
         self.tree = None
-        self.current_options = {}
-        self.list_number = 0
         self.create_widgets()
         self.populate_playlist()
         self.load_options()
@@ -258,8 +256,12 @@ class M3uPlaylistPlayer(tk.Frame):
         self.terminal_option_menu.configure(menu=terminal_menu)
 
         for term in terminal:
-            terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
-                                          command=update_terminal_button)
+            if self.check_terminal_installed(term):
+                terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
+                                              command=update_terminal_button)
+            else:
+                terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
+                                              command=update_terminal_button, state="disabled")
 
         self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: update_terminal_button())
 
@@ -301,19 +303,27 @@ class M3uPlaylistPlayer(tk.Frame):
         model_menu = tk.Menu(self.model_option_menu, tearoff=0)
         self.model_option_menu.configure(menu=model_menu)
 
+        model_path = "./models/ggml-{}.bin"
+
         for model in models:
             suffix_menu = tk.Menu(model_menu, tearoff=0)
-            suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button)
+
+            if os.path.exists(model_path.format(model)):
+                suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button)
+            else:
+                suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button,
+                                            state="disabled")
+
             for suffix in suffixes:
                 full_model_name = f"{model}{suffix}"
-                suffix_menu.add_radiobutton(label=full_model_name, value=full_model_name, variable=self.model,
-                                            command=update_model_button)
+                if os.path.exists(model_path.format(full_model_name)):
+                    suffix_menu.add_radiobutton(label=full_model_name, value=full_model_name, variable=self.model,
+                                                command=update_model_button)
+                else:
+                    suffix_menu.add_radiobutton(label=full_model_name, value=full_model_name, variable=self.model,
+                                                command=update_model_button, state="disabled")
+
             model_menu.add_cascade(label=model, menu=suffix_menu)
-
-        self.model_option_menu["menu"] = model_menu
-
-        self.model_option_menu.bind("<<MenuSelect>>", lambda e: update_model_button())
-
         # Regions and their languages
         regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"],
                    "Asia": ["as", "az", "bn", "gu", "hi", "hy", "id", "ja", "jv", "ka", "km", "kn", "ko",
@@ -456,7 +466,11 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_option_menu.configure(menu=player_menu)
 
         for play in player:
-            player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button)
+            if self.check_player_installed(play):
+                player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button)
+            else:
+                player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button,
+                                            state="disabled")
 
         self.player_option_menu.bind("<<MenuSelect>>", lambda e: update_player_button())
 
@@ -504,11 +518,47 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_button = tk.Button(self.options_frame2, text="Save", command=self.save_playlist)
         self.save_button.pack(side=tk.LEFT)
 
-        self.about_label = tk.Label(self.options_frame2, text="", padx=150)
+        self.about_label = tk.Label(self.options_frame2, text="", padx=20)
         self.about_label.pack(side=tk.LEFT)
 
         self.about_button = tk.Button(self.options_frame2, text="About", command=self.show_about_window)
         self.about_button.pack(side=tk.LEFT)
+
+    @staticmethod
+    def check_terminal_installed(terminal):
+        try:
+            if terminal == "mlterm":
+                result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
+                mlterm_output = result.stdout
+                if "mlterm" in mlterm_output:
+                    return True
+                else:
+                    return False
+            elif terminal in ["lxterm", "xterm"]:
+                process = subprocess.run([terminal, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return process.returncode == 0
+            else:
+                process = subprocess.run([terminal, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return process.returncode == 0
+        except OSError:
+            return False
+
+    @staticmethod
+    def check_player_installed(player):
+        try:
+            if player == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
+                                                        stderr=subprocess.DEVNULL) == 0:
+                return True
+            elif player == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
+                                                     stderr=subprocess.DEVNULL) == 0:
+                return True
+            elif player == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL,
+                                                         stderr=subprocess.DEVNULL) == 0:
+                return True
+            elif player == "none":
+                return True
+        except OSError:
+            return False
 
     def populate_playlist(self, filename=None):
         if filename is None:
@@ -536,6 +586,108 @@ class M3uPlaylistPlayer(tk.Frame):
             simpledialog.messagebox.showerror("File Not Found",
                                               f"The default playlist_{self.spec}.m3u file was not found.")
 
+    def widgets_updates(self):
+        terminal_option = self.current_options["terminal_option"]
+        bash_options = self.current_options["bash_options"]
+        playeronly_option = self.current_options["playeronly_option"]
+        player_option = self.current_options["player_option"]
+        mpv_options = self.current_options["mpv_options"]
+
+        self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
+        self.step_frame.config(highlightthickness=1, highlightbackground="black")
+        self.model_frame.config(highlightthickness=1, highlightbackground="black")
+        self.language_frame.config(highlightthickness=1, highlightbackground="black")
+        self.translate_frame.config(highlightthickness=1, highlightbackground="black")
+        self.quality_frame.config(highlightthickness=1, highlightbackground="black")
+        self.playeronly_frame.config(highlightthickness=1, highlightbackground="black")
+        self.player_frame.config(highlightthickness=1, highlightbackground="black")
+        self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
+
+        if not self.override_options.get():
+            self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg, insertbackground=self.mpv_fg)
+            selection = self.tree.focus()
+            if selection:
+                url = self.tree.item(selection, "values")[2]
+                if url in self.current_options:
+                    terminal_option = self.current_options[url].get("terminal_option", "")
+                    bash_options = self.current_options[url].get("bash_options", "")
+                    playeronly_option = self.current_options[url].get("playeronly_option", "")
+                    player_option = self.current_options[url].get("player_option", "")
+                    mpv_options = self.current_options[url].get("mpv_options", "")
+
+                    self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.step_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.model_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.language_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.translate_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.quality_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.playeronly_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.player_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
+        else:
+            self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
+
+        self.terminal_option_menu.unbind("<<MenuSelect>>")
+        self.terminal.set(terminal_option)
+        self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+
+        if not self.check_terminal_installed(terminal_option):
+            err_message = f"Warning: Terminal {terminal_option} was not found. Please install it" \
+                          f" or choose other terminal."
+            simpledialog.messagebox.showerror("Terminal Not Installed", err_message)
+
+        self.translate.set(False)
+
+        models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium",
+                  "large-v1", "large"]
+        suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
+
+        model_list = models + [model + suffix for model in models for suffix in suffixes]
+
+        options_list = bash_options.split()
+        while options_list:
+            option = options_list.pop(0)
+            if option.isdigit() and (2 <= int(option) <= 60):
+                self.step_s.set(option)
+                self.step_s_spinner.update()
+            elif option == "translate":
+                self.translate.set(True)
+            elif option in ["raw", "upper", "lower"]:
+                self.quality_option_menu.unbind("<<MenuSelect>>")
+                self.quality.set(option)
+                self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            elif option in model_list:
+                self.model_option_menu.unbind("<<MenuSelect>>")
+                self.model.set(option)
+                self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+                model_path = "./models/ggml-{}.bin".format(option)
+                if not os.path.exists(model_path):
+                    err_message = f"Warning: File for model {option} was not found. " \
+                                  f"Please install it in {model_path} or choose other model."
+                    simpledialog.messagebox.showerror("Model Not Installed", err_message)
+            elif option in self.lang_codes:
+                self.language_option_menu.unbind("<<MenuSelect>>")
+                lang_name = self.lang_codes.get(option)
+                full_language_name = f"{option} ({lang_name})"
+                self.language.set(full_language_name)
+                self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            else:
+                simpledialog.messagebox.showerror("Wrong option",
+                                                  f"Wrong option {option} found, try again after deleting"
+                                                  f" config_{self.spec}.json file")
+
+        self.playeronly.set(playeronly_option)
+        self.player_option_menu.unbind("<<MenuSelect>>")
+        self.player.set(player_option)
+        self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+        if not self.check_player_installed(player_option):
+            err_message = f"Warning: Video player {player_option} was not found. Please install it " \
+                          f"or choose other video player."
+            simpledialog.messagebox.showerror("Video Player Not Installed", err_message)
+
+        self.mpv_options_entry.delete(0, tk.END)
+        self.mpv_options_entry.insert(0, mpv_options)
+
     def play_channel(self, event):
         region = self.tree.identify_region(event.x, event.y)
 
@@ -559,11 +711,14 @@ class M3uPlaylistPlayer(tk.Frame):
 
             # Try launching smplayer, mpv, or mplayer
             if self.playeronly.get() or quality == "raw":
-                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
+                                                                 stderr=subprocess.DEVNULL) == 0:
                     subprocess.Popen(["smplayer", url, mpv_options])
-                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
+                                                              stderr=subprocess.DEVNULL) == 0:
                     subprocess.Popen(["mpv", url, mpv_options])
-                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL,
+                                                                  stderr=subprocess.DEVNULL) == 0:
                     subprocess.Popen(["mplayer", url, mpv_options])
                 elif videoplayer == "none":
                     if self.playeronly.get():
@@ -586,11 +741,14 @@ class M3uPlaylistPlayer(tk.Frame):
 
             if not self.playeronly.get():
                 url = '"' + url + '"'
-                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
+                                                                 stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[smplayer {mpv_options}]"
-                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
+                                                              stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[mpv {mpv_options}]"
-                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL,
+                                                                  stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[mplayer {mpv_options}]"
                 elif videoplayer == "none":
                     mpv_options = f"[true]"
@@ -601,23 +759,33 @@ class M3uPlaylistPlayer(tk.Frame):
 
                 if os.path.exists(self.bash_script):
                     try:
-                        if terminal == "gnome-terminal" and subprocess.run(["gnome-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"{self.bash_script} {url} {bash_options} {mpv_options}; exec /bin/bash -i"])
+                        if terminal == "gnome-terminal" and subprocess.run(
+                                ["gnome-terminal", "--version"]).returncode == 0:
+                            subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c",
+                                              f"{self.bash_script} {url} {bash_options} {mpv_options}; exec /bin/bash -i"])
                         elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
-                            subprocess.Popen(["konsole", "--noclose", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                            subprocess.Popen(["konsole", "--noclose", "-e", f"{self.bash_script} {url} {bash_options} "
+                                                                            f"{mpv_options}"])
                         elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["lxterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
-                        elif terminal == "mate-terminal" and subprocess.run(["mate-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["mate-terminal", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                            subprocess.Popen(["lxterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} "
+                                                                       f"{mpv_options}"])
+                        elif terminal == "mate-terminal" and subprocess.run(
+                                ["mate-terminal", "--version"]).returncode == 0:
+                            subprocess.Popen(["mate-terminal", "-e", f"{self.bash_script} {url} {bash_options} "
+                                                                     f"{mpv_options}"])
                         elif terminal == "mlterm":
                             result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
                             mlterm_output = result.stdout
                             if "mlterm" in mlterm_output:
-                                subprocess.Popen(["bash", "-c", f"mlterm -e {self.bash_script} {url} {bash_options} {mpv_options} & sleep 2 ; disown"])
-                        elif terminal == "xfce4-terminal" and subprocess.run(["xfce4-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["xfce4-terminal", "--hold", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                                subprocess.Popen(["bash", "-c", f"mlterm -e {self.bash_script} {url} {bash_options} "
+                                                                f"{mpv_options} & sleep 2 ; disown"])
+                        elif terminal == "xfce4-terminal" and subprocess.run(
+                                ["xfce4-terminal", "--version"]).returncode == 0:
+                            subprocess.Popen(["xfce4-terminal", "--hold", "-e", f"{self.bash_script} {url} "
+                                                                                f"{bash_options} {mpv_options}"])
                         elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["xterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} {mpv_options}"])
+                            subprocess.Popen(["xterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options}"
+                                                                      f" {mpv_options}"])
                         else:
                             print("No compatible terminal found.")
                             simpledialog.messagebox.showerror("Error", "No compatible terminal found.")
@@ -627,7 +795,6 @@ class M3uPlaylistPlayer(tk.Frame):
                 else:
                     print("Script does not exist.")
                     simpledialog.messagebox.showerror("Error", "Script does not exist.")
-
 
     # Function to add a channel
     def add_channel(self):
@@ -689,96 +856,13 @@ class M3uPlaylistPlayer(tk.Frame):
                     list_number, name, url = self.tree.item(item, "values")
                     file.write(f"#EXTINF:-1,{name}\n{url}\n")
 
-    # Function to load and save config.json
+    # Functions to load and save config.json
     def load_options(self, event=None):
         self.load_config()
-        terminal_option = self.current_options["terminal_option"]
-        bash_options = self.current_options["bash_options"]
-        playeronly_option = self.current_options["playeronly_option"]
-        player_option = self.current_options["player_option"]
-        mpv_options = self.current_options["mpv_options"]
         override_option = self.current_options["override_option"]
-
-        self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
-        self.step_frame.config(highlightthickness=1, highlightbackground="black")
-        self.model_frame.config(highlightthickness=1, highlightbackground="black")
-        self.language_frame.config(highlightthickness=1, highlightbackground="black")
-        self.translate_frame.config(highlightthickness=1, highlightbackground="black")
-        self.quality_frame.config(highlightthickness=1, highlightbackground="black")
-        self.playeronly_frame.config(highlightthickness=1, highlightbackground="black")
-        self.player_frame.config(highlightthickness=1, highlightbackground="black")
-        self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
-
         self.override_options.set(override_option)
 
-        if not self.override_options.get():
-            selection = self.tree.focus()
-            if selection:
-                url = self.tree.item(selection, "values")[2]
-                if url in self.current_options:
-                    terminal_option = self.current_options[url].get("terminal_option", "")
-                    bash_options = self.current_options[url].get("bash_options", "")
-                    playeronly_option = self.current_options[url].get("playeronly_option", "")
-                    player_option = self.current_options[url].get("player_option", "")
-                    mpv_options = self.current_options[url].get("mpv_options", "")
-
-                    self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.step_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.model_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.language_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.translate_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.quality_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.playeronly_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.player_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
-        else:
-            self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
-
-        self.terminal_option_menu.unbind("<<MenuSelect>>")
-        self.terminal.set(terminal_option)
-        self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-        self.translate.set(False)
-
-        models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium",
-                  "large-v1", "large"]
-        suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
-
-        model_list = models + [model + suffix for model in models for suffix in suffixes]
-
-        options_list = bash_options.split()
-        while options_list:
-            option = options_list.pop(0)
-            if option.isdigit() and (2 <= int(option) <= 60):
-                self.step_s.set(option)
-                self.step_s_spinner.update()
-            elif option == "translate":
-                self.translate.set(True)
-            elif option in ["raw", "upper", "lower"]:
-                self.quality_option_menu.unbind("<<MenuSelect>>")
-                self.quality.set(option)
-                self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            elif option in model_list:
-                self.model_option_menu.unbind("<<MenuSelect>>")
-                self.model.set(option)
-                self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            elif option in self.lang_codes:
-                self.language_option_menu.unbind("<<MenuSelect>>")
-                lang_name = self.lang_codes.get(option)
-                full_language_name = f"{option} ({lang_name})"
-                self.language.set(full_language_name)
-                self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            else:
-                simpledialog.messagebox.showerror("Wrong option",
-                                                  f"Wrong option {option} found, try again after deleting"
-                                                  f" config_{self.spec}.json file")
-
-        self.playeronly.set(playeronly_option)
-        self.player_option_menu.unbind("<<MenuSelect>>")
-        self.player.set(player_option)
-        self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-        self.mpv_options_entry.delete(0, tk.END)
-        self.mpv_options_entry.insert(0, mpv_options)
-
+        self.widgets_updates()
 
     def load_config(self):
         try:
@@ -868,100 +952,17 @@ class M3uPlaylistPlayer(tk.Frame):
     # Change override
     def change_override(self):
         self.load_config()
-        terminal_option = self.current_options["terminal_option"]
-        bash_options = self.current_options["bash_options"]
-        playeronly_option = self.current_options["playeronly_option"]
-        player_option = self.current_options["player_option"]
-        mpv_options = self.current_options["mpv_options"]
         self.current_options["override_option"] = self.override_options.get()
 
-        self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
-        self.step_frame.config(highlightthickness=1, highlightbackground="black")
-        self.model_frame.config(highlightthickness=1, highlightbackground="black")
-        self.language_frame.config(highlightthickness=1, highlightbackground="black")
-        self.translate_frame.config(highlightthickness=1, highlightbackground="black")
-        self.quality_frame.config(highlightthickness=1, highlightbackground="black")
-        self.playeronly_frame.config(highlightthickness=1, highlightbackground="black")
-        self.player_frame.config(highlightthickness=1, highlightbackground="black")
-        self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
-
-        if self.override_options.get():
-            self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
-        else:
-            self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg, insertbackground=self.mpv_fg)
-            selection = self.tree.focus()
-            if selection:
-                url = self.tree.item(selection, "values")[2]
-                if url in self.current_options:
-                    self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.step_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.model_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.language_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.translate_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.quality_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.playeronly_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.player_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
-
-                    terminal_option = self.current_options[url].get("terminal_option", "")
-                    bash_options = self.current_options[url].get("bash_options", "")
-                    playeronly_option = self.current_options[url].get("playeronly_option", "")
-                    player_option = self.current_options[url].get("player_option", "")
-                    mpv_options = self.current_options[url].get("mpv_options", "")
-
-        self.terminal_option_menu.unbind("<<MenuSelect>>")
-        self.terminal.set(terminal_option)
-        self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-        self.translate.set(False)
-
-        models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1",
-                  "large"]
-        suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
-
-        model_list = models + [model + suffix for model in models for suffix in suffixes]
-
-        options_list = bash_options.split()
-        while options_list:
-            option = options_list.pop(0)
-            if option.isdigit() and (2 <= int(option) <= 60):
-                self.step_s.set(option)
-                self.step_s_spinner.update()
-            elif option == "translate":
-                self.translate.set(True)
-            elif option in ["raw", "upper", "lower"]:
-                self.quality_option_menu.unbind("<<MenuSelect>>")
-                self.quality.set(option)
-                self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            elif option in model_list:
-                self.model_option_menu.unbind("<<MenuSelect>>")
-                self.model.set(option)
-                self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            elif option in self.lang_codes:
-                self.language_option_menu.unbind("<<MenuSelect>>")
-                lang_name = self.lang_codes.get(option)
-                full_language_name = f"{option} ({lang_name})"
-                self.language.set(full_language_name)
-                self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            else:
-                simpledialog.messagebox.showerror("Wrong option",
-                                                  f"Wrong option {option} found, try again after deleting"
-                                                  f" config_{self.spec}.json file")
-
-        self.playeronly.set(playeronly_option)
-        self.player_option_menu.unbind("<<MenuSelect>>")
-        self.player.set(player_option)
-        self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-        self.mpv_options_entry.delete(0, tk.END)
-        self.mpv_options_entry.insert(0, mpv_options)
+        self.widgets_updates()
 
         self.save_config()
-
 
     # Function About
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.50\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.52\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -975,7 +976,7 @@ class M3uPlaylistPlayer(tk.Frame):
 class MainApplication:
     main_window = tk.Tk()
     main_window.title("playlist4whisper")
-    main_window.geometry("1000x800")
+    main_window.geometry("900x800")
 
     icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
            "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
