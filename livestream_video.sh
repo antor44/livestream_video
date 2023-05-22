@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.48 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.50 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -56,7 +56,13 @@
 #
 
 
-set -eo pipefail
+if [[ "$(uname)" == "Darwin" ]]; then
+    # macOS
+    true
+else
+    # Linux
+    set -eo pipefail
+fi
 
 url_default="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
 fmt=mp3 # the audio format
@@ -84,6 +90,7 @@ for modele in "${models[@]}"; do
  done
 done
 
+# functions
 
 check_requirements()
 {
@@ -130,9 +137,8 @@ usage()
 
 }
 
-
+# main
 check_requirements
-
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -169,8 +175,6 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-
-
 if [ ! -f ./models/ggml-${model}.bin ]; then
     echo ""
     echo "*** No file /models/ggml-${model}.bin for model ${model}"
@@ -180,7 +184,7 @@ if [ ! -f ./models/ggml-${model}.bin ]; then
     exit 1
 fi
 
-mypid=$(pgrep -n -f "livestream_video.sh")
+mypid=$(ps aux | awk '/[l]ivestream_video\.sh/ {pid=$2} END {print pid}')
 
 if [ -n "$mypid" ]; then
     if [ -e "/tmp/whisper-live_${mypid}.wav" ] && ! [ -w "/tmp/whisper-live_${mypid}.wav" ]; then
@@ -199,7 +203,6 @@ else
   exit 1
 fi
 
-
 if [ -z "$url" ]; then
     url="$url_default"
     echo " *** No url specified, using default: $url"
@@ -213,10 +216,7 @@ running=1
 
 trap "running=0" SIGINT SIGTERM
 
-
-
-# if translate then translate to english
-
+# if "translate" then translate to english
 if [[ $translate == "translate" ]]; then
     translate="-tr"
     printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', translate to english (press Ctrl+C to stop):\n\n"
@@ -225,10 +225,7 @@ else
     printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', NO translate to english (press Ctrl+C to stop):\n\n"
 fi
 
-
 # continuous stream in native fmt (this file will grow forever!)
-
-
 if [[ $quality == "upper" ]]; then
     case $url in
         *youtube* | *youtu.be* )
