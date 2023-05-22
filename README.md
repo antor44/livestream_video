@@ -194,10 +194,6 @@ Alternatively, instead of running the AI engine on the CPU, you can try compilin
 
 https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas
 
-There should be no issues running the program on Apple computers by installing the dependencies via brew (https://brew.sh/). For Apple computers with ARM processors, whisper.cpp can be compiled to be executed on the Apple Neural Engine (ANE) via Core ML. This can result in a significant speed-up, more than x3 faster compared to CPU-only execution:
-
-https://github.com/ggerganov/whisper.cpp#core-ml-support
-
 **Q: Neither smplayer nor mplayer work with online TV?**
 
 A: This program uses the system's installed versions of mpv or mplayer, not the python versions installed with pip or Anaconda. The installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
