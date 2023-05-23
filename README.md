@@ -2,7 +2,7 @@
 
 "Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
-Author: Antonio R. Version: 1.52 License: GPL 3.0
+Author: Antonio R. Version: 1.60 License: GPL 3.0
 
 
 Usage: 
@@ -69,7 +69,7 @@ Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
  "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 
-"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[true]" for no player.
+"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
@@ -241,9 +241,9 @@ There should be no issues running the program on Apple computers with ARM proces
 
 https://github.com/ggerganov/whisper.cpp#core-ml-support
 
-**Q: Neither smplayer nor mplayer work with online TV?**
+**Q: smplayer does not work with online TV?**
 
-A: This program uses the system's installed versions of mpv or mplayer, not the python versions installed with pip or Anaconda. The installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
+A: smplayer depens of mpv or mplayer, the installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
 
 **Q: Is this program legal to watch TV channels?**
 
