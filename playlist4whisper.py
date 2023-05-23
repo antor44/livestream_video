@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.52 License: GPL 3.0
+Author: Antonio R. Version: 1.60 License: GPL 3.0
 
 
 Usage:
@@ -52,7 +52,7 @@ make tiny.en
 
 make small
 
-playlist4whisper.py depends on (smplayer, mpv or mplayer) video player and (gnome-terminal or konsole or
+playlist4whisper.py depends on (smplayer or mpv) video player and (gnome-terminal or konsole or
 xfce4-terminal).
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
@@ -119,7 +119,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.default_bash_options = "4 base auto raw"
         self.default_playeronly_option = False
         self.default_player_option = "smplayer"
-        self.default_mpv_options = "-geometry 1100"
+        self.default_mpv_options = "--geometry=900"
         self.default_override_option = False
         self.current_options = {}
         self.list_number = 0
@@ -259,6 +259,7 @@ class M3uPlaylistPlayer(tk.Frame):
             if self.check_terminal_installed(term):
                 terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
                                               command=update_terminal_button)
+                self.default_terminal_option = term
             else:
                 terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
                                               command=update_terminal_button, state="disabled")
@@ -443,7 +444,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.playeronly_checkbox.pack(side=tk.LEFT)
 
         # Players
-        player = ["none", "smplayer", "mpv", "mplayer"]
+        player = ["none", "smplayer", "mpv"]
 
         self.player_label = tk.Label(self.options_frame1, text="Player", padx=4)
         self.player_label.pack(side=tk.LEFT)
@@ -468,6 +469,7 @@ class M3uPlaylistPlayer(tk.Frame):
         for play in player:
             if self.check_player_installed(play):
                 player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button)
+                self.default_player_option = play
             else:
                 player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button,
                                             state="disabled")
@@ -551,9 +553,6 @@ class M3uPlaylistPlayer(tk.Frame):
                 return True
             elif player == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
                                                      stderr=subprocess.DEVNULL) == 0:
-                return True
-            elif player == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL,
-                                                         stderr=subprocess.DEVNULL) == 0:
                 return True
             elif player == "none":
                 return True
@@ -717,9 +716,6 @@ class M3uPlaylistPlayer(tk.Frame):
                 elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
                                                               stderr=subprocess.DEVNULL) == 0:
                     subprocess.Popen(["mpv", url, mpv_options])
-                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL,
-                                                                  stderr=subprocess.DEVNULL) == 0:
-                    subprocess.Popen(["mplayer", url, mpv_options])
                 elif videoplayer == "none":
                     if self.playeronly.get():
                         mpv_options = ""
@@ -747,11 +743,8 @@ class M3uPlaylistPlayer(tk.Frame):
                 elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
                                                               stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[mpv {mpv_options}]"
-                elif videoplayer == "mplayer" and subprocess.call(["mplayer", "-v"], stdout=subprocess.DEVNULL,
-                                                                  stderr=subprocess.DEVNULL) == 0:
-                    mpv_options = f"[mplayer {mpv_options}]"
                 elif videoplayer == "none":
-                    mpv_options = f"[true]"
+                    mpv_options = f"[none]"
                 else:
                     mpv_options = ""
                     print(f"No {videoplayer} video player found.")
@@ -962,7 +955,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.52\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.60\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
