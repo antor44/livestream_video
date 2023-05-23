@@ -55,6 +55,8 @@ This Linux script adds some new features:
 
 -Quantized models support
 
+-MacOS support.
+
 #
 
 Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
@@ -111,6 +113,10 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV11.jpg)
 #
 ## livestream_video.sh screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
@@ -172,6 +178,41 @@ A: You can use a program for placing windows in Linux, such as devilspie, and co
     )
     )
 
+**Q: How can I run play4whisper.py on macOS?**
+
+You can run play4whisper.py on macOS by following these steps:
+
+1. Install Homebrew by visiting https://brew.sh/ and following the installation instructions.
+
+2. Once Homebrew is installed, open a terminal and install the required dependencies. Run the following commands:
+
+```
+brew install python3
+brew install python-tk@3.11
+brew install make
+brew install xterm
+brew install mpv
+```
+
+3. Next, install the necessary Python packages using pip3. Run the following commands:
+
+```
+pip3 install yt-dlp
+pip3 install streamlink
+```
+
+4. Download some models and compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
+
+5. If you encounter an "Illegal instruction: 4" error during compilation, you can resolve it by deleting line 67 "CFLAGS += -mf16c" in the Makefile.
+
+6. Finally, you can run the GUI by executing the following command in the terminal:
+
+```
+python3 playlist4whisper.py
+```
+
+Please note that on macOS, only xterm terminal and mpv videoplayer are supported.
+
 **Q: How can I synchronize the video and the transcription?**
 
 A: You can use the pause and forward/backward buttons of the video player to manually synchronize the video and transcription to your desired timing.
@@ -193,6 +234,10 @@ You can also try using the quantized models option, which can improve execution 
 Alternatively, instead of running the AI engine on the CPU, you can try compiling whisper.cpp with partial GPU support using the cuBLAS library for Nvidia graphics cards or GPUs, or compile it with partial OpenCL GPU support using the CLBlast library for all graphics cards or GPUs, including Nvidia, AMD, and Intel. By doing so, you can significantly increase the execution speed by at least x2 or even more, depending on the GPU model you have, and this will allow you to run larger whisper models:
 
 https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas
+
+There should be no issues running the program on Apple computers with ARM processors, whisper.cpp can be compiled to be executed on the Apple Neural Engine (ANE) via Core ML. This can result in a significant speed-up, more than x3 faster compared to CPU-only execution:
+
+https://github.com/ggerganov/whisper.cpp#core-ml-support
 
 **Q: Neither smplayer nor mplayer work with online TV?**
 
