@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.50 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.60 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -41,7 +41,7 @@
 # Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
 # "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 #
-#"[player executable + player options]", valid players: smplayer, mpv, mplayer, etc... or "[true]" for no player.
+#"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 #
 #Step: Size of the parts into which videos are divided for inference, size in seconds.
 #
@@ -70,7 +70,7 @@ step_s=4
 model="base"
 language="auto"
 translate=""
-mpv_options="smplayer"
+mpv_options="mpv"
 quality="raw"
 
 # Whisper languages:
@@ -148,6 +148,9 @@ while [[ $# -gt 0 ]]; do
         raw | upper | lower ) quality=$1;;
         \[* )
             mpv_options=${1#\[}
+            if [[ $mpv_options == none*\]* ]]; then
+                mpv_options="true"
+            fi
             if [[ $mpv_options == *\]* ]]; then
                 mpv_options=${mpv_options%\]}
             else
