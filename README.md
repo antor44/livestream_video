@@ -215,6 +215,19 @@ python3 playlist4whisper.py
 
 Please note that on macOS, only xterm terminal and mpv videoplayer are supported.
 
+**Q: How can I permanently change the size and colors of the transcription text on macOS?**
+
+To achieve this, you can create a file named ".Xresources" in your user's home directory (/Users/[user]). Inside the file, you can define specific settings to customize the appearance of the transcription text. For example:
+
+```
+.xterm*background: black
+.xterm*foreground: yellow
+.xterm*font: 10x20
+.xterm*vt100*geometry: 80x10
+.xterm*saveLines: 10000
+```
+In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+
 **Q: How can I synchronize the video and the transcription?**
 
 A: You can use the pause and forward/backward buttons of the video player to manually synchronize the video and transcription to your desired timing.
