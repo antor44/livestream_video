@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.60 License: GPL 3.0
+Author: Antonio R. Version: 1.62 License: GPL 3.0
 
 
 Usage:
@@ -777,7 +777,7 @@ class M3uPlaylistPlayer(tk.Frame):
                             subprocess.Popen(["xfce4-terminal", "--hold", "-e", f"{self.bash_script} {url} "
                                                                                 f"{bash_options} {mpv_options}"])
                         elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["xterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options}"
+                            subprocess.Popen(["xterm", "-e", f"{self.bash_script} {url} {bash_options}"
                                                                       f" {mpv_options}"])
                         else:
                             print("No compatible terminal found.")
@@ -955,7 +955,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.60\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.62\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
