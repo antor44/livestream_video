@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.62 License: GPL 3.0
+Author: Antonio R. Version: 1.64 License: GPL 3.0
 
 
 Usage:
@@ -106,8 +106,97 @@ import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog, PhotoImage
 
+
+def check_terminal_installed(terminal):
+   try:
+       if terminal == "mlterm":
+           result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
+           mlterm_output = result.stdout
+           if "mlterm" in mlterm_output:
+               return True
+           else:
+               return False
+       elif terminal in ["lxterm", "xterm"]:
+           process = subprocess.run([terminal, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+           return process.returncode == 0
+       else:
+           process = subprocess.run([terminal, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+           return process.returncode == 0
+   except OSError:
+       return False
+
+def check_player_installed(player):
+   try:
+       if player == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
+                                                   stderr=subprocess.DEVNULL) == 0:
+           return True
+       elif player == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
+                                                stderr=subprocess.DEVNULL) == 0:
+           return True
+       elif player == "none":
+           return True
+   except OSError:
+       return False
+
+
 # Default options
 rPadChars = 100 * " "
+default_terminal_option = "gnome-terminal"
+default_bash_options = "4 base auto raw"
+default_playeronly_option = False
+default_player_option = "smplayer"
+default_mpv_options = "--geometry=900"
+default_override_option = False
+terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
+player = ["none", "smplayer", "mpv"]
+models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large"]
+suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
+
+lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
+           'az': 'Azerbaijani', 'be': 'Belarusian', 'bg': 'Bulgarian', 'bn': 'Bengali', 'br': 'Breton',
+           'bs': 'Bosnian', 'ca': 'Catalan', 'cs': 'Czech', 'cy': 'Welsh', 'da': 'Danish',
+           'de': 'German', 'el': 'Greek', 'en': 'English', 'eo': 'Esperanto', 'es': 'Spanish',
+           'et': 'Estonian', 'eu': 'Basque', 'fa': 'Persian', 'fi': 'Finnish', 'fo': 'Faroese',
+           'fr': 'French', 'ga': 'Irish', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Bantu',
+           'haw': 'Hawaiian', 'he': '[Hebrew]', 'hi': 'Hindi', 'hr': 'Croatian', 'ht': 'Haitian Creole',
+           'hu': 'Hungarian', 'hy': 'Armenian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian',
+           'iw': 'Hebrew', 'ja': 'Japanese', 'jv': 'Javanese', 'ka': 'Georgian', 'kk': 'Kazakh',
+           'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'ku': 'Kurdish', 'ky': 'Kyrgyz',
+           'la': 'Latin', 'lb': 'Luxembourgish', 'lo': 'Lao', 'lt': 'Lithuanian', 'lv': 'Latvian',
+           'mg': 'Malagasy', 'mi': 'Maori', 'mk': 'Macedonian', 'ml': 'Malayalam', 'mn': 'Mongolian',
+           'mr': 'Marathi', 'ms': 'Malay', 'mt': 'Maltese', 'my': 'Myanmar', 'ne': 'Nepali',
+           'nl': 'Dutch', 'nn': 'Nynorsk', 'no': 'Norwegian', 'oc': 'Occitan', 'or': 'Oriya',
+           'pa': 'Punjabi', 'pl': 'Polish', 'ps': 'Pashto', 'pt': 'Portuguese', 'ro': 'Romanian',
+           'ru': 'Russian', 'sd': 'Sindhi', 'sh': 'Serbo-Croatian', 'si': 'Sinhala', 'sk': 'Slovak',
+           'sl': 'Slovenian', 'sn': 'Shona', 'so': 'Somali', 'sq': 'Albanian', 'sr': 'Serbian',
+           'su': 'Sundanese', 'sv': 'Swedish', 'sw': 'Swahili', 'ta': 'Tamil', 'te': 'Telugu',
+           'tg': 'Tajik', 'th': 'Thai', 'tl': 'Tagalog', 'tr': 'Turkish', 'tt': 'Tatar', 'ug': 'Uighur',
+           'uk': 'Ukrainian', 'ur': 'Urdu', 'uz': 'Uzbek', 'vi': 'Vietnamese', 'vo': 'Volapuk',
+           'wa': 'Walloon', 'xh': 'Xhosa', 'yi': 'Yiddish', 'yo': 'Yoruba', 'zh': 'Chinese',
+           'zu': 'Zulu'}
+
+terminal_installed = []
+for term in terminal:
+  if check_terminal_installed(term):
+      terminal_installed.append(term)
+
+player_installed = []
+for play in player:
+  if check_player_installed(play):
+      player_installed.append(play)
+
+model_list = models + [model + suffix for model in models for suffix in suffixes]
+
+model_path = "./models/ggml-{}.bin"
+models_installed = []
+for model in models:
+  if os.path.exists(model_path.format(model)):
+      models_installed.append(model)
+
+  for suffix in suffixes:
+      full_model_name = f"{model}{suffix}"
+      if os.path.exists(model_path.format(full_model_name)):
+          models_installed.append(full_model_name)
 
 
 class M3uPlaylistPlayer(tk.Frame):
@@ -115,96 +204,9 @@ class M3uPlaylistPlayer(tk.Frame):
         super().__init__(parent)
         self.spec = spec
         self.bash_script = bash
-        self.default_terminal_option = "gnome-terminal"
-        self.default_bash_options = "4 base auto raw"
-        self.default_playeronly_option = False
-        self.default_player_option = "smplayer"
-        self.default_mpv_options = "--geometry=900"
-        self.default_override_option = False
         self.current_options = {}
         self.list_number = 0
         self.playlist = []
-        self.lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
-                           'az': 'Azerbaijani', 'be': 'Belarusian', 'bg': 'Bulgarian', 'bn': 'Bengali', 'br': 'Breton',
-                           'bs': 'Bosnian', 'ca': 'Catalan', 'cs': 'Czech', 'cy': 'Welsh', 'da': 'Danish',
-                           'de': 'German', 'el': 'Greek', 'en': 'English', 'eo': 'Esperanto', 'es': 'Spanish',
-                           'et': 'Estonian', 'eu': 'Basque', 'fa': 'Persian', 'fi': 'Finnish', 'fo': 'Faroese',
-                           'fr': 'French', 'ga': 'Irish', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Bantu',
-                           'haw': 'Hawaiian', 'he': '[Hebrew]', 'hi': 'Hindi', 'hr': 'Croatian', 'ht': 'Haitian Creole',
-                           'hu': 'Hungarian', 'hy': 'Armenian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian',
-                           'iw': 'Hebrew', 'ja': 'Japanese', 'jv': 'Javanese', 'ka': 'Georgian', 'kk': 'Kazakh',
-                           'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'ku': 'Kurdish', 'ky': 'Kyrgyz',
-                           'la': 'Latin', 'lb': 'Luxembourgish', 'lo': 'Lao', 'lt': 'Lithuanian', 'lv': 'Latvian',
-                           'mg': 'Malagasy', 'mi': 'Maori', 'mk': 'Macedonian', 'ml': 'Malayalam', 'mn': 'Mongolian',
-                           'mr': 'Marathi', 'ms': 'Malay', 'mt': 'Maltese', 'my': 'Myanmar', 'ne': 'Nepali',
-                           'nl': 'Dutch', 'nn': 'Nynorsk', 'no': 'Norwegian', 'oc': 'Occitan', 'or': 'Oriya',
-                           'pa': 'Punjabi', 'pl': 'Polish', 'ps': 'Pashto', 'pt': 'Portuguese', 'ro': 'Romanian',
-                           'ru': 'Russian', 'sd': 'Sindhi', 'sh': 'Serbo-Croatian', 'si': 'Sinhala', 'sk': 'Slovak',
-                           'sl': 'Slovenian', 'sn': 'Shona', 'so': 'Somali', 'sq': 'Albanian', 'sr': 'Serbian',
-                           'su': 'Sundanese', 'sv': 'Swedish', 'sw': 'Swahili', 'ta': 'Tamil', 'te': 'Telugu',
-                           'tg': 'Tajik', 'th': 'Thai', 'tl': 'Tagalog', 'tr': 'Turkish', 'tt': 'Tatar', 'ug': 'Uighur',
-                           'uk': 'Ukrainian', 'ur': 'Urdu', 'uz': 'Uzbek', 'vi': 'Vietnamese', 'vo': 'Volapuk',
-                           'wa': 'Walloon', 'xh': 'Xhosa', 'yi': 'Yiddish', 'yo': 'Yoruba', 'zh': 'Chinese',
-                           'zu': 'Zulu'}
-        self.load_button = None
-        self.load_label = None
-        self.save_button = None
-        self.edit_button = None
-        self.delete_button = None
-        self.add_button = None
-        self.add_label = None
-        self.about_button = None
-        self.about_label = None
-        self.append_button = None
-        self.options_frame2 = None
-        self.override_checkbox = None
-        self.override_options = None
-        self.steps_s_spinner = None
-        self.save_options_id = None
-        self.mpv_options_entry = None
-        self.mpv_options_label = None
-        self.options_frame = None
-        self.mpv_bg = None
-        self.mpv_fg = None
-        self.player_option_menu = None
-        self.player = None
-        self.player_frame = None
-        self.player_label = None
-        self.playeronly_checkbox = None
-        self.playeronly = None
-        self.playeronly_frame = None
-        self.playeronly_label = None
-        self.quality_option_menu = None
-        self.quality = None
-        self.quality_frame = None
-        self.quality_label = None
-        self.options_frame1 = None
-        self.override_label = None
-        self.space_label = None
-        self.translate_checkbox = None
-        self.translate = None
-        self.translate_frame = None
-        self.translate_label = None
-        self.language_option_menu = None
-        self.language = None
-        self.language_frame = None
-        self.language_label = None
-        self.model_option_menu = None
-        self.model = None
-        self.model_frame = None
-        self.model_label = None
-        self.step_s_spinner = None
-        self.step_s = None
-        self.step_frame = None
-        self.step_s_label = None
-        self.terminal_option_menu = None
-        self.terminal = None
-        self.terminal_frame = None
-        self.terminal_label = None
-        self.options_frame0 = None
-        self.container_frame = None
-        self.termninal = None
-        self.tree = None
         self.create_widgets()
         self.populate_playlist()
         self.load_options()
@@ -233,7 +235,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.options_frame0.pack(side=tk.TOP, anchor=tk.W)
 
         # Terminal
-        terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 
         self.terminal_label = tk.Label(self.options_frame0, text="Terminal", padx=10)
         self.terminal_label.pack(side=tk.LEFT)
@@ -256,10 +257,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.terminal_option_menu.configure(menu=terminal_menu)
 
         for term in terminal:
-            if self.check_terminal_installed(term):
+            if term in terminal_installed:
                 terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
                                               command=update_terminal_button)
-                self.default_terminal_option = term
+                default_terminal_option = term
             else:
                 terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
                                               command=update_terminal_button, state="disabled")
@@ -281,9 +282,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.step_s_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
         # Whisper models
-        models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large"]
-        suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
-
         self.model_label = tk.Label(self.options_frame0, text="Model", padx=4)
         self.model_label.pack(side=tk.LEFT)
 
@@ -304,12 +302,10 @@ class M3uPlaylistPlayer(tk.Frame):
         model_menu = tk.Menu(self.model_option_menu, tearoff=0)
         self.model_option_menu.configure(menu=model_menu)
 
-        model_path = "./models/ggml-{}.bin"
-
         for model in models:
             suffix_menu = tk.Menu(model_menu, tearoff=0)
 
-            if os.path.exists(model_path.format(model)):
+            if model in models_installed:
                 suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button)
             else:
                 suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button,
@@ -317,7 +313,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
             for suffix in suffixes:
                 full_model_name = f"{model}{suffix}"
-                if os.path.exists(model_path.format(full_model_name)):
+                if full_model_name in models_installed:
                     suffix_menu.add_radiobutton(label=full_model_name, value=full_model_name, variable=self.model,
                                                 command=update_model_button)
                 else:
@@ -365,7 +361,7 @@ class M3uPlaylistPlayer(tk.Frame):
         for region, langs in regions.items():
             sublanguage_menu = tk.Menu(language_menu, tearoff=0)
             for lang in langs:
-                lang_name = self.lang_codes.get(lang)
+                lang_name = lang_codes.get(lang)
                 full_language_name = f"{lang} ({lang_name})"
                 sublanguage_menu.add_radiobutton(label=full_language_name, value=full_language_name,
                                                  variable=self.language, command=update_language_button)
@@ -444,8 +440,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.playeronly_checkbox.pack(side=tk.LEFT)
 
         # Players
-        player = ["none", "smplayer", "mpv"]
-
         self.player_label = tk.Label(self.options_frame1, text="Player", padx=4)
         self.player_label.pack(side=tk.LEFT)
 
@@ -467,9 +461,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_option_menu.configure(menu=player_menu)
 
         for play in player:
-            if self.check_player_installed(play):
+            if play in player_installed:
                 player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button)
-                self.default_player_option = play
+                default_player_option = play
             else:
                 player_menu.add_radiobutton(label=play, value=play, variable=self.player, command=update_player_button,
                                             state="disabled")
@@ -526,38 +520,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.about_button = tk.Button(self.options_frame2, text="About", command=self.show_about_window)
         self.about_button.pack(side=tk.LEFT)
 
-    @staticmethod
-    def check_terminal_installed(terminal):
-        try:
-            if terminal == "mlterm":
-                result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
-                mlterm_output = result.stdout
-                if "mlterm" in mlterm_output:
-                    return True
-                else:
-                    return False
-            elif terminal in ["lxterm", "xterm"]:
-                process = subprocess.run([terminal, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                return process.returncode == 0
-            else:
-                process = subprocess.run([terminal, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                return process.returncode == 0
-        except OSError:
-            return False
-
-    @staticmethod
-    def check_player_installed(player):
-        try:
-            if player == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
-                                                        stderr=subprocess.DEVNULL) == 0:
-                return True
-            elif player == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
-                                                     stderr=subprocess.DEVNULL) == 0:
-                return True
-            elif player == "none":
-                return True
-        except OSError:
-            return False
 
     def populate_playlist(self, filename=None):
         if filename is None:
@@ -630,18 +592,12 @@ class M3uPlaylistPlayer(tk.Frame):
         self.terminal.set(terminal_option)
         self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
 
-        if not self.check_terminal_installed(terminal_option):
+        if not terminal_option in terminal_installed:
             err_message = f"Warning: Terminal {terminal_option} was not found. Please install it" \
                           f" or choose other terminal."
             simpledialog.messagebox.showerror("Terminal Not Installed", err_message)
 
         self.translate.set(False)
-
-        models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium",
-                  "large-v1", "large"]
-        suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
-
-        model_list = models + [model + suffix for model in models for suffix in suffixes]
 
         options_list = bash_options.split()
         while options_list:
@@ -659,14 +615,14 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.model_option_menu.unbind("<<MenuSelect>>")
                 self.model.set(option)
                 self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                model_path = "./models/ggml-{}.bin".format(option)
-                if not os.path.exists(model_path):
+                if not option in models_installed:
+                    model_path = "./models/ggml-{}.bin".format(option)
                     err_message = f"Warning: File for model {option} was not found. " \
                                   f"Please install it in {model_path} or choose other model."
                     simpledialog.messagebox.showerror("Model Not Installed", err_message)
-            elif option in self.lang_codes:
+            elif option in lang_codes:
                 self.language_option_menu.unbind("<<MenuSelect>>")
-                lang_name = self.lang_codes.get(option)
+                lang_name = lang_codes.get(option)
                 full_language_name = f"{option} ({lang_name})"
                 self.language.set(full_language_name)
                 self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
@@ -679,7 +635,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_option_menu.unbind("<<MenuSelect>>")
         self.player.set(player_option)
         self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-        if not self.check_player_installed(player_option):
+        if not player_option in player_installed:
             err_message = f"Warning: Video player {player_option} was not found. Please install it " \
                           f"or choose other video player."
             simpledialog.messagebox.showerror("Video Player Not Installed", err_message)
@@ -710,11 +666,9 @@ class M3uPlaylistPlayer(tk.Frame):
 
             # Try launching smplayer, mpv, or mplayer
             if self.playeronly.get() or quality == "raw":
-                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
-                                                                 stderr=subprocess.DEVNULL) == 0:
+                if videoplayer == "smplayer" and videoplayer in player_installed:
                     subprocess.Popen(["smplayer", url, mpv_options])
-                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
-                                                              stderr=subprocess.DEVNULL) == 0:
+                elif videoplayer == "mpv" and videoplayer in player_installed:
                     subprocess.Popen(["mpv", url, mpv_options])
                 elif videoplayer == "none":
                     if self.playeronly.get():
@@ -737,11 +691,9 @@ class M3uPlaylistPlayer(tk.Frame):
 
             if not self.playeronly.get():
                 url = '"' + url + '"'
-                if videoplayer == "smplayer" and subprocess.call(["smplayer", "--help"], stdout=subprocess.DEVNULL,
-                                                                 stderr=subprocess.DEVNULL) == 0:
+                if videoplayer == "smplayer" and videoplayer in player_installed:
                     mpv_options = f"[smplayer {mpv_options}]"
-                elif videoplayer == "mpv" and subprocess.call(["mpv", "--version"], stdout=subprocess.DEVNULL,
-                                                              stderr=subprocess.DEVNULL) == 0:
+                elif videoplayer == "mpv" and videoplayer in player_installed:
                     mpv_options = f"[mpv {mpv_options}]"
                 elif videoplayer == "none":
                     mpv_options = f"[none]"
@@ -860,12 +812,12 @@ class M3uPlaylistPlayer(tk.Frame):
     def load_config(self):
         try:
             config_file = f'config_{self.spec}.json'
-            self.current_options["terminal_option"] = self.default_terminal_option
-            self.current_options["bash_options"] = self.default_bash_options
-            self.current_options["playeronly_option"] = self.default_playeronly_option
-            self.current_options["player_option"] = self.default_player_option
-            self.current_options["mpv_options"] = self.default_mpv_options
-            self.current_options["override_option"] = self.default_override_option
+            self.current_options["terminal_option"] = default_terminal_option
+            self.current_options["bash_options"] = default_bash_options
+            self.current_options["playeronly_option"] = default_playeronly_option
+            self.current_options["player_option"] = default_player_option
+            self.current_options["mpv_options"] = default_mpv_options
+            self.current_options["override_option"] = default_override_option
 
             if os.path.exists(config_file):
                 with open(config_file, "r") as file:
@@ -955,7 +907,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.62\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.64\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
