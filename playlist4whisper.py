@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.64 License: GPL 3.0
+Author: Antonio R. Version: 1.66 License: GPL 3.0
 
 
 Usage:
@@ -175,6 +175,19 @@ lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'A
            'wa': 'Walloon', 'xh': 'Xhosa', 'yi': 'Yiddish', 'yo': 'Yoruba', 'zh': 'Chinese',
            'zu': 'Zulu'}
 
+regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"],
+          "Asia": ["as", "az", "bn", "gu", "hi", "hy", "id", "ja", "jv", "ka", "km", "kn", "ko",
+                   "ku", "ky", "lo", "mn", "my", "ne", "or", "pa", "ps", "sd", "si", "ta", "te",
+                   "tg", "th", "tl", "tr", "tt", "ug", "ur", "uz", "vi", "zh"],
+          "Europe": ["be", "bg", "br", "bs", "ca", "cs", "cy", "da", "de", "el", "en", "es", "et",
+                     "eu", "fi", "fo", "fr", "ga", "gl", "hr", "hu", "is", "it", "kk", "la", "lb",
+                     "lt", "lv", "mk", "mt", "nl", "nn", "no", "oc", "pl", "pt", "ro", "ru", "sh",
+                     "sk", "sl", "sq", "sr", "sv", "uk", "wa"],
+          "Middle East": ['ar', "fa", "he", 'iw', "yi"],
+          "Oceania": ["haw", "mi", "mg"],
+          "Americas": ["ht"],
+          "World": ["ar", "en", "eo", "es", "de", "fr", "pt", "ru", "zh"]}
+
 terminal_installed = []
 for term in terminal:
   if check_terminal_installed(term):
@@ -273,7 +286,8 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.step_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.step_frame.pack(side=tk.LEFT)
-
+        
+        self.save_options_id = None
         self.step_s = tk.StringVar(value="4")
         self.step_s_spinner = tk.Spinbox(self.step_frame, from_=2, to=60, width=2, textvariable=self.step_s,
                                          command=self.schedule_save_options)
@@ -322,19 +336,6 @@ class M3uPlaylistPlayer(tk.Frame):
 
             model_menu.add_cascade(label=model, menu=suffix_menu)
         # Regions and their languages
-        regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"],
-                   "Asia": ["as", "az", "bn", "gu", "hi", "hy", "id", "ja", "jv", "ka", "km", "kn", "ko",
-                            "ku", "ky", "lo", "mn", "my", "ne", "or", "pa", "ps", "sd", "si", "ta", "te",
-                            "tg", "th", "tl", "tr", "tt", "ug", "ur", "uz", "vi", "zh"],
-                   "Europe": ["be", "bg", "br", "bs", "ca", "cs", "cy", "da", "de", "el", "en", "es", "et",
-                              "eu", "fi", "fo", "fr", "ga", "gl", "hr", "hu", "is", "it", "kk", "la", "lb",
-                              "lt", "lv", "mk", "mt", "nl", "nn", "no", "oc", "pl", "pt", "ro", "ru", "sh",
-                              "sk", "sl", "sq", "sr", "sv", "uk", "wa"],
-                   "Middle East": ['ar', "fa", "he", 'iw', "yi"],
-                   "Oceania": ["haw", "mi", "mg"],
-                   "Americas": ["ht"],
-                   "World": ["ar", "en", "eo", "es", "de", "fr", "pt", "ru", "zh"]}
-
         self.language_label = tk.Label(self.options_frame0, text="Language", padx=4)
         self.language_label.pack(side=tk.LEFT)
 
@@ -907,7 +908,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.64\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.66\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
