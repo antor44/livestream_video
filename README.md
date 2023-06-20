@@ -2,19 +2,19 @@
 
 "Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
-Author: Antonio R. Version: 1.64 License: GPL 3.0
+Author: Antonio R. Version: 1.68 License: GPL 3.0
 
 
 Usage: 
 
 python playlist4whisper.py 
 
--Support for IPTV, YouTube and Twitch
+-Support for IPTV, YouTube, Twitch, and many others
 
-The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
+The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, and playlist_others.m3u
  and will store options in config_xxx.json.
  
-When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, and config_twitch.json.
+When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and config_others.json.
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
@@ -26,7 +26,7 @@ This program depends on other Linux programs and their libraries, such as Python
 sudo apt-get install mpv smplayer ffmpeg python3-tk
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
-For Twitch streamlink is required (https://streamlink.github.io)
+For Twitch and Others streamlink is required (https://streamlink.github.io)
 
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp. The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the Whisper model file from OpenAI should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
 
@@ -47,7 +47,7 @@ https://github.com/ggerganov/whisper.cpp
 
 This Linux script adds some new features:
 
--Support for IPTV, YouTube and Twitch
+-Support for IPTV, YouTube, Twitch, and many others
 
 -Support for multi-instance and multi-user execution (For SMPlayer: Go to Preferences -> Interface -> Instances, and turn off the option to use only one instance)
 
@@ -55,11 +55,13 @@ This Linux script adds some new features:
 
 -Quantized models support
 
+-Voice activity detection (VAD) for splitting audio into chunks
+
 -MacOS support.
 
 #
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [streamlink] [ [player executable + player options] ]
 
    Example (defaults if no options are specified):
 
@@ -68,6 +70,8 @@ Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] 
 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
  "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+
+streamlink option forces the url to be processed by streamlink.
 
 "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 
@@ -128,15 +132,12 @@ Recommended Linux video player: SMPlayer based on mvp, or any other video player
 #
 # To-Do List
 
-- Voice activity detection (VAD) for splitting audio into chunks
-- Temporal storage of the transcription text, take them into account for AI
 - Timeshift
-- ...
 - Advanced GUI as a standalone application
 - Support for different AI engines
 - Sound filters
 - GPU acceleration support
-- Cross-platform compatibility
+- ...
 
 #
 # FAQ
