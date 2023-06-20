@@ -9,7 +9,7 @@ Usage:
 
 python playlist4whisper.py 
 
--Support for IPTV, YouTube, Twitch, and many others
+-Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink, including: Dailymotion, Mixer, Periscope, Vimeo, Livestream, Ustream, Facebook, and many more
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, and playlist_others.m3u
  and will store options in config_xxx.json.
