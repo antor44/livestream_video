@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.68 License: GPL 3.0
+Author: Antonio R. Version: 1.70 License: GPL 3.0
 
 
 Usage:
@@ -61,15 +61,18 @@ For Twitch streamlink is required (https://streamlink.github.io)
 Options for script:
 
 Usage:
-./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + options] ]
+./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
 
 Example (defaults if no options are specified):
 ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw [smplayer]
 
+ [streamlink] option forces the url to be processed by streamlink
+ [yt-dlp] option forces the url to be processed by yt-dlp
 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without
  any modifications for the player. "Upper" and "lower" download only one stream, which might correspond to the best
  or worst stream quality, re-encoded for the player.
+
 
 "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[true]" for no player.
 
@@ -688,8 +691,10 @@ class M3uPlaylistPlayer(tk.Frame):
             terminal = self.terminal.get()
             bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
                            translate_value + " " + quality
-            if self.spec == "others":
+            if self.spec == "streamlink":
                 bash_options = bash_options + " streamlink"
+            if self.spec == "yt-dlp":
+                bash_options = bash_options + " yt-dlp"
             print("Script Options:", bash_options)
 
             if not self.playeronly.get():
@@ -910,7 +915,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.68\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.70\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -960,11 +965,13 @@ class MainApplication:
     tab2 = ttk.Frame(tab_control)
     tab3 = ttk.Frame(tab_control)
     tab4 = ttk.Frame(tab_control)
+    tab5 = ttk.Frame(tab_control)
 
     tab_control.add(tab1, text="IPTV", compound="left")
     tab_control.add(tab2, text="YouTube", compound="left")
     tab_control.add(tab3, text="Twitch", compound="left")
-    tab_control.add(tab4, text="Others", compound="left")
+    tab_control.add(tab4, text="streamlink", compound="left")
+    tab_control.add(tab5, text="yt-dlp", compound="left")
 
     canvas1 = tk.Canvas(tab1, width=25, height=80, bg='black', highlightthickness=0)
     canvas1.pack(side=tk.LEFT, fill=tk.Y)
@@ -980,12 +987,17 @@ class MainApplication:
 
     canvas4 = tk.Canvas(tab4, width=25, height=80, bg='#2c7ef2', highlightthickness=0)
     canvas4.pack(side=tk.LEFT, fill=tk.Y)
-    canvas4.create_text(15, 40, text='Others', angle=90, fill='white', anchor='center')
+    canvas4.create_text(15, 40, text='streamlink', angle=90, fill='white', anchor='center')
+
+    canvas5 = tk.Canvas(tab5, width=25, height=80, bg='#ff7e00', highlightthickness=0)
+    canvas5.pack(side=tk.LEFT, fill=tk.Y)
+    canvas5.create_text(15, 40, text='yt-dlp', angle=90, fill='white', anchor='center')
 
     spec1 = "iptv"
     spec2 = "youtube"
     spec3 = "twitch"
-    spec4 = "others"
+    spec4 = "streamlink"
+    spec5 = "yt-dlp"
 
     tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
@@ -1000,6 +1012,9 @@ class MainApplication:
 
     playlist_player4 = M3uPlaylistPlayer(tab4, spec4, script)
     playlist_player4.pack(fill=tk.BOTH, expand=True)
+
+    playlist_player5 = M3uPlaylistPlayer(tab5, spec5, script)
+    playlist_player5.pack(fill=tk.BOTH, expand=True)
 
 
 if __name__ == "__main__":
