@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.64 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.68 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -28,11 +28,12 @@
 #This Linux script adds some new features:
 #
 #-Support for multi-instance and multi-user execution
-#-Support for IPTV, YouTube and Twitch
+#-Support for IPTV, YouTube, Twitch, and many others
 #-Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
 #-Quantized models support
+#-VAD (voice activity detection)
 #
-# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
+# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [streamlink] [ [player executable + player options] ]
 #
 #   Example (defaults if no options are specified):
 #
@@ -40,6 +41,8 @@
 #
 # Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
 # "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+#
+# streamlink option forces the url to be processed by streamlink
 #
 #"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 #
@@ -72,6 +75,8 @@ language="auto"
 translate=""
 mpv_options="mpv"
 quality="raw"
+streamlink_force=""
+
 
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (<Hebrew>), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (<Hebrew>), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
@@ -146,6 +151,7 @@ while [[ $# -gt 0 ]]; do
         [2-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
         raw | upper | lower ) quality=$1;;
+        streamlink ) streamlink_force=$1;;
         \[* )
             mpv_options=${1#\[}
             if [[ $mpv_options == none*\]* ]]; then
@@ -243,25 +249,26 @@ if [[ $quality == "upper" ]]; then
 
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
-        *twitch* )
-            if ! command -v streamlink >/dev/null 2>&1; then
-                echo "streamlink is required (https://streamlink.github.io)"
-                exit 1
-            fi
-            ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" -bufsize 440M \
-                -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-            ffmpeg_pid=$!
-
-            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            ;;
         * )
-            ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-            ffmpeg_pid=$!
+            if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
+                if ! command -v streamlink >/dev/null 2>&1; then
+                    echo "streamlink is required (https://streamlink.github.io)"
+                    exit 1
+                fi
+                ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" -bufsize 440M \
+                    -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+                ffmpeg_pid=$!
 
-            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            else
+                ffmpeg -loglevel quiet -y -probesize 32 -i $url \
+                    -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+                ffmpeg_pid=$!
+
+                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            fi
             ;;
     esac
 fi
@@ -280,25 +287,26 @@ if [[ $quality == "lower" ]]; then
 
             nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
-        *twitch* )
-            if ! command -v streamlink >/dev/null 2>&1; then
-                echo "streamlink is required (https://streamlink.github.io)"
-                exit 1
-            fi
-                ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
-                -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-            ffmpeg_pid=$!
-
-            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            ;;
         * )
-            ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-            ffmpeg_pid=$!
+            if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
+                if ! command -v streamlink >/dev/null 2>&1; then
+                    echo "streamlink is required (https://streamlink.github.io)"
+                    exit 1
+                fi
+                    ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
+                    -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+                ffmpeg_pid=$!
 
-            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            else
+                ffmpeg -loglevel quiet -y -probesize 32 -i $url \
+                    -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+                ffmpeg_pid=$!
+
+                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+            fi
             ;;
     esac
 fi
@@ -313,17 +321,18 @@ if [[ $quality == "raw" ]]; then
             ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
             ffmpeg_pid=$!
             ;;
-        *twitch* )
-            if ! command -v streamlink >/dev/null 2>&1; then
-                echo "streamlink is required (https://streamlink.github.io)"
-                exit 1
-            fi
-            streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-            ffmpeg_pid=$!
-            ;;
         * )
-            ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-            ffmpeg_pid=$!
+            if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
+                if ! command -v streamlink >/dev/null 2>&1; then
+                    echo "streamlink is required (https://streamlink.github.io)"
+                    exit 1
+                fi
+                streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                ffmpeg_pid=$!
+            else
+                ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                ffmpeg_pid=$!
+            fi
             ;;
     esac
 
@@ -347,16 +356,42 @@ fi
 set +e
 
 i=0
+last_silence_start=$(echo "1000 * $step_s" | bc -l)
 SECONDS=0
 while [ $running -eq 1 ]; do
     # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
     err=1
+    silence_start=$(echo "$last_silence_start" | bc -l)
+
     while [ $err -ne 0 ]; do
-        if [ $i -gt 0 ]; then
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+        if awk -v silence="$silence_start" 'BEGIN { exit !(silence != 0) }'; then
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "($i - 1) * $step_s + ($silence_start / 1000)" | bc -l) -t $(echo "2 * $step_s - ($silence_start / 1000)" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
         else
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.8" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s" | bc -l) -t $(echo "$step_s" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
         fi
+
+        last_silence_str=$(ffmpeg -noaccurate_seek -i /tmp/whisper-live_${mypid}.wav -t $(echo "2 * $step_s - ($silence_start / 1000)" | bc -l) -af silencedetect=n=-30dB:d=0.1 -f null - 2>&1 | awk -F ': ' '/silence_start/ {print $2}' | tail -n 1)
+        last_silence_str=$(echo "$last_silence_str" | bc -l)
+
+        is_decimal() {
+            local re='^[+-]?[0-9]+([.][0-9]+)?$'
+            [[ $1 =~ $re ]]
+        }
+
+        if [ -z "$last_silence_str" ] || ! is_decimal "$last_silence_str" || [ "$(echo "$last_silence_str < ($step_s / 2)" | bc -l)" -eq 1 ]; then
+            last_silence_start=$(echo "0" | bc -l)
+        else
+            last_silence_start=$(echo "1000 * $last_silence_str" | bc -l)
+        fi
+
+        if [ "$(echo "$last_silence_start > 0" | bc -l)" -eq 1 ]; then
+            if [ "$(echo "$silence_start > 0" | bc -l)" -eq 1 ]; then
+              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "($i - 1) * $step_s + ($silence_start / 1000)" | bc -l) -t $(echo "$last_silence_start /1000" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            else
+              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s" | bc -l) -t $(echo "$last_silence_start / 1000" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            fi
+        fi
+
         err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
     done
 
