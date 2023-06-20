@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.66 License: GPL 3.0
+Author: Antonio R. Version: 1.68 License: GPL 3.0
 
 
 Usage:
@@ -286,7 +286,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.step_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.step_frame.pack(side=tk.LEFT)
-        
+
         self.save_options_id = None
         self.step_s = tk.StringVar(value="4")
         self.step_s_spinner = tk.Spinbox(self.step_frame, from_=2, to=60, width=2, textvariable=self.step_s,
@@ -688,6 +688,8 @@ class M3uPlaylistPlayer(tk.Frame):
             terminal = self.terminal.get()
             bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
                            translate_value + " " + quality
+            if self.spec == "others":
+                bash_options = bash_options + " streamlink"
             print("Script Options:", bash_options)
 
             if not self.playeronly.get():
@@ -908,7 +910,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.66\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.68\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -957,10 +959,12 @@ class MainApplication:
     tab1 = ttk.Frame(tab_control)
     tab2 = ttk.Frame(tab_control)
     tab3 = ttk.Frame(tab_control)
+    tab4 = ttk.Frame(tab_control)
 
     tab_control.add(tab1, text="IPTV", compound="left")
     tab_control.add(tab2, text="YouTube", compound="left")
     tab_control.add(tab3, text="Twitch", compound="left")
+    tab_control.add(tab4, text="Others", compound="left")
 
     canvas1 = tk.Canvas(tab1, width=25, height=80, bg='black', highlightthickness=0)
     canvas1.pack(side=tk.LEFT, fill=tk.Y)
@@ -974,9 +978,14 @@ class MainApplication:
     canvas3.pack(side=tk.LEFT, fill=tk.Y)
     canvas3.create_text(15, 40, text='Twitch', angle=90, fill='white', anchor='center')
 
+    canvas4 = tk.Canvas(tab4, width=25, height=80, bg='#2c7ef2', highlightthickness=0)
+    canvas4.pack(side=tk.LEFT, fill=tk.Y)
+    canvas4.create_text(15, 40, text='Others', angle=90, fill='white', anchor='center')
+
     spec1 = "iptv"
     spec2 = "youtube"
     spec3 = "twitch"
+    spec4 = "others"
 
     tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
@@ -988,6 +997,9 @@ class MainApplication:
 
     playlist_player3 = M3uPlaylistPlayer(tab3, spec3, script)
     playlist_player3.pack(fill=tk.BOTH, expand=True)
+
+    playlist_player4 = M3uPlaylistPlayer(tab4, spec4, script)
+    playlist_player4.pack(fill=tk.BOTH, expand=True)
 
 
 if __name__ == "__main__":
