@@ -239,7 +239,7 @@ A: You can use the pause and forward/backward buttons of the video player to man
 
 A: The video and transcription applications work independently, each with its own stream of video. Over time, the desynchronization can also vary, choosing a model that is too large for the processor's capabilities can also affect the synchronization.
 
-The timeshift feature, which will be added in the future, may help address the issue alongside with an automatic video/transcription synchronization, albeit potentially resulting in the omission of some phrases.
+The timeshift feature, which will be added in the future, may help address the issue alongside with an automatic video/transcription synchronization option, albeit potentially resulting in the omission of some phrases.
 
 **Q: The transcriptions I get are not accurate. What could be the issue?**
 
