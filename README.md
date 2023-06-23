@@ -241,7 +241,11 @@ A: The video and transcription applications work independently, each with its ow
 
 The timeshift feature alongside with an automatic video/transcription synchronization option, which will be added in the future, may help address the issue, albeit potentially resulting in the omission of some phrases.
 
-**Q: The transcriptions I get are not accurate. What could be the issue?**
+**Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
+
+A: The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging voice tones or changes in voices during conversations can pose difficulties. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
+
+**Q: The transcriptions I get are not accurate?**
 
 A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models for other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or translate for simultaneous translation to English, it may also significantly increase processor consumption.
 
