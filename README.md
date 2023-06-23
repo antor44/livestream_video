@@ -243,7 +243,7 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
-A: The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging voice tones or changes in voices during conversations can pose difficulties. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
+A: The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging voice tones or changes in voices during conversations can pose difficulties. In the future, the addition of sound filters options aims to minimize these issues. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
 
 **Q: The transcriptions I get are not accurate?**
 
