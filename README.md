@@ -30,6 +30,17 @@ sudo apt-get install mpv smplayer ffmpeg python3-tk
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
 For Twitch and Others streamlink is required (https://streamlink.github.io)
 
+The easy way to install yt-dlp and streamlink:
+```
+pip3 install yt-dlp
+pip3 install streamlink
+```
+Or to upgrade them:
+```
+pip3 install --upgrade yt-dlp
+pip3 install --upgrade streamlink
+```
+
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp. The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the Whisper model file from OpenAI should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
 
 make tiny.en
