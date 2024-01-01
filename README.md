@@ -5,22 +5,17 @@
 Author: Antonio R. Version: 1.70 License: GPL 3.0
 
 
-Usage: 
-
-python playlist4whisper.py 
-
-- Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
-- List of supported sites by streamlink (not all are updated to be supported): https://streamlink.github.io/plugins.html
-- List of supported sites by yt-dlp (not all supported): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
-
-The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
- and will store options in config_xxx.json.
- 
-When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.
-
-For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
-
 #
+# Installation
+
+1. Download and build whisper-cpp to a new directory, then download some models following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
+
+2. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
+
+3. Finally, you can run the GUI by running the following command in the terminal:
+```
+python3 playlist4whisper.py
+```
 The application has a simple GUI using Python and the Tkinter library. It transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on "livestream.sh" from whisper.cpp.
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
@@ -47,10 +42,30 @@ make tiny.en
 
 make small
 
+#
+# Usage: 
 
+python playlist4whisper.py 
+
+- Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
+- List of supported sites by streamlink (not all are updated to be supported): https://streamlink.github.io/plugins.html
+- List of supported sites by yt-dlp (not all supported): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
+
+The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
+ and will store options in config_xxx.json.
+ 
+When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.
+
+The majority of online video streams should work.
+
+Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
+
+For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
 #
 # livestream_video.sh
+
+This is a program with the same transcription features as playlist4whisper GUI and can be run independently of the GUI in a terminal by adding parameters.
 
 livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
@@ -58,7 +73,7 @@ https://github.com/ggerganov/whisper.cpp
 
 #
 
-This Linux script adds some new features:
+Some notable features:
 
 -Support for IPTV, YouTube, Twitch, and many others
 
@@ -112,12 +127,6 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 
 translate: The "translate" option provides automatic English translation (only English is available).
-
-#
-
-The majority of online video streams should work.
-
-Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
 #
 
