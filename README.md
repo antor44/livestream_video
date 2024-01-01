@@ -47,6 +47,8 @@ make small
 
 python playlist4whisper.py 
 
+*For help with options, see the livestream_video.sh section.
+
 - Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
 - List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
 - List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
