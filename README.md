@@ -98,7 +98,7 @@ Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] 
 
 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
- "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.It is intended to save downloaded data, although not all streams support it
+ "Upper" and "lower" download only one stream and re-encoded for the player, which might correspond to the best or worst stream quality, it is intended to save downloaded data, although not all streams support it.
 
 "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 
