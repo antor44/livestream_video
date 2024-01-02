@@ -273,8 +273,8 @@ A: The quality of the transcriptions depends on several factors, especially the 
 
 **Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
 
-A:  Yes, if you have knowledge of Artificial Intelligence programming, you would need to fine-tune a default model by retraining the model with a dataset of voices along with their transcriptions in a specific language. These datasets can be found online, as well as sample codes for fine-tuning a Whisper model.
- 
+A:  Yes, if you have knowledge of Artificial Intelligence programming, you would need to fine-tune a default model by retraining the model with a dataset of voices along with their transcriptions in a specific language. These datasets can be found online, as well as sample codes for fine-tuning a Whisper model. Whisper models must be converted to ggml format, to convert Whisper models to ggml format yourself, instructions are at: https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
+
 You can also try using the quantized models option, which can improve execution speed on certain processors.
  
 Alternatively, instead of running the AI engine on the CPU, you can try compiling whisper.cpp with partial GPU support using the cuBLAS library for Nvidia graphics cards or GPUs, or compile it with partial OpenCL GPU support using the CLBlast library for all graphics cards or GPUs, including Nvidia, AMD, and Intel. By doing so, you can significantly increase the execution speed by at least x2 or even more, depending on the GPU model you have, and this will allow you to run larger whisper models:
@@ -294,3 +294,5 @@ A: smplayer depens of mpv or mplayer, the installed version of mplayer may not s
 A: Yes, of course, many of the URLs of channels that you find published on the internet are proactively accessible for free use thanks to companies, governments or public institutions, as long as it is for personal use only. Channels that may be restricted to a country or region for copyright reasons cannot be viewed, and the broadcasting company blocks viewers with IPs from other countries. However, the playlists that are found on the internet may contain some channels with legality that is not entirely clear, even if their URLs are publicly known, it is likely that direct distribution of the signal or commercialization of the television channel is not allowed.
  
 In the case of YouTube and Twitch, watching channels through standalone applications such as yt-dlp or streamlink poses a conflict with the companies as they cannot control the advertisements you see. In other words, they are not interested in this approach and may make it difficult or prevent you from accessing their video streams.
+
+If you wish to convert the Whisper models to ggml format yourself, instructions are in models/README.md.
