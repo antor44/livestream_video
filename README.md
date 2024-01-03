@@ -67,7 +67,7 @@ For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, an
 #
 # livestream_video.sh
 
-This is a command-line program with the same transcription functions as playlist4whisper GUI and can be run independently of the GUI, options are set via parameters in a terminal or a desktop shortcut for each TV channel.
+This is a command-line program with the same transcription functions as playlist4whisper GUI and can be run independently of the GUI, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
 
 livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
