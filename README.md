@@ -273,7 +273,7 @@ A: The quality of the transcriptions depends on several factors, especially the 
 
 **Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
 
-A:  Yes, if you have knowledge of Artificial Intelligence programming, you would need to fine-tune a default model by retraining the model with a dataset of voices along with their transcriptions in a specific language. These datasets can be found online, as well as sample codes for fine-tuning a Whisper model. Whisper models must be converted to ggml format, to convert Whisper models to ggml format yourself, instructions are at: https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
+A:  Yes, if you have knowledge of AI programming, you will need to fine-tune a default model by retraining it with a dataset of voices along with their transcriptions in a specific language, or to improve an accent, slang or dialect. These datasets can be found online, as well as sample codes for fine-tuning a Whisper model. Whisper models must be converted to ggml format, to convert Whisper models to ggml format yourself, instructions are at: https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
 
 You can also try using the quantized models option, which can improve execution speed on certain processors.
  
