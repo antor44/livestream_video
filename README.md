@@ -295,4 +295,4 @@ A: Yes, of course, many of the URLs of channels that you find published on the i
  
 In the case of YouTube and Twitch, watching channels through standalone applications such as yt-dlp or streamlink poses a conflict with the companies as they cannot control the advertisements you see. In other words, they are not interested in this approach and may make it difficult or prevent you from accessing their video streams.
 
-If you wish to convert the Whisper models to ggml format yourself, instructions are in models/README.md.
+
