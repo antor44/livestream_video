@@ -28,14 +28,14 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.70 License: GPL 3.0
+Author: Antonio R. Version: 1.80 License: GPL 3.0
 
 
 Usage:
 python playlist4whisper.py
 
 -Support for multi-instance and multi-user execution
--Support for IPTV, YouTube and Twitch
+-Support for IPTV, YouTube, Twitch and many others
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
  and will store options in config_xxx.json.
@@ -64,7 +64,7 @@ Usage:
 ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
 
 Example (defaults if no options are specified):
-./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw [smplayer]
+./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
 
  [streamlink] option forces the url to be processed by streamlink
  [yt-dlp] option forces the url to be processed by yt-dlp
@@ -145,7 +145,7 @@ def check_player_installed(player):
 # Default options
 rPadChars = 100 * " "
 default_terminal_option = "gnome-terminal"
-default_bash_options = "4 base auto raw"
+default_bash_options = "8 base auto raw"
 default_playeronly_option = False
 default_player_option = "smplayer"
 default_mpv_options = "--geometry=900"
@@ -475,7 +475,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_option_menu.bind("<<MenuSelect>>", lambda e: update_player_button())
 
         # Player Options
-        self.mpv_options_label = tk.Label(self.options_frame1, text="Player Options:", padx=4)
+        self.mpv_options_label = tk.Label(self.options_frame1, text="Player Options", padx=4)
         self.mpv_options_label.pack(side=tk.LEFT)
 
         self.mpv_options_entry = tk.Entry(self.options_frame1, width=50)
@@ -494,7 +494,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.options_frame2 = tk.Frame(self.container_frame)
         self.options_frame2.pack(side=tk.TOP, anchor=tk.W)
 
-        self.add_label = tk.Label(self.options_frame2, text="Channel:", padx=10)
+        self.add_label = tk.Label(self.options_frame2, text="Channel", padx=10)
         self.add_label.pack(side=tk.LEFT)
 
         self.add_button = tk.Button(self.options_frame2, text="Add", command=self.add_channel)
@@ -506,7 +506,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.edit_button = tk.Button(self.options_frame2, text="Edit", command=self.edit_channel)
         self.edit_button.pack(side=tk.LEFT)
 
-        self.load_label = tk.Label(self.options_frame2, text="Playlist:", padx=10)
+        self.load_label = tk.Label(self.options_frame2, text="Playlist", padx=10)
         self.load_label.pack(side=tk.LEFT)
 
         self.load_button = tk.Button(self.options_frame2, text="Load", command=self.load_playlist)
@@ -754,8 +754,28 @@ class M3uPlaylistPlayer(tk.Frame):
         name = simpledialog.askstring("Add Channel", "Channel Name:" + rPadChars)
         url = simpledialog.askstring("Add Channel", "Channel URL:" + rPadChars)
         if name and url:
-            self.list_number = len(self.tree.get_children()) + 1
-            self.tree.insert("", "end", values=(self.list_number, name, url))
+            selection = self.tree.selection()
+            # Update list number for new item
+            if selection:
+                index = self.tree.index(selection[0])
+                index += 1
+            else:
+                index = len(self.tree.get_children()) + 1
+
+            # Add the channel to the list
+            self.tree.insert("", index, values=(index, name, url))
+
+            # iterate over all items and update their list_number
+            for i, item in enumerate(self.tree.get_children()):
+                self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
+
+            # Show a success message
+            simpledialog.messagebox.showinfo("Success", "Channel added successfully. Don't forget to save the playlist.")
+        else:
+            # Show an error message if either name or URL is not provided
+            simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
+
+
 
     # Function to delete a channel
     def delete_channel(self):
@@ -765,6 +785,9 @@ class M3uPlaylistPlayer(tk.Frame):
             # iterate over all items and update their list_number
             for i, item in enumerate(self.tree.get_children()):
                 self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
+            
+            # Show a success message
+            simpledialog.messagebox.showinfo("Success", "Channel deleted successfully. Don't forget to save the playlist.")
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to delete")
 
@@ -780,6 +803,9 @@ class M3uPlaylistPlayer(tk.Frame):
                                          initialvalue=self.tree.item(item, "values")[2])
             if name and url:
                 self.tree.item(item, values=(list_number, name, url))
+            
+            # Show a success message
+            simpledialog.messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to edit")
 
@@ -915,7 +941,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.70\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.80\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
