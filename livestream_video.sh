@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.70 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 1.80 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -40,7 +40,7 @@
 #
 #   Example (defaults if no options are specified):
 #
-#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 4 base auto raw [smplayer]
+#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
 #
 # Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
 # "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
@@ -70,7 +70,7 @@ fi
 
 url_default="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
 fmt=mp3 # the audio format
-step_s=4
+step_s=8
 model="base"
 language="auto"
 translate=""
