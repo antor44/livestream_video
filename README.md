@@ -60,7 +60,7 @@ When updating, you may need to delete your previous configuration files in the i
 
 The majority of online video streams should work.
 
-Recommended Linux video player: SMPlayer based on mvp, or any other video player based on mpv, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
+Recommended Linux video player: SMPlayer based on mvp, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
