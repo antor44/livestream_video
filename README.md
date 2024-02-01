@@ -174,7 +174,7 @@ Additionally, "playlist4whisper" relies on the included bash script "livestream_
 
 **Q: Why is the program not working?**
 
-A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The main executable of whisper.cpp, which is the primary example, should be compiled and placed in the same directory as the script livestream_video.sh. By default, the executable should be named 'main'. Additionally, it is necessary the Whisper model file from OpenAI in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
+A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. The main executable of whisper.cpp, the primary example, needs to be compiled and placed in the same directory as playlist4whisper and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model file from OpenAI in the "models" directory, following the correct format and name as specified in the Whisper.cpp repository. This task can be accomplished using terminal commands, for example:
 
 make tiny.en
 
