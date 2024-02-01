@@ -166,6 +166,12 @@ translate: The "translate" option provides automatic English translation (only E
 #
 # FAQ
 
+**Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
+
+A: The absence of a precompiled and packaged distribution for "playlist4whisper" is due to the constant changes and optional optimizations in the underlying "whisper-cpp" Linux program. Providing the source code allows users to adapt to these modifications and optimize performance based on their hardware and preferences.
+
+Additionally, "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. Providing the source code enables expert users to customize and adapt the programs to their specific needs and environments.
+
 **Q: Why is the program not working?**
 
 A: There could be various reasons. This script/program depends on other Linux programs and their libraries, such as whisper.cpp and mpv. The main executable of whisper.cpp, which is the primary example, should be compiled and placed in the same directory as the script livestream_video.sh. By default, the executable should be named 'main'. Additionally, it is necessary the Whisper model file from OpenAI in the "models" directory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands like one of the following examples:
