@@ -244,7 +244,7 @@ pip3 install streamlink
 python3 playlist4whisper.py
 ```
 
-Please note that on macOS, only xterm terminal and mpv videoplayer are supported.
+Please note that on macOS, only the xterm terminal and the mpv video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
 
 **Q: How can I permanently change the size and colors of the transcription text on macOS?**
 
