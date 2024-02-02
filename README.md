@@ -2,7 +2,7 @@
 
 "Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
-Author: Antonio R. Version: 1.80 License: GPL 3.0
+Author: Antonio R. Version: 1.82 License: GPL 3.0
 
 
 #
