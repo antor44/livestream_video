@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.80 License: GPL 3.0
+Author: Antonio R. Version: 1.82 License: GPL 3.0
 
 
 Usage:
@@ -804,8 +804,11 @@ class M3uPlaylistPlayer(tk.Frame):
             if name and url:
                 self.tree.item(item, values=(list_number, name, url))
             
-            # Show a success message
-            simpledialog.messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
+                # Show a success message
+                simpledialog.messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
+            else:
+                # Show an error message if either name or URL is not provided
+                simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to edit")
 
@@ -941,7 +944,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.80\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.82\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
