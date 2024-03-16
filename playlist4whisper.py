@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 1.82 License: GPL 3.0
+Author: Antonio R. Version: 1.84 License: GPL 3.0
 
 
 Usage:
@@ -78,7 +78,7 @@ Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to dow
 
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
-Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large
+Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2. large-v3
 
     ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0
 
@@ -152,7 +152,7 @@ default_mpv_options = "--geometry=900"
 default_override_option = False
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
-models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large"]
+models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3"]
 suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
 
 lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
@@ -785,7 +785,7 @@ class M3uPlaylistPlayer(tk.Frame):
             # iterate over all items and update their list_number
             for i, item in enumerate(self.tree.get_children()):
                 self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
-            
+
             # Show a success message
             simpledialog.messagebox.showinfo("Success", "Channel deleted successfully. Don't forget to save the playlist.")
         else:
@@ -803,7 +803,7 @@ class M3uPlaylistPlayer(tk.Frame):
                                          initialvalue=self.tree.item(item, "values")[2])
             if name and url:
                 self.tree.item(item, values=(list_number, name, url))
-            
+
                 # Show a success message
                 simpledialog.messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
             else:
@@ -944,7 +944,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 1.82\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 1.84\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
