@@ -1,6 +1,7 @@
 # playlist4whisper GUI
 
 **Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
+**Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
 Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options."
 
@@ -52,7 +53,7 @@ python playlist4whisper.py
 
 *For help with options, see the livestream_video.sh section.
 
-- Supports a fully configurable timeshift feature (only VLC player)
+- Supports a fully configurable timeshift feature, exclusive to VLC player (not all streams supported)
 - Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
 - List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
 - List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
@@ -80,7 +81,7 @@ https://github.com/ggerganov/whisper.cpp
 
 Some notable features:
 
--Supports a fully configurable timeshift feature (only VLC player)
+-Supports a fully configurable timeshift feature, exclusive to VLC player (not all streams supported)
   
 -Support for IPTV, YouTube, Twitch, and many others
 
@@ -234,6 +235,7 @@ brew install python-tk@3.11
 brew install make
 brew install xquartz
 brew install xterm
+brew install vlc
 brew install mpv
 ```
 
