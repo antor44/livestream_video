@@ -172,7 +172,6 @@ segment_time: Time for each segment file.
 - Advanced GUI as a standalone application
 - Support for different AI engines
 - Sound filters
-- GPU acceleration support
 - ...
 
 #
