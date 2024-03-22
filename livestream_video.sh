@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 1.84 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.00 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -22,39 +22,44 @@
 #--------------------------------------------------------------------------------------------------------
 #
 #
-#livestream_video.sh transcribes a video livestream by regularly feeding the output of ffmpeg to whisper.cpp,
-# based on the implementation in livestream.sh from whisper.cpp
+# livestream_video.sh transcribes a video livestream by regularly feeding the output of ffmpeg to whisper.cpp,
+#  based on the implementation in livestream.sh from whisper.cpp
 #
-#This Linux script adds some new features:
+# This Linux script adds some new features:
 #
-#-Support for multi-instance and multi-user execution
-#-Support for IPTV, YouTube, Twitch, and many others
-#-Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
-#-Quantized models support
-#-VAD (voice activity detection)
+# -Support for multi-instance and multi-user execution
+# -Support for IPTV, YouTube, Twitch, and many others
+# -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
+# -Quantized models support
+# -VAD (voice activity detection)
 #
-# Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
+#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [segments # n (2<n<99)] [segment_time m (1<minutes<99)]
 #
-# [streamlink] option forces the url to be processed by streamlink
-# [yt-dlp] option forces the url to be processed by yt-dlp
+#  [streamlink] option forces the url to be processed by streamlink
+#  [yt-dlp] option forces the url to be processed by yt-dlp
 #
-#   Example (defaults if no options are specified):
+#    Example (defaults if no options are specified):
 #
-#    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
+#     ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
 #
-# Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
-# "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+#  Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
+#  "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 #
-#"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
+# "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 #
-#Step: Size of the parts into which videos are divided for inference, size in seconds.
+# Step: Size of the parts into which videos are divided for inference, size in seconds.
 #
-#Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2", large-v3
+# Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2", large-v3
 #
-#    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0
+#     ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0
 #
-#translate: The "translate" option provides automatic English translation (only English is available).
+# translate: The "translate" option provides automatic English translation (only English is available).
 #
+# timeshift: Timeshift feature, only VLC player is supported.
+#
+# segments: Number of segment files for timeshift.
+#
+# segment_time: Time for each segment file in minutes.
 #
 # Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
 #
@@ -78,7 +83,8 @@ mpv_options="mpv"
 quality="raw"
 streamlink_force=""
 ytdlp_force=""
-
+segment_time=10
+segments=4
 
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (<Hebrew>), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (<Hebrew>), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
@@ -125,10 +131,10 @@ function list_languages {
 
 usage()
 {
-    echo "Usage: $0 stream_url [step_s] [model] [language] [translate]"
+    echo "Usage: $0 stream_url [step_s] [model] [language] [translate] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)]"
     echo ""
     echo "  Example:"
-    echo "    $0 $url $step_s $model $language $translate"
+    echo "    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10"
     echo ""
 
     # list available models
@@ -152,6 +158,21 @@ while [[ $# -gt 0 ]]; do
         *://* ) url=$1;;
         [2-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
+        timeshift ) timeshift=$1;;
+        segment_time ) segment_time=$2
+            if ! [[ "$segment_time" =~ ^[0-9]+$ ]]; then
+                echo "Error: Segment Time must be a numeric value."
+                usage
+                exit 1
+            fi
+            shift;;
+        segments ) segments=$2
+            if ! [[ "$segments" =~ ^[0-9]+$ ]]; then
+                echo "Error: Segments must be a numeric value."
+                usage
+                exit 1
+            fi
+            shift;;
         raw | upper | lower ) quality=$1;;
         streamlink ) streamlink_force=$1;;
         yt-dlp ) ytdlp_force=$1;;
@@ -187,14 +208,23 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-if [ ! -f ./models/ggml-${model}.bin ]; then
-    echo ""
-    echo "*** No file /models/ggml-${model}.bin for model ${model}"
-    echo ""
-    usage
 
-    exit 1
+if [ "$timeshift" = "timeshift" ]; then
+    if [ "$segments" -lt 2 ] || [ "$segments" -gt 99 ]; then
+        echo "Error: Segments should be between 2 and 99."
+        usage
+        exit 1
+    fi
+
+    if [ "$segment_time" -lt 1 ] || [ "$segment_time" -gt 99 ]; then
+        echo "Error: Segment Time should be between 2 and 99."
+        usage
+        exit 1
+    fi
 fi
+
+
+
 
 mypid=$(ps aux | awk '/[l]ivestream_video\.sh/ {pid=$2} END {print pid}')
 
@@ -237,20 +267,22 @@ else
     printf "[+] Transcribing stream with model '$model', step_s $step_s, language '$language', NO translate to english (press Ctrl+C to stop):\n\n"
 fi
 
-# continuous stream in native fmt (this file will grow forever!)
-if [[ $quality == "upper" ]]; then
+# if "timeshift" then timeshift
+
+
+if [[ $timeshift == "timeshift" ]]; then
+    printf "[+] Timeshift active:\n\n"
+
+    segment_time=$((segment_time * 60))
+
     case $url in
         *youtube* | *youtu.be* )
             if ! command -v yt-dlp &>/dev/null; then
                 echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                 exit 1
             fi
-            ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g "$url")" \
-                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
+            ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g $url) -bufsize 44M -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
             ffmpeg_pid=$!
-
-            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             ;;
         * )
             if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
@@ -258,13 +290,140 @@ if [[ $quality == "upper" ]]; then
                     echo "streamlink is required (https://streamlink.github.io)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" -bufsize 440M \
-                    -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                    -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
+                streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -i - -y -probesize 32 -bufsize 44M -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
-
-                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
             elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
+                if ! command -v yt-dlp &>/dev/null; then
+                    echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                    exit 1
+                fi
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g $url) -bufsize 44M -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                ffmpeg_pid=$!
+            else
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                ffmpeg_pid=$!
+            fi
+            ;;
+    esac
+
+
+    # build m3u playlist
+    arg='#EXTM3U'
+		x=0
+		while [ $x -lt $segments ]; do
+			arg="$arg"'\n/tmp/whisper-live0_'"${mypid}"'_'"$x"'.avi'
+			x=$((x+1))
+		done
+		echo -e $arg > /tmp/playlist_whisper-live0_${mypid}.m3u
+
+    # launch player
+    ln -f -s /tmp/whisper-live0_${mypid}_buf000.avi /tmp/whisper-live0_${mypid}_0.avi # symlink first buffer at start
+
+
+    printf "Buffering audio. Please wait...\n\n"
+    sleep $(($step_s+1))
+
+    if ! ps -p $ffmpeg_pid > /dev/null; then
+        printf "Error: ffmpeg failed to capture the stream\n"
+        exit 1
+    fi
+    sleep 10
+    if [[ $mpv_options == "true" ]]; then
+        vlc -I http --http-host 0.0.0.0 --http-port 8080 --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+    else
+        vlc --extraintf=http --http-host 0.0.0.0 --http-port 8080 --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+    fi
+
+    if [ $? -ne 0 ]; then
+        printf "Error: The player could not play the stream. Please check your input or try again later\n"
+        exit 1
+    fi
+
+    # do not stop script on error
+    set +e
+
+
+    # handle buffers, repeat until player closes
+
+    n=0
+    tbuf=0
+  	abuf="000"
+    xbuf=1
+    nbuf="001"
+
+    i=0
+    SECONDS=0
+    while [ $running -eq 1 ]; do
+
+  		if [ -f /tmp/whisper-live0_${mypid}_buf$nbuf.avi ]; then # check split
+  			mv -f /tmp/whisper-live0_${mypid}_buf$abuf.avi /tmp/whisper-live0_${mypid}_$n.avi
+  			if [ $n -eq $((segments-1)) ]; then # restart buffer value when last buffer reached
+  				n=-1
+  			fi
+  			tbuf=$((tbuf+1))
+  			if [ $tbuf -lt 10 ]; then # split number, character value
+  				abuf="00"$tbuf""
+  			elif [ $tbuf -lt 100 ]; then
+  				abuf="0"$tbuf""
+  			else
+  				abuf="$tbuf"
+  			fi
+        xbuf=$((xbuf+1))
+        if [ $xbuf -lt 10 ]; then # split number, character value
+          nbuf="00"$xbuf""
+        elif [ $xbuf -lt 100 ]; then
+          nbuf="0"$xbuf""
+        else
+  				nbuf="$xbuf"
+  			fi
+        n=$((n+1))
+  			ln -f -s /tmp/whisper-live0_${mypid}_buf$abuf.avi /tmp/whisper-live0_${mypid}_$n.avi
+  		fi
+
+      while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
+          sleep 0.5
+      done
+
+      curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:8080/requests/status.xml)
+
+      FILEPLAY=$(echo "$curl_output" | grep -oP "<info name='filename'>\K[^<]+")
+
+      POSITION=$(echo "$curl_output" | grep -oP '(?<=<time>).+?(?=</time>)')
+
+
+      if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
+          i=0
+          FILEPLAYED="$FILEPLAY"
+          SECONDS=0
+      fi
+
+      err=1
+
+      while [ $err -ne 0 ]; do
+          if [ $i -eq 0 ]; then
+              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + 3" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+          elif [ "$POSITION" -gt $((3 + segment_time - step_s)) ]; then
+              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + 3" | bc) -t $(echo "$segment_time -$POSITION + 3" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+          else
+              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + 3" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+          fi
+          err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+      done
+
+      ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+
+      ((i=i+1))
+    done
+
+    killall -v ffmpeg
+    killall -v main
+
+
+else # No timeshift
+    # continuous stream in native fmt (this file will grow forever!)
+    if [[ $quality == "upper" ]]; then
+        case $url in
+            *youtube* | *youtu.be* )
                 if ! command -v yt-dlp &>/dev/null; then
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
@@ -275,45 +434,45 @@ if [[ $quality == "upper" ]]; then
                 ffmpeg_pid=$!
 
                 nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            else
-                ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                    -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                    -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-                ffmpeg_pid=$!
+                ;;
+            * )
+                if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
+                    if ! command -v streamlink >/dev/null 2>&1; then
+                        echo "streamlink is required (https://streamlink.github.io)"
+                        exit 1
+                    fi
+                    ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" -bufsize 440M \
+                        -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg_pid=$!
 
-                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            fi
-            ;;
-    esac
-fi
+                    nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+                elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
+                    if ! command -v yt-dlp &>/dev/null; then
+                        echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                        exit 1
+                    fi
+                    ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g "$url")" \
+                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg_pid=$!
 
-if [[ $quality == "lower" ]]; then
-    case $url in
-        *youtube* | *youtu.be* )
-            if ! command -v yt-dlp &>/dev/null; then
-                echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
-                exit 1
-            fi
-            ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/worst' -g "$url")" \
-                -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
-            ffmpeg_pid=$!
+                    nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+                else
+                    ffmpeg -loglevel quiet -y -probesize 32 -i $url \
+                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg_pid=$!
 
-            nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            ;;
-        * )
-            if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
-                if ! command -v streamlink >/dev/null 2>&1; then
-                    echo "streamlink is required (https://streamlink.github.io)"
-                    exit 1
+                    nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
                 fi
-                    ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
-                    -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                    -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-                ffmpeg_pid=$!
+                ;;
+        esac
+    fi
 
-                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
+    if [[ $quality == "lower" ]]; then
+        case $url in
+            *youtube* | *youtu.be* )
                 if ! command -v yt-dlp &>/dev/null; then
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
@@ -324,90 +483,115 @@ if [[ $quality == "lower" ]]; then
                 ffmpeg_pid=$!
 
                 nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            else
-                ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                    -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                    -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -f mpegts udp://127.0.0.1:56789 &
-                ffmpeg_pid=$!
+                ;;
+            * )
+                if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
+                    if ! command -v streamlink >/dev/null 2>&1; then
+                        echo "streamlink is required (https://streamlink.github.io)"
+                        exit 1
+                    fi
+                        ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
+                        -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg_pid=$!
 
-                nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
-            fi
-            ;;
-    esac
-fi
+                    nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+                elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
+                    if ! command -v yt-dlp &>/dev/null; then
+                        echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                        exit 1
+                    fi
+                    ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/worst' -g "$url")" \
+                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg_pid=$!
 
-if [[ $quality == "raw" ]]; then
-    case $url in
-        *youtube* | *youtu.be* )
-            if ! command -v yt-dlp &>/dev/null; then
-                echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
-                exit 1
-            fi
-            ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-            ffmpeg_pid=$!
-            ;;
-        * )
-            if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
-                if ! command -v streamlink >/dev/null 2>&1; then
-                    echo "streamlink is required (https://streamlink.github.io)"
-                    exit 1
+                    nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
+                else
+                    ffmpeg -loglevel quiet -y -probesize 32 -i $url \
+                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg_pid=$!
+
+                    nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
                 fi
-                streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-                ffmpeg_pid=$!
-            elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
+                ;;
+        esac
+    fi
+
+    if [[ $quality == "raw" ]]; then
+        case $url in
+            *youtube* | *youtu.be* )
                 if ! command -v yt-dlp &>/dev/null; then
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
                 ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
                 ffmpeg_pid=$!
-            else
-                ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
-                ffmpeg_pid=$!
-            fi
-            ;;
-    esac
+                ;;
+            * )
+                if [[ "$streamlink_force" = "streamlink" || "$url" = *twitch* ]]; then
+                    if ! command -v streamlink >/dev/null 2>&1; then
+                        echo "streamlink is required (https://streamlink.github.io)"
+                        exit 1
+                    fi
+                    streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                    ffmpeg_pid=$!
+                elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
+                    if ! command -v yt-dlp &>/dev/null; then
+                        echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
+                        exit 1
+                    fi
+                    ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                    ffmpeg_pid=$!
+                else
+                    ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                    ffmpeg_pid=$!
+                fi
+                ;;
+        esac
 
-    $mpv_options $url &>/dev/null &
+        $mpv_options $url &>/dev/null &
 
-    if [ $? -ne 0 ]; then
-        printf "Error: The player could not play the stream. Please check your input or try again later\n"
+        if [ $? -ne 0 ]; then
+            printf "Error: The player could not play the stream. Please check your input or try again later\n"
+            exit 1
+        fi
+    fi
+
+    printf "Buffering audio. Please wait...\n\n"
+    sleep $(($step_s+1))
+
+    if ! ps -p $ffmpeg_pid > /dev/null; then
+        printf "Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
-fi
 
-printf "Buffering audio. Please wait...\n\n"
-sleep $(($step_s+1))
+    # do not stop script on error
+    set +e
 
-if ! ps -p $ffmpeg_pid > /dev/null; then
-    printf "Error: ffmpeg failed to capture the stream\n"
-    exit 1
-fi
+    i=0
+    SECONDS=0
+    while [ $running -eq 1 ]; do
+        # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
+        err=1
+        while [ $err -ne 0 ]; do
+            if [ $i -gt 0 ]; then
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            else
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.8" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            fi
+            err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+        done
 
-# do not stop script on error
-set +e
+        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
 
-i=0
-SECONDS=0
-while [ $running -eq 1 ]; do
-    # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
-    err=1
-    while [ $err -ne 0 ]; do
-        if [ $i -gt 0 ]; then
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-        else
-            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s - 0.8" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-        fi
-        err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+        while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
+            sleep 0.5
+        done
+        ((i=i+1))
     done
 
-    ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
-
-    while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
-        sleep 0.5
-    done
-    ((i=i+1))
-done
-
-killall -v ffmpeg
-killall -v main
+    killall -v ffmpeg
+    killall -v main
+fi
