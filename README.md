@@ -1,8 +1,11 @@
 # playlist4whisper GUI
 
-"Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution, and allows for changing options per channel and global options.
+**Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
-Author: Antonio R. Version: 1.84 License: GPL 3.0
+Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options."
+
+
+Author: Antonio R. Version: 2.00 License: GPL 3.0
 
 
 #
@@ -20,7 +23,7 @@ The application has a simple GUI using Python and the Tkinter library. It transc
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 
-sudo apt-get install mpv smplayer ffmpeg python3-tk
+sudo apt-get install mpv smplayer vlc ffmpeg python3-tk
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
 For Twitch and Others streamlink is required (https://streamlink.github.io)
@@ -49,6 +52,7 @@ python playlist4whisper.py
 
 *For help with options, see the livestream_video.sh section.
 
+- Supports a fully configurable timeshift feature (only VLC player)
 - Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
 - List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
 - List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
@@ -56,11 +60,10 @@ python playlist4whisper.py
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
  and will store options in config_xxx.json.
  
-When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.
 
-The majority of online video streams should work.
+The majority of online video streams should work. Ensure that your installed yt-dlp and streamlink are up-to-date.
 
-Recommended Linux video player: SMPlayer based on mvp, due to its capabilities to timeshift online streams for synchronized live video with the transcription.
+Recommended Linux video player (when timeshift is not active): SMPlayer, based on mvp, due to its capabilities to timeshift online streams for synchronized live video with transcription.
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
@@ -77,6 +80,8 @@ https://github.com/ggerganov/whisper.cpp
 
 Some notable features:
 
+-Supports a fully configurable timeshift feature (only VLC player)
+  
 -Support for IPTV, YouTube, Twitch, and many others
 
 -Support for multi-instance and multi-user execution (To use this feature with SMPlayer: Go to Preferences -> Interface -> Instances, and disable the option to use only one instance)
@@ -89,7 +94,7 @@ Some notable features:
 
 #
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)]
 
  [streamlink] option forces the url to be processed by streamlink
  [yt-dlp] option forces the url to be processed by yt-dlp
@@ -130,6 +135,14 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 translate: The "translate" option provides automatic English translation (only English is available).
 
+timeshift: Timeshift feature, only VLC player is supported.
+
+segments: Number of segment files for timeshift.
+
+segment_time: Time for each segment file.
+
+
+
 #
 
 ## playlist4whisper GUI Screenshots:
@@ -156,7 +169,6 @@ translate: The "translate" option provides automatic English translation (only E
 # To-Do List
 
 - Voice activity detection (VAD) for splitting audio into chunks
-- Timeshift
 - Advanced GUI as a standalone application
 - Support for different AI engines
 - Sound filters
@@ -267,7 +279,7 @@ A: You can use the pause and forward/backward buttons of the video player to man
 
 A: The video and transcription applications work independently, each with its own stream of video or audio. Over time, the desynchronization can also vary, choosing a model that is too large for the processor's capabilities can also affect the synchronization.
 
-The timeshift feature alongside with an automatic video/transcription synchronization option, which will be added in the future, may help address the issue, albeit potentially resulting in the omission of some phrases.
+The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, albeit potentially resulting in the omission of some phrases.
 
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
