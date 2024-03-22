@@ -1,6 +1,7 @@
 # playlist4whisper GUI
 
 **Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
+
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
 Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options."
