@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.00 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.02 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -386,9 +386,9 @@ if [[ $timeshift == "timeshift" ]]; then
 
       curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:8080/requests/status.xml)
 
-      FILEPLAY=$(echo "$curl_output" | grep -oP "<info name='filename'>\K[^<]+")
+      FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
 
-      POSITION=$(echo "$curl_output" | grep -oP '(?<=<time>).+?(?=</time>)')
+      POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
 
       if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
