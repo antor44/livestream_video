@@ -2,12 +2,14 @@
 
 **Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
+**To use the Timeshift feature, ensure that VLC is configured to repeat the playlist infinitely, not just the current file.**
+
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
 Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options."
 
 
-Author: Antonio R. Version: 2.00 License: GPL 3.0
+Author: Antonio R. Version: 2.02 License: GPL 3.0
 
 
 #
@@ -185,6 +187,20 @@ A: The absence of a precompiled and packaged distribution for "playlist4whisper"
 
 Additionally, "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. Providing the source code enables expert users to customize and adapt the programs to their specific needs and environments.
 
+**Q: Some streams don't work, especially with upper and lower qualities, and sometimes timeshift doesn't work?**
+
+A: Streams can often experience interruptions or temporary cuts, and their proper functioning in playlist4whisper can also depend on the ads they insert, and in other cases on whether yt-dlp and streamlink support the frequent changes made by various online video providers.
+
+In general, processing online videos can be a headache due to the nature of video codecs and error-tolerant network protocols, the lack of metadata information, or the difficulty in recoding and cutting the videos.
+
+**Q: How does timeshift work and where are the files stored? Can I save these videos?**
+
+A: Timeshift functions similarly to other applications, but in playlist4whisper, it involves a playlist repeated indefinitely with temporary videos or buffers. You can configure the number of these buffers and their size in minutes. For example, up to a maximum of 99 videos of 99 minutes each, allowing for a maximum of 163 hours of live streaming for timeshift. When the chosen maximum size is reached, the oldest video file is deleted, and this process continues indefinitely until the application is stopped or an error occurs.
+
+The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video or stop altogether. The transcription will automatically switch to the chosen point.
+
+The temporary video buffer files can be saved in another directory. They will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are typically stored in the temporary directory, which is /temp on Linux, and are usually deleted upon each computer restart.
+
 **Q: Why is the program not working?**
 
 A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. The main executable of whisper.cpp, the primary example, needs to be compiled and placed in the same directory as playlist4whisper and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model file from OpenAI in the "models" directory, following the correct format and name as specified in the Whisper.cpp repository. This task can be accomplished using terminal commands, for example:
@@ -308,6 +324,8 @@ https://github.com/ggerganov/whisper.cpp#core-ml-support
 **Q: smplayer does not work with online TV?**
 
 A: smplayer depens of mpv or mplayer, the installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
+
+
 
 **Q: Is this program legal to watch TV channels?**
 
