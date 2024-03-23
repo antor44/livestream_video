@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.00 License: GPL 3.0
+Author: Antonio R. Version: 2.02 License: GPL 3.0
 
 
 Usage:
@@ -158,7 +158,7 @@ default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
 default_timeshift_options = "4 10"
 default_playeronly_option = False
-default_player_option = "smplayer"
+default_player_option = "mpv"
 default_mpv_options = "--geometry=900"
 default_override_option = False
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
@@ -546,7 +546,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
-        self.note_label = tk.Label(self.options_frame2, text="*Only VLC player supported. Large file sizes stored in temp directory.", padx=10)
+        self.note_label = tk.Label(self.options_frame2, text="=>Only Raw + VLC player is supported. Large file sizes will be stored in the temp directory.", padx=10)
         self.note_label.pack(side=tk.LEFT)
 
 
@@ -1074,7 +1074,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.00\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.02\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
