@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.02 License: GPL 3.0
+Author: Antonio R. Version: 2.04 License: GPL 3.0
 
 
 Usage:
@@ -61,7 +61,7 @@ For Twitch streamlink is required (https://streamlink.github.io)
 Options for script:
 
 Usage:
-./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)]
+./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
 
 Example (defaults if no options are specified):
 ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
@@ -103,9 +103,11 @@ translate: The "translate" option provides automatic English translation (only E
 
 timeshift: Timeshift feature, only VLC player is supported.
 
-segments: Number of segment files for timeshift.
+sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3))
 
-segment_time: Time for each segment file.
+segments: Number of segment files for timeshift (2 =< n <= 99).
+
+segment_time: Time for each segment file(1 <= minutes <= 99).
 
 
 Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
@@ -156,7 +158,7 @@ rPadChars = 100 * " "
 default_terminal_option = "gnome-terminal"
 default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
-default_timeshift_options = "4 10"
+default_timeshift_options = "3 4 10"
 default_playeronly_option = False
 default_player_option = "mpv"
 default_mpv_options = "--geometry=900"
@@ -499,7 +501,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_bg = self.mpv_options_entry.cget("bg")
 
 
-
         # Third Down Frame
         self.options_frame2 = tk.Frame(self.container_frame)
         self.options_frame2.pack(side=tk.TOP, anchor=tk.W)
@@ -515,6 +516,21 @@ class M3uPlaylistPlayer(tk.Frame):
         self.timeshiftactive_checkbox = tk.Checkbutton(self.timeshiftactive_frame, variable=self.timeshiftactive, onvalue=True,
                                                  offvalue=False, command=self.save_options)
         self.timeshiftactive_checkbox.pack(side=tk.LEFT)
+
+        # Synchronization
+        self.sync_label = tk.Label(self.options_frame2, text="Synchronization(sec)", padx=4)
+        self.sync_label.pack(side=tk.LEFT)
+
+        self.sync_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
+        self.sync_frame.pack(side=tk.LEFT)
+
+        self.sync_options_id = None
+        self.sync = tk.StringVar(value="3")
+        self.sync_spinner = tk.Spinbox(self.sync_frame, from_=0, to=57, width=2, textvariable=self.sync,
+                                         command=self.schedule_save_options)
+        self.sync_spinner.pack(side=tk.LEFT)
+
+        self.sync_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
         # Segments
         self.segments_label = tk.Label(self.options_frame2, text="Segments", padx=4)
@@ -546,7 +562,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
-        self.note_label = tk.Label(self.options_frame2, text="=>Only Raw + VLC player is supported. Large file sizes will be stored in the temp directory.", padx=10)
+        self.note_label = tk.Label(self.options_frame2, text="=>Only Raw + VLC player - Large files will be stored in temp directory!", padx=10)
         self.note_label.pack(side=tk.LEFT)
 
 
@@ -633,6 +649,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_frame.config(highlightthickness=1, highlightbackground="black")
         self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
         self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="black")
+        self.sync_frame.config(highlightthickness=1, highlightbackground="black")
         self.segments_frame.config(highlightthickness=1, highlightbackground="black")
         self.segment_time_frame.config(highlightthickness=1, highlightbackground="black")
 
@@ -660,6 +677,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     self.player_frame.config(highlightthickness=1, highlightbackground="red")
                     self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
                     self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.sync_frame.config(highlightthickness=1, highlightbackground="red")
                     self.segments_frame.config(highlightthickness=1, highlightbackground="red")
                     self.segment_time_frame.config(highlightthickness=1, highlightbackground="red")
         else:
@@ -709,6 +727,24 @@ class M3uPlaylistPlayer(tk.Frame):
                                                   f" config_{self.spec}.json file")
 
         options_list = timeshift_options.split()
+        option = options_list.pop(0)
+
+        step_s_str = self.step_s.get()
+        if step_s_str.isdigit():
+            step_s_value = int(step_s_str)
+        else:
+            step_s_value = 0
+            simpledialog.messagebox.showerror("Wrong option",
+                                              f"Wrong option {step_s_str} found, try again after deleting"
+                                              f" config_{self.spec}.json file")
+
+        if option.isdigit() and (0 <= int(option) <= step_s_value - 3):
+            self.sync.set(option)
+            self.sync_spinner.update()
+        else:
+                simpledialog.messagebox.showerror("Wrong option",
+                                                  f"Wrong option {option} found, try again after deleting"
+                                                  f" config_{self.spec}.json file")
         option = options_list.pop(0)
         if option.isdigit() and (2 <= int(option) <= 99):
             self.segments.set(option)
@@ -797,7 +833,7 @@ class M3uPlaylistPlayer(tk.Frame):
             bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
                            translate_value + " " + quality
             if self.timeshiftactive.get():
-                bash_options = bash_options + " timeshift segments " + self.segments.get() + " segment_time " + self.segment_time.get()
+                bash_options = bash_options + " timeshift sync " + self.sync.get() + " segments " + self.segments.get() + " segment_time " + self.segment_time.get()
             if self.spec == "streamlink":
                 bash_options = bash_options + " streamlink"
             if self.spec == "yt-dlp":
@@ -996,6 +1032,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_frame.config(highlightthickness=1, highlightbackground="black")
         self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
         self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="black")
+        self.sync_frame.config(highlightthickness=1, highlightbackground="black")
         self.segments_frame.config(highlightthickness=1, highlightbackground="black")
         self.segment_time_frame.config(highlightthickness=1, highlightbackground="black")
 
@@ -1016,7 +1053,18 @@ class M3uPlaylistPlayer(tk.Frame):
         mpv_options = self.mpv_options_entry.get()
         timeshiftactive_option = self.timeshiftactive.get()
 
-        timeshift_options = self.segments.get() + " " + self.segment_time.get()
+        sync_str = self.sync.get()
+        step_s_str = self.step_s.get()
+        if sync_str.isdigit() and step_s_str.isdigit():
+            sync_value = int(sync_str)
+            step_s_value = int(step_s_str)
+            if sync_value > step_s_value - 3:
+                self.sync.set(step_s_value - 3)
+        else:
+            simpledialog.messagebox.showerror("Invalid Integer", f"The value is not a valid integer.")
+
+
+        timeshift_options = self.sync.get() + " " + self.segments.get() + " " + self.segment_time.get()
 
         if self.override_options.get():
             self.current_options["terminal_option"] = terminal_option
@@ -1040,6 +1088,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.player_frame.config(highlightthickness=1, highlightbackground="red")
                 self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
                 self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="red")
+                self.sync_frame.config(highlightthickness=1, highlightbackground="red")
                 self.segments_frame.config(highlightthickness=1, highlightbackground="red")
                 self.segment_time_frame.config(highlightthickness=1, highlightbackground="red")
 
@@ -1074,7 +1123,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.02\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.04\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
