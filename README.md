@@ -196,7 +196,7 @@ In general, processing online videos is very difficult due to the nature of diff
 
 **Q: How does timeshift work and where are the files stored? Can I save these videos?**
 
-A: Timeshift functions similarly to other applications, but in playlist4whisper, it involves a playlist repeated indefinitely with temporary videos or buffers. You can configure the number of these buffers and their size in minutes. For example, up to a maximum of 99 videos of 99 minutes each, allowing for a maximum of 163 hours of live streaming for timeshift. When the chosen maximum size is reached, the oldest video file is deleted, and this process continues indefinitely until the application is stopped or an error occurs.
+A: Timeshift functions similarly to other applications, but in playlist4whisper, it involves a playlist repeated indefinitely with temporary videos or buffers. You can configure the number of these buffers and their size in minutes. For example, from just a few minutes up to a maximum of 99 videos, each lasting 99 minutes. This allows for a maximum of 163 hours of live streaming for timeshift, although at the cost of requiring a very large amount of disk space. When the chosen maximum size is reached, the oldest video file is deleted, and this process continues indefinitely until the application is stopped or an error occurs.
 
 The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video or stop altogether. The transcription will automatically switch to the chosen point.
 
