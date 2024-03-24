@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.02 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.04 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -33,7 +33,7 @@
 # -Quantized models support
 # -VAD (voice activity detection)
 #
-#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [segments # n (2<n<99)] [segment_time m (1<minutes<99)]
+#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
 #
 #  [streamlink] option forces the url to be processed by streamlink
 #  [yt-dlp] option forces the url to be processed by yt-dlp
@@ -57,9 +57,11 @@
 #
 # timeshift: Timeshift feature, only VLC player is supported.
 #
-# segments: Number of segment files for timeshift.
+# sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
 #
-# segment_time: Time for each segment file in minutes.
+# segments: Number of segment files for timeshift (2 =< n <= 99).
+#
+# segment_time: Time for each segment file(1 <= minutes <= 99).
 #
 # Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
 #
@@ -85,6 +87,7 @@ streamlink_force=""
 ytdlp_force=""
 segment_time=10
 segments=4
+sync=3
 
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (<Hebrew>), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (<Hebrew>), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
@@ -173,6 +176,13 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             shift;;
+      sync ) sync=$2
+          if ! [[ "$sync" =~ ^[0-9]+$ ]]; then
+              echo "Error: Sync must be a numeric value."
+              usage
+              exit 1
+          fi
+          shift;;
         raw | upper | lower ) quality=$1;;
         streamlink ) streamlink_force=$1;;
         yt-dlp ) ytdlp_force=$1;;
@@ -221,6 +231,13 @@ if [ "$timeshift" = "timeshift" ]; then
         usage
         exit 1
     fi
+
+    if [ $sync -lt 0 ] || [ $sync -gt $((step_s - 3)) ]; then
+        echo "Error: Sync should be between 0 and $step_s."
+        usage
+        exit 1
+    fi
+
 fi
 
 
@@ -319,15 +336,14 @@ if [[ $timeshift == "timeshift" ]]; then
     # launch player
     ln -f -s /tmp/whisper-live0_${mypid}_buf000.avi /tmp/whisper-live0_${mypid}_0.avi # symlink first buffer at start
 
-
     printf "Buffering audio. Please wait...\n\n"
-    sleep $(($step_s+1))
+    sleep 12
 
     if ! ps -p $ffmpeg_pid > /dev/null; then
         printf "Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
-    sleep 10
+    sleep 15
     if [[ $mpv_options == "true" ]]; then
         vlc -I http --http-host 0.0.0.0 --http-port 8080 --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
     else
@@ -353,6 +369,8 @@ if [[ $timeshift == "timeshift" ]]; then
 
     i=0
     SECONDS=0
+    FILEPLAYED=""
+
     while [ $running -eq 1 ]; do
 
   		if [ -f /tmp/whisper-live0_${mypid}_buf$nbuf.avi ]; then # check split
@@ -386,32 +404,64 @@ if [[ $timeshift == "timeshift" ]]; then
 
       curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:8080/requests/status.xml)
 
-      FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
+            FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
 
-      POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
+            POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
 
-      if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
-          i=0
-          FILEPLAYED="$FILEPLAY"
-          SECONDS=0
-      fi
 
-      err=1
+      if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
 
-      while [ $err -ne 0 ]; do
-          if [ $i -eq 0 ]; then
-              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + 3" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-          elif [ "$POSITION" -gt $((3 + segment_time - step_s)) ]; then
-              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + 3" | bc) -t $(echo "$segment_time -$POSITION + 3" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+          if [ $POSITION -ge 2 ]; then
+
+            if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
+                FILEPLAYED="$FILEPLAY"
+                in=0
+            fi
+
+            err=1
+
+            segment_played=$(echo ffprobe -i /tmp/"$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p')
+
+            if ! [[ "$segment_played" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                segment_played="$segment_time"
+            fi
+
+            rest=$(echo "$segment_played - $POSITION - $sync" | bc)
+
+
+            if [ $(echo "$rest < $step_s" | bc -l) -eq 1 ]; then
+
+                tryed=0
+                while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
+
+                    sleep 0.5
+                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                    ((tryed=tryed+1))
+                    err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+
+                done
+            else
+
+                while [ $err -ne 0 ]; do
+                    if [ $in -eq 0 ]; then
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + $sync + 2" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                        in=1
+                    else
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                    fi
+                    err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+                done
+
+            fi
+
+            ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+
+
           else
-              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + 3" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            in=0
           fi
-          err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
-      done
-
-      ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
-
+      fi
       ((i=i+1))
     done
 
