@@ -9,7 +9,7 @@
 Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options."
 
 
-Author: Antonio R. Version: 2.02 License: GPL 3.0
+Author: Antonio R. Version: 2.04 License: GPL 3.0
 
 
 #
@@ -98,7 +98,7 @@ Some notable features:
 
 #
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
 
  [streamlink] option forces the url to be processed by streamlink
  [yt-dlp] option forces the url to be processed by yt-dlp
@@ -141,10 +141,11 @@ translate: The "translate" option provides automatic English translation (only E
 
 timeshift: Timeshift feature, only VLC player is supported.
 
-segments: Number of segment files for timeshift.
+sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
 
-segment_time: Time for each segment file.
+segments: Number of segment files for timeshift (2 =< n <= 99).
 
+segment_time: Time for each segment file(1 <= minutes <= 99).
 
 
 #
