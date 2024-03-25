@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.04 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.08 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -159,7 +159,7 @@ check_requirements
 while [[ $# -gt 0 ]]; do
     case $1 in
         *://* ) url=$1;;
-        [2-9]|[1-5][0-9]|60 ) step_s=$1;;
+        [3-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
         timeshift ) timeshift=$1;;
         segment_time ) segment_time=$2
@@ -233,7 +233,7 @@ if [ "$timeshift" = "timeshift" ]; then
     fi
 
     if [ $sync -lt 0 ] || [ $sync -gt $((step_s - 3)) ]; then
-        echo "Error: Sync should be between 0 and $step_s."
+        echo "Error: Sync should be between 0 and $((step_s - 3))."
         usage
         exit 1
     fi
@@ -298,7 +298,7 @@ if [[ $timeshift == "timeshift" ]]; then
                 echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                 exit 1
             fi
-            ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g $url) -bufsize 44M -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+            ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
             ffmpeg_pid=$!
             ;;
         * )
@@ -307,17 +307,17 @@ if [[ $timeshift == "timeshift" ]]; then
                     echo "streamlink is required (https://streamlink.github.io)"
                     exit 1
                 fi
-                streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -i - -y -probesize 32 -bufsize 44M -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
                 if ! command -v yt-dlp &>/dev/null; then
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g $url) -bufsize 44M -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             else
-                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:9? -map 0:a:8? -map 0:a:7? -map 0:a:6? -map 0:a:5? -map 0:a:4? -map 0:a:3? -map 0:a:2? -map 0:a:1? -map 0:a:0? -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             fi
             ;;
@@ -445,8 +445,9 @@ if [[ $timeshift == "timeshift" ]]; then
 
                 while [ $err -ne 0 ]; do
                     if [ $in -eq 0 ]; then
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + $sync + 2" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + $sync + 1" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                         in=1
+                        ((SECONDS=SECONDS+step_s))
                     else
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                     fi
@@ -478,8 +479,8 @@ else # No timeshift
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g "$url")" \
-                    -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f b -g "$url")" \
+                    -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                     -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
                 ffmpeg_pid=$!
 
@@ -491,9 +492,9 @@ else # No timeshift
                         echo "streamlink is required (https://streamlink.github.io)"
                         exit 1
                     fi
-                    ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" -bufsize 440M \
-                        -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                        -map 0:v:0 -map 0:a:0 -acodec ${fmt}  -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0  /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:56789 &
                     ffmpeg_pid=$!
 
                     nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
@@ -502,16 +503,16 @@ else # No timeshift
                         echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                         exit 1
                     fi
-                    ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/best[height<=1080]' -g "$url")" \
-                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f b -g "$url")" \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                         -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
                     ffmpeg_pid=$!
 
                     nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
                 else
                     ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                        -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:56789 &
                     ffmpeg_pid=$!
 
                     nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
@@ -527,8 +528,8 @@ else # No timeshift
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/worst' -g "$url")" \
-                    -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'worst' -g "$url")" \
+                    -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                     -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
                 ffmpeg_pid=$!
 
@@ -540,10 +541,10 @@ else # No timeshift
                         echo "streamlink is required (https://streamlink.github.io)"
                         exit 1
                     fi
-                        ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" -bufsize 440M \
-                        -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                        -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
-                    ffmpeg_pid=$!
+                        ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" \
+                            -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                            -bufsize 44M -map_metadata 0 -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:56789 &
+                        ffmpeg_pid=$!
 
                     nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
                 elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
@@ -551,16 +552,16 @@ else # No timeshift
                         echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                         exit 1
                     fi
-                    ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'bestaudio/worst' -g "$url")" \
-                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'worst' -g "$url")" \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
                         -bufsize 44M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:56789 &
                     ffmpeg_pid=$!
 
                     nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
                 else
                     ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                        -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
-                        -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -f mpegts udp://127.0.0.1:56789 &
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:56789 &
                     ffmpeg_pid=$!
 
                     nohup $mpv_options udp://127.0.0.1:56789 >/dev/null 2>&1 &
@@ -576,7 +577,7 @@ else # No timeshift
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'worst' -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live0_${mypid}.${fmt} &
                 ffmpeg_pid=$!
                 ;;
             * )
@@ -585,14 +586,14 @@ else # No timeshift
                         echo "streamlink is required (https://streamlink.github.io)"
                         exit 1
                     fi
-                    streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -i - -y -probesize 32 -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                    streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live0_${mypid}.${fmt} &
                     ffmpeg_pid=$!
                 elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
                     if ! command -v yt-dlp &>/dev/null; then
                         echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                         exit 1
                     fi
-                    ffmpeg -loglevel quiet -y -probesize 32 -i $(yt-dlp -i -f 'bestaudio/worst' -g $url) -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'worst' -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live0_${mypid}.${fmt} &
                     ffmpeg_pid=$!
                 else
                     ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
