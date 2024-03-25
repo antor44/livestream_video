@@ -106,7 +106,7 @@ Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] 
 
    Example (defaults if no options are specified):
 
-    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
+    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [mpv]
 
 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
