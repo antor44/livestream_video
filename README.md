@@ -198,9 +198,9 @@ In general, processing online videos is very difficult due to the nature of diff
 
 A: Timeshift functions similarly to other applications, but in playlist4whisper, it involves a playlist repeated indefinitely with temporary videos or buffers. You can configure the number of these buffers and their size in minutes. For example, from just a few minutes up to a maximum of 99 videos, each lasting 99 minutes. This allows for a maximum of 163 hours of live streaming for timeshift, although at the cost of requiring a very large amount of disk space. When the chosen maximum size is reached, the oldest video file is deleted, and this process continues indefinitely until the application is stopped or an error occurs.
 
-The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video or stop altogether. The transcription will automatically switch to the chosen point.
+The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video. The transcription will automatically switch to the chosen point.
 
-The temporary video buffer files can be saved in another directory. They will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are typically stored in the temporary directory, which is /temp on Linux, and are usually deleted upon each computer restart.
+The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are typically stored in the temporary directory, which is /temp on Linux, and are usually deleted upon each computer restart.
 
 **Q: Why is the program not working?**
 
