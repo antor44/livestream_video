@@ -23,12 +23,11 @@ Author: Antonio R. Version: 2.08 License: GPL 3.0
 ```
 python3 playlist4whisper.py
 ```
-The application has a simple GUI using Python and the Tkinter library. It transcribes livestreams by feeding the output of ffmpeg to whisper.cpp, based on "livestream.sh" from whisper.cpp.
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
-
+```
 sudo apt-get install mpv smplayer vlc ffmpeg python3-tk
-
+```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
 For Twitch and Others streamlink is required (https://streamlink.github.io)
 
@@ -44,11 +43,12 @@ pip3 install --upgrade streamlink
 ```
 
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp. The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
-
+```
 make tiny.en
-
+```
+```
 make small
-
+```
 #
 # Usage: 
 
