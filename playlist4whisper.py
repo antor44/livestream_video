@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.04 License: GPL 3.0
+Author: Antonio R. Version: 2.08 License: GPL 3.0
 
 
 Usage:
@@ -161,7 +161,7 @@ default_timeshiftactive_option = False
 default_timeshift_options = "3 4 10"
 default_playeronly_option = False
 default_player_option = "mpv"
-default_mpv_options = "--geometry=900"
+default_mpv_options = ""
 default_override_option = False
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
@@ -305,7 +305,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.save_options_id = None
         self.step_s = tk.StringVar(value="4")
-        self.step_s_spinner = tk.Spinbox(self.step_frame, from_=2, to=60, width=2, textvariable=self.step_s,
+        self.step_s_spinner = tk.Spinbox(self.step_frame, from_=3, to=60, width=2, textvariable=self.step_s,
                                          command=self.schedule_save_options)
         self.step_s_spinner.pack(side=tk.LEFT)
 
@@ -502,8 +502,14 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
         # Third Down Frame
-        self.options_frame2 = tk.Frame(self.container_frame)
-        self.options_frame2.pack(side=tk.TOP, anchor=tk.W)
+
+        if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL) == 0:
+            self.options_frame2 = tk.LabelFrame(self.container_frame, text="Only Raw + VLC player - Large files will be stored in temp directory!!!", padx=10, pady=2)
+        else:
+            self.options_frame2 = tk.LabelFrame(self.container_frame, text="VLC player not installed for Timeshift!!!", padx=10, pady=2)
+
+        self.options_frame2.pack(fill="both", expand=True, padx=10, pady=2)
 
         # Timeshift
         self.timeshiftactive_label = tk.Label(self.options_frame2, text="Timeshift", padx=10)
@@ -561,9 +567,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.segment_time_spinner.pack(side=tk.LEFT)
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
-
-        self.note_label = tk.Label(self.options_frame2, text="=>Only Raw + VLC player - Large files will be stored in temp directory!", padx=10)
-        self.note_label.pack(side=tk.LEFT)
 
 
         # Buttons
@@ -697,7 +700,7 @@ class M3uPlaylistPlayer(tk.Frame):
         options_list = bash_options.split()
         while options_list:
             option = options_list.pop(0)
-            if option.isdigit() and (2 <= int(option) <= 60):
+            if option.isdigit() and (3 <= int(option) <= 60):
                 self.step_s.set(option)
                 self.step_s_spinner.update()
             elif option == "translate":
@@ -734,11 +737,8 @@ class M3uPlaylistPlayer(tk.Frame):
             step_s_value = int(step_s_str)
         else:
             step_s_value = 0
-            simpledialog.messagebox.showerror("Wrong option",
-                                              f"Wrong option {step_s_str} found, try again after deleting"
-                                              f" config_{self.spec}.json file")
 
-        if option.isdigit() and (0 <= int(option) <= step_s_value - 3):
+        if option.isdigit() and (0 <= int(option) <= step_s_value - 3) and (step_s_value >= 3):
             self.sync.set(option)
             self.sync_spinner.update()
         else:
@@ -1123,7 +1123,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.04\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.08\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
