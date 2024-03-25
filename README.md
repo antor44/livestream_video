@@ -19,7 +19,7 @@ Author: Antonio R. Version: 2.08 License: GPL 3.0
 
 2. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
 
-3. Finally, you can run the GUI by running the following command in the terminal:
+3. Finally, you can launch the GUI by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh.
 ```
 python3 playlist4whisper.py
 ```
@@ -270,8 +270,7 @@ pip3 install streamlink
 
 5. playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
 
-6. Finally, you can run the GUI by executing the following command in the terminal:
-
+6. Finally, you can launch the GUI by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
 ```
 python3 playlist4whisper.py
 ```
