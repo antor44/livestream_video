@@ -192,7 +192,7 @@ Additionally, "playlist4whisper" relies on the included bash script "livestream_
 
 A: Streams can often experience interruptions or temporary cuts, and their proper functioning in playlist4whisper can also depend on the ads they insert, and in other cases on whether yt-dlp and streamlink support the frequent changes made by various online video providers.
 
-In general, processing online videos is very difficult due to the nature of different video codecs and network protocols used on servers and their various implementations, or due to incorrect metadata information, or because of the difficulty or impossibility of recording and cutting videos with ffmpeg.
+In general, processing online videos is very difficult due to the nature of different video codecs and network protocols used on servers and their various implementations, or due to incorrect metadata information, or because of the difficulty or impossibility of recording and cutting videos with ffmpeg. To add the somewhat capricious nature of the artificial intelligence algorithm to transcribe.
 
 **Q: How does timeshift work and where are the files stored? Can I save these videos?**
 
