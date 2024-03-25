@@ -100,8 +100,9 @@ Some notable features:
 
 Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
 
- [streamlink] option forces the url to be processed by streamlink
- [yt-dlp] option forces the url to be processed by yt-dlp
+ [streamlink] option forces the url to be processed by streamlink.
+ 
+ [yt-dlp] option forces the url to be processed by yt-dlp.
 
    Example (defaults if no options are specified):
 
