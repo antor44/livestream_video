@@ -201,7 +201,7 @@ A: Timeshift functions similarly to other applications, but in playlist4whisper,
 
 The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video. The transcription will automatically switch to the chosen point.
 
-The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are typically stored in the temporary directory, which is /tmp on Linux, and are usually deleted upon each computer restart.
+The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are typically stored in the temporary directory, which is /tmp on Linux and OS X, and are usually deleted upon each computer restart.
 
 **Q: Why is the program not working?**
 
