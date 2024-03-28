@@ -300,6 +300,10 @@ A: The video and transcription applications work independently, each with its ow
 
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, albeit potentially resulting in the omission of some phrases.
 
+**Q:Why does the beginning and end of the transcription often get lost?**
+
+A: The current script versions segment sound files into chunks based on user-selected durations. However, this approach may lead to the truncation or deletion of words at the beginning and end of each chunk because it lacks a voice activity detection (VAD) system for splitting the audio. A VAD system is planned to be incorporated in the near future.
+
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
 A: The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging accents or voice tones, or changes in voices during conversations can pose difficulties. In the future, the addition of sound filters options aims to minimize these issues. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
@@ -325,7 +329,6 @@ https://github.com/ggerganov/whisper.cpp#core-ml-support
 **Q: smplayer does not work with online TV?**
 
 A: First, check if you have passed a player option that is not compatible with smplayer. smplayer depens of mpv or mplayer, the installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option than mplayer, or if you prefer smplayer, make sure it is configured to use mpv.
-
 
 
 **Q: Is this program legal to watch TV channels?**
