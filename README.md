@@ -300,7 +300,7 @@ A: The video and transcription applications work independently, each with its ow
 
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, albeit potentially resulting in the omission of some phrases.
 
-**Q:Why does the beginning and end of the transcription often get lost?**
+**Q: Why does the beginning and end of the transcription often get lost?**
 
 A: The current script versions segment sound files into chunks based on user-selected durations. However, this approach may lead to the truncation or deletion of words at the beginning and end of each chunk because it lacks a voice activity detection (VAD) system for splitting the audio. A VAD system is planned to be incorporated in the near future.
 
