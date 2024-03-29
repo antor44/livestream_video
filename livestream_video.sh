@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.08 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.10 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -337,13 +337,13 @@ if [[ $timeshift == "timeshift" ]]; then
     ln -f -s /tmp/whisper-live0_${mypid}_buf000.avi /tmp/whisper-live0_${mypid}_0.avi # symlink first buffer at start
 
     printf "Buffering audio. Please wait...\n\n"
-    sleep 12
+    sleep 15
 
     if ! ps -p $ffmpeg_pid > /dev/null; then
         printf "Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
-    sleep 15
+    sleep $((step_s))
     if [[ $mpv_options == "true" ]]; then
         vlc -I http --http-host 0.0.0.0 --http-port 8080 --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
     else
@@ -367,11 +367,13 @@ if [[ $timeshift == "timeshift" ]]; then
     xbuf=1
     nbuf="001"
 
-    i=0
+    i=-1
     SECONDS=0
     FILEPLAYED=""
 
     while [ $running -eq 1 ]; do
+
+      secm=$SECONDS
 
   		if [ -f /tmp/whisper-live0_${mypid}_buf$nbuf.avi ]; then # check split
   			mv -f /tmp/whisper-live0_${mypid}_buf$abuf.avi /tmp/whisper-live0_${mypid}_$n.avi
@@ -429,41 +431,41 @@ if [[ $timeshift == "timeshift" ]]; then
 
             rest=$(echo "$segment_played - $POSITION - $sync" | bc)
 
+            tryed=-1
+            if [ $(echo "$rest < $step_s" | bc -l) -eq 1 ] && [ $(echo "$rest > 0" | bc -l) -eq 1 ]; then
 
-            if [ $(echo "$rest < $step_s" | bc -l) -eq 1 ]; then
-
-                tryed=0
-                while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-
+                while [ $err -ne 0 ] && [ $tryed -lt 10 ]; do
                     sleep 0.5
-                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc) -t $(echo "$rest + 1.5" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                     ((tryed=tryed+1))
                     err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
-
+                    in=3
                 done
+
             else
 
-                while [ $err -ne 0 ]; do
+                while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
                     if [ $in -eq 0 ]; then
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + $sync + 1" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $(echo "$step_s + $sync + $((step_s/10)) - 0.8 " | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                         in=1
                         ((SECONDS=SECONDS+step_s))
                     else
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc) -t $(echo "$step_s + 0.0" | bc) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                        in=2
                     fi
                     err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+                    ((tryed=tryed+1))
                 done
-
             fi
 
             ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
-
 
           else
             in=0
           fi
       fi
       ((i=i+1))
+
     done
 
     killall -v ffmpeg
@@ -611,7 +613,7 @@ else # No timeshift
     fi
 
     printf "Buffering audio. Please wait...\n\n"
-    sleep $(($step_s+1))
+    sleep $(($step_s+2))
 
     if ! ps -p $ffmpeg_pid > /dev/null; then
         printf "Error: ffmpeg failed to capture the stream\n"
