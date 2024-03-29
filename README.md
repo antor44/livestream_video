@@ -302,7 +302,7 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 
 **Q: Why does the beginning and end of the transcription often get lost?**
 
-A: This occurs because the application lacks a voice activity detection (VAD) system for splitting the audio during a silence. The current versions of the bash script segments sound files into chunks based on user-selected durations, this may lead to the truncation or deletion of words at the beginning and end of each chunk. The transcription AI, Whisper, uses a GPT2 model which is a version preceding OpenAI's ChatGPT. It aims to fill in gaps and address sound issues in order to accurately transcribe coherent words within context. This system works better when a larger Whisper model is chosen. Nonetheless, a VAD system is planned to be incorporated in the near future.
+A: This occurs because the application lacks a voice activity detection (VAD) system for splitting the audio during a silence. The current versions of the bash script segments sound files into chunks based on user-selected durations, this may lead to the truncation or deletion of words at the beginning and end of each chunk. The transcription AI, Whisper, uses a GPT2 model which is a version preceding OpenAI's ChatGPT. It aims to fill in gaps and address sound issues in order to accurately transcribe coherent words within context. This system performs better when a larger Whisper model is selected. It can work very well even when someone speaks very softly or inaudibly. However, there are occasions when it is not effective, so a VAD system is planned to be integrated in the near future.
 
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
