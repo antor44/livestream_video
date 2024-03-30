@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.10 License: GPL 3.0
+Author: Antonio R. Version: 2.12 License: GPL 3.0
 
 
 Usage:
@@ -571,7 +571,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
-        self.delete_videos_button = tk.Button(self.options_frame2, text="Delete all temp videos", padx=2, command=self.delete_videos)
+        self.delete_videos_button = tk.Button(self.options_frame2, text="Delete all temp files", padx=5, command=self.delete_videos)
         self.delete_videos_button.pack(side=tk.LEFT, padx=(10, 10))
 
 
@@ -966,7 +966,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     deleted_files += 1
 
             if deleted_files == 0:
-                simpledialog.messagebox.showinfo("Info", "No files were deleted.")
+                simpledialog.messagebox.showinfo("Info", "There are no files to delete, or wait at least 1 minute.")
             else:
                 simpledialog.messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
         except Exception as e:
@@ -1197,7 +1197,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.10\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.12\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -1211,7 +1211,7 @@ class M3uPlaylistPlayer(tk.Frame):
 class MainApplication:
     main_window = tk.Tk()
     main_window.title("playlist4whisper")
-    main_window.geometry("900x800")
+    main_window.geometry("840x800")
 
     icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
            "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
