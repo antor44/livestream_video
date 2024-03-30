@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.08 License: GPL 3.0
+Author: Antonio R. Version: 2.10 License: GPL 3.0
 
 
 Usage:
@@ -115,7 +115,10 @@ Script and Whisper executable (main), and models directory with at least one arc
 """
 
 import json
+import re
 import os
+import glob
+import time
 import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog, PhotoImage
@@ -158,7 +161,7 @@ rPadChars = 100 * " "
 default_terminal_option = "gnome-terminal"
 default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
-default_timeshift_options = "3 4 10"
+default_timeshift_options = "4 4 10"
 default_playeronly_option = False
 default_player_option = "mpv"
 default_mpv_options = ""
@@ -491,7 +494,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_options_label = tk.Label(self.options_frame1, text="Player Options", padx=4)
         self.mpv_options_label.pack(side=tk.LEFT)
 
-        self.mpv_options_entry = tk.Entry(self.options_frame1, width=50)
+        self.mpv_options_entry = tk.Entry(self.options_frame1, width=44)
         self.mpv_options_entry.insert(0, self.current_options.get("mpv_options", ""))
         self.mpv_options_entry.pack(side=tk.LEFT)
 
@@ -505,7 +508,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                              stderr=subprocess.DEVNULL) == 0:
-            self.options_frame2 = tk.LabelFrame(self.container_frame, text="Only Raw + VLC player - Large files will be stored in temp directory!!!", padx=10, pady=2)
+            self.options_frame2 = tk.LabelFrame(self.container_frame, text="Only for VLC player - Large files will be stored in /tmp directory!!!", padx=10, pady=2)
         else:
             self.options_frame2 = tk.LabelFrame(self.container_frame, text="VLC player not installed for Timeshift!!!", padx=10, pady=2)
 
@@ -567,6 +570,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.segment_time_spinner.pack(side=tk.LEFT)
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
+
+        self.delete_videos_button = tk.Button(self.options_frame2, text="Delete all temp videos", padx=2, command=self.delete_videos)
+        self.delete_videos_button.pack(side=tk.LEFT, padx=(10, 10))
 
 
         # Buttons
@@ -899,6 +905,75 @@ class M3uPlaylistPlayer(tk.Frame):
                     print("Script does not exist.")
                     simpledialog.messagebox.showerror("Error", "Script does not exist.")
 
+
+
+    # Function to delete temporary videos
+    def delete_videos(self):
+        try:
+            used_files = []
+            file_info = {}
+
+            # Get the list of files matching the pattern
+            files = glob.glob("/tmp/*whisper-live*.*")
+
+            # Check the initial size and timestamp of each file
+            for file in files:
+                try:
+                    initial_size = os.path.getsize(file)
+                    initial_timestamp = os.path.getmtime(file)
+                    file_info[file] = (initial_size, initial_timestamp)
+                except FileNotFoundError:
+                    pass
+
+            # Wait for 5 seconds
+            time.sleep(5)
+
+            # Get the list of files again after the wait period
+            files_after_wait = glob.glob("/tmp/*whisper-live*.*")
+
+            # Calculate the files that were created during the wait period
+            new_files = [file for file in files_after_wait if file not in files]
+
+            # Add the new files to the used_files list
+            used_files.extend(new_files)
+
+            # Check the final size and timestamp of each file
+            for file in files:
+                try:
+                    final_size = os.path.getsize(file)
+                    final_timestamp = os.path.getmtime(file)
+                    if (final_size != file_info.get(file, (None, None))[0] or
+                        final_timestamp != file_info.get(file, (None, None))[1] or
+                        (time.time() - final_timestamp) < 60):
+                        used_files.append(file)
+                except FileNotFoundError:
+                    pass
+
+            # Extract numbers from filenames of files in use
+            used_numbers = set()
+            for file in used_files:
+                match = re.search(r'whisper-live0_(\d+)', file)
+                if match:
+                    number = match.group(1)
+                    used_numbers.add(number)
+
+            # Delete files not in use
+            deleted_files = 0
+            for file in files:
+                match = re.search(r'whisper-live0?_(\d+)', file)
+                if match and match.group(1) not in used_numbers:
+                    os.remove(file)
+                    deleted_files += 1
+
+            if deleted_files == 0:
+                simpledialog.messagebox.showinfo("Info", "No files were deleted.")
+            else:
+                simpledialog.messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
+        except Exception as e:
+            simpledialog.messagebox.showerror("Error", f"Unable to delete /tmp videos: {str(e)}")
+
+
+
     # Function to add a channel
     def add_channel(self):
         name = simpledialog.askstring("Add Channel", "Channel Name:" + rPadChars)
@@ -924,7 +999,6 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             # Show an error message if either name or URL is not provided
             simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
-
 
 
     # Function to delete a channel
@@ -1123,7 +1197,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.08\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.10\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
