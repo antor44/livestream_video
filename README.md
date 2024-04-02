@@ -42,7 +42,7 @@ pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp. The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
+The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using terminal commands such as the following examples:
 ```
 make tiny.en
 ```
@@ -187,13 +187,13 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 A: The absence of a precompiled and packaged distribution for "playlist4whisper" is due to the constant changes and optional optimizations in the underlying "whisper-cpp" Linux program. Providing the source code allows users to adapt to these modifications and optimize performance based on their hardware and preferences.
 
-Additionally, "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. Providing the source code enables expert users to customize and adapt the programs to their specific needs and environments.
+Additionally, "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
 
 **Q: Some streams don't work, especially with upper and lower qualities, and sometimes timeshift doesn't work?**
 
 A: Streams can often experience interruptions or temporary cuts, and their proper functioning in playlist4whisper can also depend on the ads they insert, and in other cases on whether yt-dlp and streamlink support the frequent changes made by various online video providers.
 
-In general, processing online videos is very difficult due to the nature of different video codecs and network protocols used on servers and their various implementations, or due to incorrect metadata information, or because of the difficulty of recording and cutting videos with ffmpeg. To add the somewhat random nature of the artificial intelligence algorithm for transcription.
+In general, processing online videos is very difficult due to the nature of different video codecs and network protocols used on servers and their various implementations, or due to incorrect timestamps and metadata information, or because of the difficulty of recording and cutting videos with ffmpeg. To add the somewhat random nature of the artificial intelligence algorithm for transcription.
 
 **Q: How does timeshift work and where are the files stored? Can I save these videos?**
 
@@ -201,7 +201,7 @@ A: Timeshift functions similarly to other applications, but in playlist4whisper,
 
 The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video. The transcription will automatically switch to the chosen point.
 
-The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are typically stored in the temporary directory, which is /tmp on Linux and OS X, and are usually deleted upon each computer restart.
+The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live0_131263_3.avi, or for the last one being recorded, whisper-live0_131263_buf033.avi. These files are stored in the temporary directory, which is usually /tmp in Linux and OS X, and are generally deleted upon restarting the computer.
 
 **Q: Why is the program not working?**
 
@@ -292,11 +292,11 @@ In this example, the settings modify the background color to black, the foregrou
 
 **Q: How can I synchronize the video and the transcription?**
 
-A: You can use the pause and forward/backward buttons of the video player to manually synchronize the video and transcription to your desired timing.
+A: Without the Timeshift option, you can manually synchronize the video and transcription to your desired timing by using the pause and forward/backward buttons of the video player. When Timeshift is activated, the transcription is synchronized with the sync option.
 
 **Q: Why does the video and transcription get desynchronized?**
 
-A: The video and transcription applications work independently, each with its own stream of video or audio. Over time, the desynchronization can also vary, choosing a model that is too large for the processor's capabilities can also affect the synchronization.
+A: Online video streams are often not the most reliable option for obtaining accurate video synchronization or timestamps. Too, the video and transcription applications work independently, each with its own stream of video or audio. Over time, the desynchronization can also vary, choosing a model that is too large for the processor's capabilities can also affect the synchronization.
 
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, albeit potentially resulting in the omission of some phrases.
 
