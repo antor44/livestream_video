@@ -28,8 +28,7 @@ This program depends on other Linux programs and their libraries, such as Python
 ```
 sudo apt-get install mpv smplayer vlc ffmpeg python3-tk
 ```
-For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
-For Twitch and Others streamlink is required (https://streamlink.github.io)
+For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
 The easy way to install yt-dlp and streamlink:
 ```
