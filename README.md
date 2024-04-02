@@ -302,7 +302,7 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 
 **Q: Why does the beginning and end of the transcription often get lost?**
 
-A: This occurs because the application lacks a voice activity detection (VAD) system to split the audio during silent intervals. The current versions of the bash script segment sound files into chunks based on user-selected durations, which may result in the truncation or deletion of words at the beginning and end of each chunk.
+A: This occurs because the application lacks a voice activity detection (VAD) system to split the audio during silent intervals. The current versions of the bash script segment sound files into chunks based on user-selected durations, which may result in the truncation or deletion of words at the beginning and end of each chunk. Sometimes, a few words are lost at the beginning or the end of the stream or the recorded video buffer, because online video streams are not always the best option for accurate data regarding their video sync or timestamps.
 
 Regarding the low-level development of the IA utilized by `playlist4whisper.py` or `livestream_video.sh`, OpenAI states: "The Whisper architecture is a simple end-to-end approach, implemented as an encoder-decoder Transformer. Input audio is split into 30-second chunks, converted into a log-Mel spectrogram, and then passed into an encoder. A decoder is trained to predict the corresponding text caption, intermixed with special tokens that direct the single model to perform tasks such as language identification, phrase-level timestamps, multilingual speech transcription, and English speech translation".
 
