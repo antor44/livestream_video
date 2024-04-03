@@ -9,7 +9,7 @@
 Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.12 License: GPL 3.0
+Author: Antonio R. Version: 2.14 License: GPL 3.0
 
 
 #
@@ -117,7 +117,7 @@ Step: Size of the parts into which videos are divided for inference, size in sec
 
 Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3
 
-... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
+... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 
 Whisper languages, not all fully supported (a few other languages, such as Esperanto, can only be activated through a fine-tuned model. You can also choose "auto" for automatic language detection, allowing Whisper to translate certain Esperanto phrases into English):
 
