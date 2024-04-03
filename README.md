@@ -119,7 +119,7 @@ Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium
 
 ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0 
 
-Whisper languages (not all fully supported):
+Whisper languages, not all fully supported (a few other languages, such as Esperanto, can only be activated through a fine-tuned model, or you can select "auto" for automatic language detection, and Whisper can translate Esperanto to English):
 
 auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian),
 bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish),
