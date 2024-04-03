@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.12 License: GPL 3.0
+Author: Antonio R. Version: 2.14 License: GPL 3.0
 
 
 Usage:
@@ -79,8 +79,8 @@ Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to dow
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
 Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2. large-v3
+... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 
-    ... with suffixes each too: -q4_0, -q4_1, -q4_2, -q5_0, -q5_1, -q8_0
 
 Whisper languages:
 
@@ -89,7 +89,7 @@ bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech
 de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian),
 fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian),
 he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian),
-is (Icelandic), it (Italian), iw (<Hebrew>), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer),
+is (Icelandic), it (Italian), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer),
 kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian),
 lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay),
 mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya),
@@ -169,7 +169,7 @@ default_override_option = False
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3"]
-suffixes = ["-q4_0", "-q4_1", "-q4_2", "-q5_0", "-q5_1", "-q8_0"]
+suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 
 lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
            'az': 'Azerbaijani', 'be': 'Belarusian', 'bg': 'Bulgarian', 'bn': 'Bengali', 'br': 'Breton',
@@ -177,9 +177,9 @@ lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'A
            'de': 'German', 'el': 'Greek', 'en': 'English', 'eo': 'Esperanto', 'es': 'Spanish',
            'et': 'Estonian', 'eu': 'Basque', 'fa': 'Persian', 'fi': 'Finnish', 'fo': 'Faroese',
            'fr': 'French', 'ga': 'Irish', 'gl': 'Galician', 'gu': 'Gujarati', 'ha': 'Bantu',
-           'haw': 'Hawaiian', 'he': '[Hebrew]', 'hi': 'Hindi', 'hr': 'Croatian', 'ht': 'Haitian Creole',
+           'haw': 'Hawaiian', 'he': 'Hebrew', 'hi': 'Hindi', 'hr': 'Croatian', 'ht': 'Haitian Creole',
            'hu': 'Hungarian', 'hy': 'Armenian', 'id': 'Indonesian', 'is': 'Icelandic', 'it': 'Italian',
-           'iw': 'Hebrew', 'ja': 'Japanese', 'jv': 'Javanese', 'ka': 'Georgian', 'kk': 'Kazakh',
+           'ja': 'Japanese', 'jv': 'Javanese', 'ka': 'Georgian', 'kk': 'Kazakh',
            'km': 'Khmer', 'kn': 'Kannada', 'ko': 'Korean', 'ku': 'Kurdish', 'ky': 'Kyrgyz',
            'la': 'Latin', 'lb': 'Luxembourgish', 'lo': 'Lao', 'lt': 'Lithuanian', 'lv': 'Latvian',
            'mg': 'Malagasy', 'mi': 'Maori', 'mk': 'Macedonian', 'ml': 'Malayalam', 'mn': 'Mongolian',
@@ -202,7 +202,7 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
                      "eu", "fi", "fo", "fr", "ga", "gl", "hr", "hu", "is", "it", "kk", "la", "lb",
                      "lt", "lv", "mk", "mt", "nl", "nn", "no", "oc", "pl", "pt", "ro", "ru", "sh",
                      "sk", "sl", "sq", "sr", "sv", "uk", "wa"],
-          "Middle East": ['ar', "fa", "he", 'iw', "yi"],
+          "Middle East": ['ar', "fa", "he", "yi"],
           "Oceania": ["haw", "mi", "mg"],
           "Americas": ["ht"],
           "World": ["ar", "en", "eo", "es", "de", "fr", "pt", "ru", "zh"]}
@@ -1197,7 +1197,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.12\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.14\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
