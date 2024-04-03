@@ -214,7 +214,7 @@ For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch st
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
-A: Yes, you can run it with the command "python" followed by the full path of playlist4whisper.py, or if you are using an Anaconda environment: "/home/[user]/anaconda3/bin/conda run python /home/[user]/[app directory]/playlist4whisper.py". In both cases, provide the working directory where the program is located. However, even when running it from a desktop shortcut, it is recommended to use the option to run in a terminal to get error information.
+A: Yes, you can run it with the command "python" followed by the full path of playlist4whisper.py, or if you are using an Anaconda environment: "/home/[user]/anaconda3/bin/conda run python /home/[user]/[app directory]/playlist4whisper.py". In both cases, provide the working directory where the program is located.
 
 **Q: How can I change the size of the transcribed text snippets?**
 
