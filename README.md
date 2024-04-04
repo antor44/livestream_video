@@ -204,13 +204,41 @@ The temporary video buffer files can be saved in another directory, they will ha
 
 **Q: Why is the program not working?**
 
-A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. The main executable of whisper.cpp, the primary example, needs to be compiled and placed in the same directory as playlist4whisper and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model file from OpenAI in the "models" directory, following the correct format and name as specified in the Whisper.cpp repository. This task can be accomplished using terminal commands, for example:
+A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the main executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors typically occur due to missing development libraries in your operating system. The main executable from whisper.cpp needs to be placed in the same directory as playlist4whisper.py and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. These tasks can be accomplished using terminal commands:
 
-make tiny.en
-
-make small
-
+- First clone the repository:
+```
+git clone https://github.com/ggerganov/whisper.cpp.git
+```
+- Then, download one of the Whisper models converted in ggml format. For example:
+```
+bash ./models/download-ggml-model.sh base.en
+```
+- Now build the main example and transcribe an audio file like this:
+```
+# build the main example
+make
+```
+```
+# transcribe an audio file
+./main -f samples/jfk.wav
+```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch streamlink is required (https://streamlink.github.io).
+
+The easy way to install yt-dlp and streamlink:
+```
+pip3 install yt-dlp
+pip3 install streamlink
+```
+Or to upgrade them:
+```
+pip3 install --upgrade yt-dlp
+pip3 install --upgrade streamlink
+```
+
+**Q: When I run the script, I always encounter an error related to the "main" executable.**
+
+A: There could be various reasons for this error. The "main" executable is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "main" and reside in the same directory as playlist4whisper.py and the bash script livestream_video.sh. Ensure that both the main executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like "make base" or "make tiny.en". It's worth noting that most quantized models may not work with the latest versions of whisper.cpp and the livestream_video.sh script, resulting in a "main error". After building the main example using the terminal command "make", you can test an audio file example using the command: ./main -f samples/jfk.wav
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
@@ -345,3 +373,5 @@ A: Yes, of course, many of the URLs of channels that you find published on the i
 In the case of YouTube and Twitch, watching channels through standalone applications such as yt-dlp or streamlink poses a conflict with the companies as they cannot control the advertisements you see. In other words, they are not interested in this approach and may make it difficult or prevent you from accessing their video streams.
 
 
+
+make
