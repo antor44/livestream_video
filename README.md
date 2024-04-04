@@ -46,8 +46,15 @@ The main executable of whisper.cpp, which is the primary example, should be in t
 make tiny.en
 ```
 ```
+make base.en
+```
+```
 make small
 ```
+```
+make large-v3
+```
+
 #
 # Usage: 
 
@@ -220,7 +227,7 @@ bash ./models/download-ggml-model.sh base.en
 make
 ```
 ```
-# transcribe an audio file
+# transcribe an audio file (for model base.en)
 ./main -f samples/jfk.wav
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch streamlink is required (https://streamlink.github.io).
@@ -238,7 +245,7 @@ pip3 install --upgrade streamlink
 
 **Q: When I run the script, I always encounter an error related to the "main" executable.**
 
-A: There could be various reasons for this error. The "main" executable is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "main" and reside in the same directory as playlist4whisper.py and the bash script livestream_video.sh. Ensure that both the main executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like "make base" or "make tiny.en". It's worth noting that most quantized models may not work with the latest versions of whisper.cpp, resulting in a "main error". After building the main example using the terminal command "make", you can test an audio file example using the command: ./main -f samples/jfk.wav
+A: There could be various reasons for this error. The "main" executable is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "main" and reside in the same directory as playlist4whisper.py and the bash script livestream_video.sh. Ensure that both the main executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like "make base.en" or "make tiny.en". It's worth noting that most quantized models may not work with the latest versions of whisper.cpp, resulting in a "main error". After building the main example using the terminal command "make", you can test an audio file example using the command (for model base.en): ./main -f samples/jfk.wav
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
