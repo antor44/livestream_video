@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.14 License: GPL 3.0
+Author: Antonio R. Version: 2.16 License: GPL 3.0
 
 
 Usage:
@@ -119,9 +119,44 @@ import re
 import os
 import glob
 import time
+import threading
 import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog, PhotoImage
+
+
+previous_error_messages = set()
+consecutive_same_messages = 0
+
+# Function to display warning messages
+def show_error_messages(error_messages):
+    global previous_error_messages, consecutive_same_messages
+
+    # Check if there are new error messages
+    if error_messages:
+        consecutive_same_messages = 0
+        previous_error_messages.update(error_messages)
+    else:
+        consecutive_same_messages += 1
+
+    # If there have been no changes for two consecutive checks, show the messages
+    if consecutive_same_messages >= 2:
+        unique_error_messages = set()
+
+        for error_type, error_text in previous_error_messages:
+            unique_error_messages.add((error_type, error_text))
+
+        for error_type, error_text in unique_error_messages:
+            err_message = f"{error_type}: {error_text}"
+            print(err_message)
+            simpledialog.messagebox.showinfo("Warning", err_message)
+
+        previous_error_messages.clear()
+        consecutive_same_messages = 0
+
+
+    # Clear the error_messages list
+    error_messages.clear()
 
 
 def check_terminal_installed(terminal):
@@ -157,7 +192,7 @@ def check_player_installed(player):
 
 
 # Default options
-rPadChars = 100 * " "
+rPadChars = 75
 default_terminal_option = "gnome-terminal"
 default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
@@ -231,11 +266,76 @@ for model in models:
           models_installed.append(full_model_name)
 
 
+class EnhancedStringDialog(simpledialog.Dialog):
+    def __init__(self, master, title, prompt_string, initial_value="", width=rPadChars):
+        self.prompt_string =  prompt_string + (" " * 2 * rPadChars)
+        self.initial_value = initial_value
+        self.width = width
+        super().__init__(master, title=title)
+
+    def body(self, master):
+        self.entry_label = tk.Label(master, text=self.prompt_string, padx=5)
+        self.entry_label.pack()
+        self.entry = tk.Entry(master, width=self.width)
+        self.entry.pack()
+        self.entry.insert(0, self.initial_value)
+        self.entry.focus_set()
+        self.entry.bind("<Button-3>", self.show_popup_menu)
+
+    def buttonbox(self):
+        box = tk.Frame(self)
+        w = tk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        box.pack()
+
+    def apply(self):
+        self.result = self.entry.get()
+
+    def show_popup_menu(self, event):
+      self.popup_menu = tk.Menu(self, tearoff=0)
+      self.popup_menu.add_command(label="Cut", command=self.cut)
+      self.popup_menu.add_command(label="Copy", command=self.copy)
+      self.popup_menu.add_command(label="Paste", command=self.paste)
+      self.popup_menu.add_command(label="Delete", command=self.delete)
+      self.popup_menu.tk_popup(event.x_root, event.y_root)
+
+    def cut(self):
+      if self.entry.selection_present():
+          selected_text = self.entry.selection_get()
+          self.copy_to_clipboard(selected_text)
+          self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+
+    def copy(self):
+      selected_text = self.entry.get()
+      self.copy_to_clipboard(selected_text)
+
+    def paste(self):
+      clipboard_text = self.master.clipboard_get()
+      if clipboard_text is not None:
+          self.entry.insert(tk.INSERT, clipboard_text)
+      else:
+          pass
+
+    def delete(self):
+      if self.entry.selection_present():
+          self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+
+    def copy_to_clipboard(self, text):
+      if text is not None:
+          self.master.clipboard_clear()
+          self.master.clipboard_append(text)
+      else:
+          pass
+
+
 class M3uPlaylistPlayer(tk.Frame):
-    def __init__(self, parent, spec, bash):
+    def __init__(self, parent, spec, bash_script, error_messages):
         super().__init__(parent)
         self.spec = spec
-        self.bash_script = bash
+        self.bash_script = bash_script
+        self.error_messages = error_messages
         self.current_options = {}
         self.list_number = 0
         self.playlist = []
@@ -244,6 +344,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.load_options()
 
     def create_widgets(self):
+
         self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
         self.tree.heading("list_number", text="#")
         self.tree.heading("name", text="Channel")
@@ -354,6 +455,7 @@ class M3uPlaylistPlayer(tk.Frame):
                                                 command=update_model_button, state="disabled")
 
             model_menu.add_cascade(label=model, menu=suffix_menu)
+
         # Regions and their languages
         self.language_label = tk.Label(self.options_frame0, text="Language", padx=4)
         self.language_label.pack(side=tk.LEFT)
@@ -500,6 +602,8 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.mpv_options_entry.bind("<KeyRelease>", self.schedule_save_options)
 
+        self.mpv_options_entry.bind("<Button-3>", self.show_popup_menu)
+
         self.mpv_fg = self.mpv_options_entry.cget("fg")
         self.mpv_bg = self.mpv_options_entry.cget("bg")
 
@@ -594,6 +698,12 @@ class M3uPlaylistPlayer(tk.Frame):
         self.edit_button = tk.Button(self.options_frame3, text="Edit", command=self.edit_channel)
         self.edit_button.pack(side=tk.LEFT)
 
+        self.move_up_button = tk.Button(self.options_frame3, text="Move up", command=self.move_up_channel)
+        self.move_up_button.pack(side=tk.LEFT)
+
+        self.move_down_button = tk.Button(self.options_frame3, text="Move down", command=self.move_down_channel)
+        self.move_down_button.pack(side=tk.LEFT)
+
         self.load_label = tk.Label(self.options_frame3, text="Playlist", padx=10)
         self.load_label.pack(side=tk.LEFT)
 
@@ -636,8 +746,8 @@ class M3uPlaylistPlayer(tk.Frame):
                         self.tree.insert("", "end", values=(list_number, name, url))
                         self.playlist.append((name, url))
         except FileNotFoundError:
-            simpledialog.messagebox.showerror("File Not Found",
-                                              f"The default playlist_{self.spec}.m3u file was not found.")
+            err_message = ("File Not Found", f"The default playlist_{self.spec}.m3u file was not found.")
+            self.error_messages.append(err_message)
 
     def widgets_updates(self):
         terminal_option = self.current_options["terminal_option"]
@@ -697,9 +807,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
 
         if not terminal_option in terminal_installed:
-            err_message = f"Warning: Terminal {terminal_option} was not found. Please install it" \
-                          f" or choose other terminal."
-            simpledialog.messagebox.showerror("Terminal Not Installed", err_message)
+            err_message = ("Terminal Not Installed", f"Warning: Terminal {terminal_option} was not found. Please install it" \
+                          f" or choose other terminal.")
+            self.error_messages.append(err_message)
 
         self.translate.set(False)
 
@@ -721,9 +831,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
                 if not option in models_installed:
                     model_path = "./models/ggml-{}.bin".format(option)
-                    err_message = f"Warning: File for model {option} was not found. " \
-                                  f"Please install it in {model_path} or choose other model."
-                    simpledialog.messagebox.showerror("Model Not Installed", err_message)
+                    err_message = ("Model Not Installed", f"Warning: File for model {option} was not found. " \
+                                  f"Please install it in {model_path} or choose other model.")
+                    self.error_messages.append(err_message)
             elif option in lang_codes:
                 self.language_option_menu.unbind("<<MenuSelect>>")
                 lang_name = lang_codes.get(option)
@@ -731,9 +841,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.language.set(full_language_name)
                 self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
             else:
-                simpledialog.messagebox.showerror("Wrong option",
-                                                  f"Wrong option {option} found, try again after deleting"
-                                                  f" config_{self.spec}.json file")
+                err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
+                                                    f" config_{self.spec}.json file")
+                self.error_messages.append(err_message)
 
         options_list = timeshift_options.split()
         option = options_list.pop(0)
@@ -748,43 +858,44 @@ class M3uPlaylistPlayer(tk.Frame):
             self.sync.set(option)
             self.sync_spinner.update()
         else:
-                simpledialog.messagebox.showerror("Wrong option",
-                                                  f"Wrong option {option} found, try again after deleting"
-                                                  f" config_{self.spec}.json file")
+            err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
+                                                    f" config_{self.spec}.json file")
+            self.error_messages.append(err_message)
+
         option = options_list.pop(0)
         if option.isdigit() and (2 <= int(option) <= 99):
             self.segments.set(option)
             self.segments_spinner.update()
         else:
-                simpledialog.messagebox.showerror("Wrong option",
-                                                  f"Wrong option {option} found, try again after deleting"
-                                                  f" config_{self.spec}.json file")
+            err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
+                                                f" config_{self.spec}.json file")
+            self.error_messages.append(err_message)
+
         option = options_list.pop(0)
         if option.isdigit() and (1 <= int(option) <= 99):
             self.segment_time.set(option)
             self.segment_time_spinner.update()
         else:
-                simpledialog.messagebox.showerror("Wrong option",
-                                                  f"Wrong option {option} found, try again after deleting"
-                                                  f" config_{self.spec}.json file")
-
+            err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
+                                                    f" config_{self.spec}.json file")
+            self.error_messages.append(err_message)
 
         self.playeronly.set(playeronly_option)
         self.player_option_menu.unbind("<<MenuSelect>>")
         self.player.set(player_option)
         self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
         if not player_option in player_installed:
-            err_message = f"Warning: Video player {player_option} was not found. Please install it " \
-                          f"or choose other video player."
-            simpledialog.messagebox.showerror("Video Player Not Installed", err_message)
+            err_message = ("Video Player Not Installed", f"Warning: Video player {player_option} was not found. Please install it " \
+                          f"or choose other video player.")
+            self.error_messages.append(err_message)
 
         self.mpv_options_entry.delete(0, tk.END)
         self.mpv_options_entry.insert(0, mpv_options)
         self.timeshiftactive.set(timeshiftactive_option)
         if not subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                                  stderr=subprocess.DEVNULL) == 0:
-            err_message = f"Warning: Video player {player_option} was not found. Please install it."
-            simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
+            err_message = ("Timeshift Player Not Installed", f"Warning: Video player {player_option} was not found. Please install it.")
+            self.error_messages.append(err_message)
 
     def play_channel(self, event):
         region = self.tree.identify_region(event.x, event.y)
@@ -812,7 +923,8 @@ class M3uPlaylistPlayer(tk.Frame):
                                                      stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[vlc {mpv_options}]"
                 else:
-                    err_message = f"Warning: Video player {player_option} was not found. Please install it."
+                    err_message= f"Warning: Video player {player_option} was not found. Please install it."
+                    print(err_message)
                     simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
 
             # Try launching smplayer, mpv, or mplayer
@@ -824,12 +936,14 @@ class M3uPlaylistPlayer(tk.Frame):
                 elif videoplayer == "none":
                     if self.playeronly.get():
                         mpv_options = ""
-                        print("None video player selected.")
-                        simpledialog.messagebox.showerror("Error", "None video player selected.")
+                        err_message= "None video player selected."
+                        print(err_message)
+                        simpledialog.messagebox.showerror("Error", err_message)
                 else:
                     mpv_options = ""
-                    print(f"No {videoplayer} video player found.")
-                    simpledialog.messagebox.showerror("Error", f"No {videoplayer} video player found.")
+                    err_message= f"No {videoplayer} video player found."
+                    print(err_message)
+                    simpledialog.messagebox.showerror("Error", err_message)
 
             if quality == "raw":
                 videoplayer = "none"
@@ -854,6 +968,7 @@ class M3uPlaylistPlayer(tk.Frame):
                         mpv_options = f"[vlc {mpv_options}]"
                     else:
                         err_message = f"Warning: Video player {player_option} was not found. Please install it."
+                        print(err_message)
                         simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
                 elif videoplayer == "smplayer" and videoplayer in player_installed:
                     mpv_options = f"[smplayer {mpv_options}]"
@@ -863,8 +978,9 @@ class M3uPlaylistPlayer(tk.Frame):
                     mpv_options = f"[none]"
                 else:
                     mpv_options = ""
-                    print(f"No {videoplayer} video player found.")
-                    simpledialog.messagebox.showerror("Error", f"No {videoplayer} video player found.")
+                    err_message = f"No {videoplayer} video player found."
+                    print(err_message)
+                    simpledialog.messagebox.showerror("Error", err_message)
 
                 if os.path.exists(self.bash_script):
                     try:
@@ -896,15 +1012,16 @@ class M3uPlaylistPlayer(tk.Frame):
                             subprocess.Popen(["xterm", "-e", f"{self.bash_script} {url} {bash_options}"
                                                                       f" {mpv_options}"])
                         else:
-                            print("No compatible terminal found.")
-                            simpledialog.messagebox.showerror("Error", "No compatible terminal found.")
+                            err_message= "No compatible terminal found."
+                            print(err_message)
+                            simpledialog.messagebox.showerror("Error", err_message)
                     except OSError as e:
                         print("Error executing command:", e)
                         simpledialog.messagebox.showerror("Error", "Error executing command.")
                 else:
-                    print("Script does not exist.")
-                    simpledialog.messagebox.showerror("Error", "Script does not exist.")
-
+                    err_message="Script does not exist."
+                    print(err_message)
+                    simpledialog.messagebox.showerror("Error", err_message)
 
 
     # Function to delete temporary videos
@@ -973,11 +1090,56 @@ class M3uPlaylistPlayer(tk.Frame):
             simpledialog.messagebox.showerror("Error", f"Unable to delete /tmp videos: {str(e)}")
 
 
+    # Popup menu cut, copy, paste, delete
+    def show_popup_menu(self, event):
+        self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_command(label="Cut", command=lambda: self.cut(self.mpv_options_entry))
+        self.popup_menu.add_command(label="Copy", command=lambda: self.copy(self.mpv_options_entry))
+        self.popup_menu.add_command(label="Paste", command=lambda: self.paste(self.mpv_options_entry))
+        self.popup_menu.add_command(label="Delete", command=lambda: self.delete(self.mpv_options_entry))
+
+        # Display the popup menu at the right-click position
+        self.popup_menu.tk_popup(event.x_root, event.y_root)
+
+    def cut(self, entry, event=None):
+        if entry.selection_present():
+            selected_text = entry.selection_get()
+            self.copy_to_clipboard(selected_text)
+            entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.schedule_save_options()
+
+    def copy(self, entry, event=None):
+        selected_text = entry.get()
+        self.copy_to_clipboard(selected_text)
+
+    def paste(self, entry, event=None):
+        clipboard_text = self.master.clipboard_get()
+        if clipboard_text is not None:
+            entry.insert(tk.INSERT, clipboard_text)
+        else:
+            pass
+        self.schedule_save_options()
+
+    def delete(self, entry, event=None):
+        if entry.selection_present():
+            entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.schedule_save_options()
+
+    def copy_to_clipboard(self, text):
+        if text is not None:
+            self.master.clipboard_clear()
+            self.master.clipboard_append(text)
+        else:
+            pass
+
 
     # Function to add a channel
     def add_channel(self):
-        name = simpledialog.askstring("Add Channel", "Channel Name:" + rPadChars)
-        url = simpledialog.askstring("Add Channel", "Channel URL:" + rPadChars)
+        name_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel Name:")
+        name = name_dialog.result
+        url_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel URL:")
+        url = url_dialog.result
+
         if name and url:
             selection = self.tree.selection()
             # Update list number for new item
@@ -989,31 +1151,37 @@ class M3uPlaylistPlayer(tk.Frame):
 
             # Add the channel to the list
             self.tree.insert("", index, values=(index, name, url))
+            self.update_list_numbers()
 
-            # iterate over all items and update their list_number
-            for i, item in enumerate(self.tree.get_children()):
-                self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
-
-            # Show a success message
             simpledialog.messagebox.showinfo("Success", "Channel added successfully. Don't forget to save the playlist.")
         else:
-            # Show an error message if either name or URL is not provided
             simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
-
 
     # Function to delete a channel
     def delete_channel(self):
         selection = self.tree.selection()
         if selection:
+            current_index = self.tree.index(selection[0])
             self.tree.delete(selection[0])
-            # iterate over all items and update their list_number
-            for i, item in enumerate(self.tree.get_children()):
-                self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
+            self.update_list_numbers()
 
-            # Show a success message
-            simpledialog.messagebox.showinfo("Success", "Channel deleted successfully. Don't forget to save the playlist.")
+            # Find the next item after the deleted one
+            next_index = current_index
+            all_items = self.tree.get_children()
+            total_items = len(all_items)
+
+            if next_index < total_items:
+                next_item = all_items[next_index]
+                self.tree.selection_set(next_item)
+            else:
+                # No more items left, so clear any existing selection
+                self.tree.selection_remove()
+
+            err_message=("Success", "Channel(s) deleted successfully. Don't forget to save the playlist.")
+            self.error_messages.append(err_message)
         else:
-            simpledialog.messagebox.showerror("Error", "Select a channel to delete")
+            simpledialog.messagebox.showerror("Error", "Select a channel to delete.")
+
 
     # Function to edit a channel
     def edit_channel(self):
@@ -1021,20 +1189,63 @@ class M3uPlaylistPlayer(tk.Frame):
         if selection:
             item = selection[0]
             list_number, name, url = self.tree.item(item, "values")
-            name = simpledialog.askstring("Edit Channel", "Channel Name:" + rPadChars,
-                                          initialvalue=self.tree.item(item, "values")[1])
-            url = simpledialog.askstring("Edit Channel", "Channel URL:" + rPadChars,
-                                         initialvalue=self.tree.item(item, "values")[2])
+
+            name_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel Name:", initial_value=self.tree.item(item, "values")[1])
+            name = name_dialog.result
+            url_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel URL:", initial_value=self.tree.item(item, "values")[2])
+            url = url_dialog.result
+
             if name and url:
                 self.tree.item(item, values=(list_number, name, url))
 
-                # Show a success message
                 simpledialog.messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
             else:
                 # Show an error message if either name or URL is not provided
                 simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
         else:
-            simpledialog.messagebox.showerror("Error", "Select a channel to edit")
+            simpledialog.messagebox.showerror("Error", "Select a channel to edit.")
+
+    # Function to move up channel
+    def move_up_channel(self):
+        selection = self.tree.selection()
+        if selection:
+            index = self.tree.index(selection[0])
+            if index > 0:
+                self.tree.move(selection[0], "", index - 1)
+                self.update_list_numbers()
+
+                err_message=("Success", "Channel(s) moved up successfully. Don't forget to save the playlist.")
+                self.error_messages.append(err_message)
+            else:
+                simpledialog.messagebox.showinfo("Info", "The selected channel is already at the top.")
+        else:
+            simpledialog.messagebox.showerror("Error", "Select a channel to move.")
+
+    # Function to move down channel
+    def move_down_channel(self):
+        selection = self.tree.selection()
+        if selection:
+            index = self.tree.index(selection[0])
+            total_items = len(self.tree.get_children())
+
+            if index < total_items - 1:  # Check if not the last item
+                self.tree.move(selection[0], "", index + 1)
+                self.update_list_numbers()
+
+                err_message=("Success", "Channel(s) moved down successfully. Don't forget to save the playlist.")
+                self.error_messages.append(err_message)
+            else:
+                simpledialog.messagebox.showinfo("Info", "The selected channel is already at the bottom.")
+        else:
+            simpledialog.messagebox.showerror("Error", "Select a channel to move.")
+
+
+    # Function to iterate over all items and update their list_number
+    def update_list_numbers(self):
+        for i, item in enumerate(self.tree.get_children()):
+            self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
+
+
 
     # Function to load a playlist
     def load_playlist(self):
@@ -1050,8 +1261,7 @@ class M3uPlaylistPlayer(tk.Frame):
         if filename:
             self.populate_playlist(filename)
             # iterate over all items and update their list_number
-            for i, item in enumerate(self.tree.get_children()):
-                self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
+            self.update_list_numbers()
 
     # Function to save a playlist
     def save_playlist(self):
@@ -1086,9 +1296,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 with open(config_file, "r") as file:
                     self.current_options = json.load(file)
         except:
-            simpledialog.messagebox.showerror("Wrong option",
-                                              f"Wrong option found, try again after deleting"
-                                              f" config_{self.spec}.json file")
+            err_message=("Wrong option",f"Wrong option found, try again after deleting"
+                                        f" config_{self.spec}.json file")
+            self.error_messages.append(err_message)
 
     def schedule_save_options(self, event=None):
         if self.save_options_id:
@@ -1197,7 +1407,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.14\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.16\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -1209,95 +1419,110 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
 class MainApplication:
-    main_window = tk.Tk()
-    main_window.title("playlist4whisper")
-    main_window.geometry("840x800")
+    def __init__(self):
+        self.error_messages = []
 
-    icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
-           "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
-           "+BacPBjserg4qyrg6sgCH6AuLo4KbpIif9LCi1iPDjux7t7j7t3gL9RYaoZHAdUzTLSyYSQza0KXa8IIYhexDEjMVOfE" \
-           "8UUPMfXPXx8vYvxLO9zf44+JW8ywCcQzzLdsIg3iKc2LZ3zPnGElSSF+Jx4zKALEj9yXXb5jXPRYT/PjBiZ9DxxhFgod" \
-           "rDcwaxkqMRx4qiiapTvz7qscN7irFZqrHVP/sJwXltZ5jrNYSSxiCWIECCjhjIqsBCjVSPFRJr2Ex7+IccvkksmVxmMH" \
-           "AuoQoXk+MH/4He3ZmFywk0KJ4DQi21/jABdu0Czbtvfx7bdPAECz8CV1vZXG8D0J+n1thY9Avq3gYvrtibvAZc7wOCTL" \
-           "hmSIwVo+gsF4P2MvikHDNwCPWtub619nD4AGeoqdQMcHAKjRcpe93h3d2dv/55p9fcDs4VywQjulqoAAAAGYktHRAAAA" \
-           "AAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfnBQQLNjFUgOcTAAAD0klEQVR42u2b229MURTGf0ZbL" \
-           "Ykqo3VphXqgIqkmXlwiLkGJS73wQhBFIuJFhEcSiVtCSjzwD/DWJsgglAckDU2lCYKKS2ijcal2OqaqUw9nT3Ls7nNme" \
-           "mbmzJ4zXclOMz1r7z3fd9Y6a+111kCWy6gE5hZphqUbGEgVAaVADbARmAeUALmaETAAdAJtwC2gHniT6KIlwGXgDzCYY" \
-           "SMCXAPKnYJfDfzIQODyCAM7h+sCu4GrQI7F9UGgSzMXGA+Mtrl+HDgRz0KrgH4Fk6+AQ8BsDf0fAb4MqAWaLKxhV6xF/" \
-           "MB3aVI/cNjGGnSNbjuAoMIdKuwmXpAm/BVP/kyVhUCPhKnBSrlYMGRWPuqBXGerwhWqVIp7JKU2IM8jCd9DCdtJlVKDp" \
-           "HTMQxnvNgnbc5XSS0mp0kMEFErYQiqlLkmp0MFGU4FFmpIgJ3VFquTGPJzIAjH3EbBcMwLeSfjKAXwp2mwJ8EBTIv4TX" \
-           "4rXjxJxW1fX8Lm0z1rgibCIFdlIgNkiGoE7wOJsICBi8f81wGMdiEg1Aa3AUuBmDCK0cI1khsHoaJHM/0aM4kUqiVCGQ" \
-           "TcJSDcR2hCQLiK0I8BtIrQlICrLRIi0I+JuAlFDewLMRDTFQURlMghwOxGKJX5gJTDXRqcTuE8SXnroZAHFwFmGFjHN4" \
-           "wtGVTrfSy7gx6jX/7IB/hWjNlngpYegm8C1IiAdwLUgIJ3A00rAWxcebloTMJjGOx4XAel439cOnMF4+xxOd+LhJgGdw" \
-           "HngIvBbl8wrJ9vuuJsEaHnH7QiISGcDn01NLxOBy+eeIR1lHdJTssTBJuNcCGdOJSThK5BZ6ZAmVDjYpFdHPwdmSuH2Z" \
-           "9Q6zQQ0S5O24B2pkT43q5Q2SCbSA0zxAPh84KOE7aCVYrukWE9i7bQ6iNz3FMJ4ja+UfYqU9RL2/Xc6yxEFnlOxwqKqH" \
-           "ncPo0c4U6QMuK7A8R6p8UNl3tOAp+KvHDcbgYA4WIRsvkALRr9hvJKLUR7PSdDXZ2C0+FYrwnFQ7NEaz2LzBVtO+3Or4" \
-           "/zSecDeBPeKZ3zDQaPGZIzycyoIyAP2Ax9IfbP0M4z2XseyXrhEMggYAxwAPrkA/DWwnRil/+GEuFkYbbNzMH5AMdZ0r" \
-           "QqYZPq8DqMtxuyftaIAUmqxfh/Gq/KIwxsVFtls9AcTL9x86gYsLCBPhNbPNneqD7hiQ0xGiEzApjiAhwXw6V7ItQMKc" \
-           "FbAe8Vx2QtptiUBqhEEzjk8Zmc0AUGgzi7/9ioB3SLv9pMFEpCO0XVeNXU7ArqB08BEslA2AxMYkREZkUyTf3yN/Z4aq" \
-           "slDAAAAAElFTkSuQmCC"
+        self.main_window = tk.Tk()
+        self.main_window.title("playlist4whisper")
+        self.main_window.geometry("840x800")
 
-    main_window.iconphoto(True, PhotoImage(data=icon))
+        icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
+                "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
+                "+BacPBjserg4qyrg6sgCH6AuLo4KbpIif9LCi1iPDjux7t7j7t3gL9RYaoZHAdUzTLSyYSQza0KXa8IIYhexDEjMVOfE" \
+                "8UUPMfXPXx8vYvxLO9zf44+JW8ywCcQzzLdsIg3iKc2LZ3zPnGElSSF+Jx4zKALEj9yXXb5jXPRYT/PjBiZ9DxxhFgod" \
+                "rDcwaxkqMRx4qiiapTvz7qscN7irFZqrHVP/sJwXltZ5jrNYSSxiCWIECCjhjIqsBCjVSPFRJr2Ex7+IccvkksmVxmMH" \
+                "AuoQoXk+MH/4He3ZmFywk0KJ4DQi21/jABdu0Czbtvfx7bdPAECz8CV1vZXG8D0J+n1thY9Avq3gYvrtibvAZc7wOCTL" \
+                "hmSIwVo+gsF4P2MvikHDNwCPWtub619nD4AGeoqdQMcHAKjRcpe93h3d2dv/55p9fcDs4VywQjulqoAAAAGYktHRAAAA" \
+                "AAAAPlDu38AAAAJcEhZcwAADdcAAA3XAUIom3gAAAAHdElNRQfnBQQLNjFUgOcTAAAD0klEQVR42u2b229MURTGf0ZbL" \
+                "Ykqo3VphXqgIqkmXlwiLkGJS73wQhBFIuJFhEcSiVtCSjzwD/DWJsgglAckDU2lCYKKS2ijcal2OqaqUw9nT3Ls7nNme" \
+                "mbmzJ4zXclOMz1r7z3fd9Y6a+111kCWy6gE5hZphqUbGEgVAaVADbARmAeUALmaETAAdAJtwC2gHniT6KIlwGXgDzCYY" \
+                "SMCXAPKnYJfDfzIQODyCAM7h+sCu4GrQI7F9UGgSzMXGA+Mtrl+HDgRz0KrgH4Fk6+AQ8BsDf0fAb4MqAWaLKxhV6xF/" \
+                "MB3aVI/cNjGGnSNbjuAoMIdKuwmXpAm/BVP/kyVhUCPhKnBSrlYMGRWPuqBXGerwhWqVIp7JKU2IM8jCd9DCdtJlVKDp" \
+                "HTMQxnvNgnbc5XSS0mp0kMEFErYQiqlLkmp0MFGU4FFmpIgJ3VFquTGPJzIAjH3EbBcMwLeSfjKAXwp2mwJ8EBTIv4TX" \
+                "4rXjxJxW1fX8Lm0z1rgibCIFdlIgNkiGoE7wOJsICBi8f81wGMdiEg1Aa3AUuBmDCK0cI1khsHoaJHM/0aM4kUqiVCGQ" \
+                "TcJSDcR2hCQLiK0I8BtIrQlICrLRIi0I+JuAlFDewLMRDTFQURlMghwOxGKJX5gJTDXRqcTuE8SXnroZAHFwFmGFjHN4" \
+                "wtGVTrfSy7gx6jX/7IB/hWjNlngpYegm8C1IiAdwLUgIJ3A00rAWxcebloTMJjGOx4XAel439cOnMF4+xxOd+LhJgGdw" \
+                "HngIvBbl8wrJ9vuuJsEaHnH7QiISGcDn01NLxOBy+eeIR1lHdJTssTBJuNcCGdOJSThK5BZ6ZAmVDjYpFdHPwdmSuH2Z" \
+                "9Q6zQQ0S5O24B2pkT43q5Q2SCbSA0zxAPh84KOE7aCVYrukWE9i7bQ6iNz3FMJ4ja+UfYqU9RL2/Xc6yxEFnlOxwqKqH" \
+                "ncPo0c4U6QMuK7A8R6p8UNl3tOAp+KvHDcbgYA4WIRsvkALRr9hvJKLUR7PSdDXZ2C0+FYrwnFQ7NEaz2LzBVtO+3Or4" \
+                "/zSecDeBPeKZ3zDQaPGZIzycyoIyAP2Ax9IfbP0M4z2XseyXrhEMggYAxwAPrkA/DWwnRil/+GEuFkYbbNzMH5AMdZ0r" \
+                "QqYZPq8DqMtxuyftaIAUmqxfh/Gq/KIwxsVFtls9AcTL9x86gYsLCBPhNbPNneqD7hiQ0xGiEzApjiAhwXw6V7ItQMKc" \
+                "FbAe8Vx2QtptiUBqhEEzjk8Zmc0AUGgzi7/9ioB3SLv9pMFEpCO0XVeNXU7ArqB08BEslA2AxMYkREZkUyTf3yN/Z4aq" \
+                "slDAAAAAElFTkSuQmCC"
 
-    script = "./livestream_video.sh"
+        self.main_window.iconphoto(True, PhotoImage(data=icon))
 
-    tab_control = ttk.Notebook(main_window)
+        bash_script = "./livestream_video.sh"
 
-    tab1 = ttk.Frame(tab_control)
-    tab2 = ttk.Frame(tab_control)
-    tab3 = ttk.Frame(tab_control)
-    tab4 = ttk.Frame(tab_control)
-    tab5 = ttk.Frame(tab_control)
+        tab_control = ttk.Notebook(self.main_window)
 
-    tab_control.add(tab1, text="IPTV", compound="left")
-    tab_control.add(tab2, text="YouTube", compound="left")
-    tab_control.add(tab3, text="Twitch", compound="left")
-    tab_control.add(tab4, text="streamlink", compound="left")
-    tab_control.add(tab5, text="yt-dlp", compound="left")
+        tab1 = ttk.Frame(tab_control)
+        tab2 = ttk.Frame(tab_control)
+        tab3 = ttk.Frame(tab_control)
+        tab4 = ttk.Frame(tab_control)
+        tab5 = ttk.Frame(tab_control)
 
-    canvas1 = tk.Canvas(tab1, width=25, height=80, bg='black', highlightthickness=0)
-    canvas1.pack(side=tk.LEFT, fill=tk.Y)
-    canvas1.create_text(15, 40, text='IPTV', angle=90, fill='white', anchor='center')
+        tab_control.add(tab1, text="IPTV", compound="left")
+        tab_control.add(tab2, text="YouTube", compound="left")
+        tab_control.add(tab3, text="Twitch", compound="left")
+        tab_control.add(tab4, text="streamlink", compound="left")
+        tab_control.add(tab5, text="yt-dlp", compound="left")
 
-    canvas2 = tk.Canvas(tab2, width=25, height=80, bg='#ff0000', highlightthickness=0)
-    canvas2.pack(side=tk.LEFT, fill=tk.Y)
-    canvas2.create_text(15, 40, text='YouTube', angle=90, fill='white', anchor='center')
+        canvas1 = tk.Canvas(tab1, width=25, height=80, bg='black', highlightthickness=0)
+        canvas1.pack(side=tk.LEFT, fill=tk.Y)
+        canvas1.create_text(15, 40, text='IPTV', angle=90, fill='white', anchor='center')
 
-    canvas3 = tk.Canvas(tab3, width=25, height=80, bg='#9146ff', highlightthickness=0)
-    canvas3.pack(side=tk.LEFT, fill=tk.Y)
-    canvas3.create_text(15, 40, text='Twitch', angle=90, fill='white', anchor='center')
+        canvas2 = tk.Canvas(tab2, width=25, height=80, bg='#ff0000', highlightthickness=0)
+        canvas2.pack(side=tk.LEFT, fill=tk.Y)
+        canvas2.create_text(15, 40, text='YouTube', angle=90, fill='white', anchor='center')
 
-    canvas4 = tk.Canvas(tab4, width=25, height=80, bg='#2c7ef2', highlightthickness=0)
-    canvas4.pack(side=tk.LEFT, fill=tk.Y)
-    canvas4.create_text(15, 40, text='streamlink', angle=90, fill='white', anchor='center')
+        canvas3 = tk.Canvas(tab3, width=25, height=80, bg='#9146ff', highlightthickness=0)
+        canvas3.pack(side=tk.LEFT, fill=tk.Y)
+        canvas3.create_text(15, 40, text='Twitch', angle=90, fill='white', anchor='center')
 
-    canvas5 = tk.Canvas(tab5, width=25, height=80, bg='#ff7e00', highlightthickness=0)
-    canvas5.pack(side=tk.LEFT, fill=tk.Y)
-    canvas5.create_text(15, 40, text='yt-dlp', angle=90, fill='white', anchor='center')
+        canvas4 = tk.Canvas(tab4, width=25, height=80, bg='#2c7ef2', highlightthickness=0)
+        canvas4.pack(side=tk.LEFT, fill=tk.Y)
+        canvas4.create_text(15, 40, text='streamlink', angle=90, fill='white', anchor='center')
 
-    spec1 = "iptv"
-    spec2 = "youtube"
-    spec3 = "twitch"
-    spec4 = "streamlink"
-    spec5 = "yt-dlp"
+        canvas5 = tk.Canvas(tab5, width=25, height=80, bg='#ff7e00', highlightthickness=0)
+        canvas5.pack(side=tk.LEFT, fill=tk.Y)
+        canvas5.create_text(15, 40, text='yt-dlp', angle=90, fill='white', anchor='center')
 
-    tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
+        spec1 = "iptv"
+        spec2 = "youtube"
+        spec3 = "twitch"
+        spec4 = "streamlink"
+        spec5 = "yt-dlp"
 
-    playlist_player1 = M3uPlaylistPlayer(tab1, spec1, script)
-    playlist_player1.pack(fill=tk.BOTH, expand=True)
+        tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
-    playlist_player2 = M3uPlaylistPlayer(tab2, spec2, script)
-    playlist_player2.pack(fill=tk.BOTH, expand=True)
+        playlist_player1 = M3uPlaylistPlayer(tab1, spec1, bash_script, self.error_messages)
+        playlist_player1.pack(fill=tk.BOTH, expand=True)
 
-    playlist_player3 = M3uPlaylistPlayer(tab3, spec3, script)
-    playlist_player3.pack(fill=tk.BOTH, expand=True)
+        playlist_player2 = M3uPlaylistPlayer(tab2, spec2, bash_script, self.error_messages)
+        playlist_player2.pack(fill=tk.BOTH, expand=True)
 
-    playlist_player4 = M3uPlaylistPlayer(tab4, spec4, script)
-    playlist_player4.pack(fill=tk.BOTH, expand=True)
+        playlist_player3 = M3uPlaylistPlayer(tab3, spec3, bash_script, self.error_messages)
+        playlist_player3.pack(fill=tk.BOTH, expand=True)
 
-    playlist_player5 = M3uPlaylistPlayer(tab5, spec5, script)
-    playlist_player5.pack(fill=tk.BOTH, expand=True)
+        playlist_player4 = M3uPlaylistPlayer(tab4, spec4, bash_script, self.error_messages)
+        playlist_player4.pack(fill=tk.BOTH, expand=True)
 
+        playlist_player5 = M3uPlaylistPlayer(tab5, spec5, bash_script, self.error_messages)
+        playlist_player5.pack(fill=tk.BOTH, expand=True)
+
+        self.main_window.protocol("WM_DELETE_WINDOW", self.on_close)
+        check_error_thread = threading.Thread(target=self.check_error_messages)
+        check_error_thread.daemon = True
+        check_error_thread.start()
+
+    def on_close(self):
+        self.main_window.destroy()
+
+    def check_error_messages(self):
+        while True:
+            show_error_messages(self.error_messages)
+            time.sleep(5)
 
 if __name__ == "__main__":
     app = MainApplication()
