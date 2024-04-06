@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.14 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.16 - plays a video stream and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -370,6 +370,7 @@ if [[ $timeshift == "timeshift" ]]; then
     i=-1
     SECONDS=0
     FILEPLAYED=""
+    TIMEPLAYED=0
 
     while [ $running -eq 1 ]; do
 
@@ -400,8 +401,6 @@ if [[ $timeshift == "timeshift" ]]; then
 
       while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
           sleep 0.1
-          secinor=$(echo "`date '+%s%N'` / 10000000000" | bc -l)
-          secin=$(awk "BEGIN {printf \"%.2f\", $secinor}")
       done
 
       curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:8080/requests/status.xml)
@@ -411,61 +410,68 @@ if [[ $timeshift == "timeshift" ]]; then
             POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
 
-
       if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
 
           if [ $POSITION -ge 2 ]; then
 
-            if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
-                FILEPLAYED="$FILEPLAY"
-                in=0
-            fi
+              if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
+                  FILEPLAYED="$FILEPLAY"
+                  TIMEPLAYED=$(date -r /tmp/"$FILEPLAY" +%s)
+                  in=0
+                  tin=0
+              elif [ "$(date -r /tmp/"$FILEPLAY" +%s)" -gt "$((TIMEPLAYED + segment_time))" ] && [ $tin -eq 0 ]; then
+                  tin=1
+              fi
 
-            err=1
+              if [ $tin -eq 0 ]; then
+                  err=1
 
-            segment_played=$(echo ffprobe -i /tmp/"$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p')
+                  segment_played=$(echo ffprobe -i /tmp/"$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p')
 
-            if ! [[ "$segment_played" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-                segment_played="$segment_time"
-            fi
+                  if ! [[ "$segment_played" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                      segment_played="$segment_time"
+                  fi
 
-            restdiff=$(echo "$segment_played - $POSITION - $sync" | bc -l)
-            rest=$(awk "BEGIN {printf \"%.2f\", $restdiff}")
-            tryed=0
-            if [ $(echo "$rest < $step_s" | bc -l) -eq 1 ] && [ $(echo "$rest > 0" | bc -l) -eq 1 ]; then
+                  rest=$(echo "$segment_played - $POSITION - $sync" | bc -l)
+                  tryed=0
+                  if [ $(echo "$rest < $step_s" | bc -l) -eq 1 ] && [ $(echo "$rest > 0" | bc -l) -eq 1 ]; then
 
-                while [ $err -ne 0 ] && [ $tryed -lt 10 ]; do
-                    diffsec=$(echo "`date '+%s%N'` / 10000000000 - $secin" | bc -l)
-                    diff_format=$(awk "BEGIN {printf \"%.2f\", $diffsec}")
-                    sleep 0.4
-                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc -l) -t $(echo "$rest + $diff_format + 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                    ((tryed=tryed+1))
-                    err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
-                done
-                in=3
+                      while [ $err -ne 0 ] && [ $tryed -lt 10 ]; do
+                          sleep 0.4
+                          ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc -l) -t $(echo "$rest + 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                          ((tryed=tryed+1))
+                          err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+                      done
+                      in=3
 
-            else
-                diffsec=$(echo "`date '+%s%N'` / 10000000000 - $secin" | bc -l)
-                diff_format=$(awk "BEGIN {printf \"%.2f\", $diffsec}")
-                while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                    if [ $in -eq 0 ]; then
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync + $diff_format - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                        in=1
-                    else
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc -l) -t $(echo "$step_s + $diff_format + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                        in=2
-                    fi
-                    err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
-                    ((tryed=tryed+1))
-                done
+                  else
 
-                if [ $in -eq 1 ]; then
-                    ((SECONDS=SECONDS+step_s))
-                fi
+                      while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
+                          if [ $in -eq 0 ]; then
+                              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                              in=1
+                          else
+                              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                              in=2
+                          fi
+                          err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+                          ((tryed=tryed+1))
+                      done
 
-            fi
+                      if [ $in -eq 1 ]; then
+                          ((SECONDS=SECONDS+step_s))
+                      fi
 
-            ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+                  fi
+
+                  ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+
+              elif [ $tin -eq 1 ]; then
+                  echo
+                  echo "*** You have reached the configured timeshift window time. The version of the video file $FILEPLAY you are watching has been overwritten. You can still watch it, but without transcriptions. Please note that subsequent video files may also be overwritten. To avoid this limitation in the future, consider configuring Timeshift with more segments and/or longer segment times."
+                  echo
+                  tin=2
+              fi
 
           else
             in=0
