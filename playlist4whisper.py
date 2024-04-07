@@ -28,7 +28,7 @@ https://github.com/antor44/livestream_video
  and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.16 License: GPL 3.0
+Author: Antonio R. Version: 2.20 License: GPL 3.0
 
 
 Usage:
@@ -101,6 +101,8 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 translate: The "translate" option provides automatic English translation (only English is available).
 
+playeronly: Play the video stream without transcriptions.
+
 timeshift: Timeshift feature, only VLC player is supported.
 
 sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3))
@@ -119,6 +121,7 @@ import re
 import os
 import glob
 import time
+import queue
 import threading
 import subprocess
 import tkinter as tk
@@ -155,10 +158,6 @@ def show_error_messages(error_messages):
         consecutive_same_messages = 0
 
 
-    # Clear the error_messages list
-    error_messages.clear()
-
-
 def check_terminal_installed(terminal):
    try:
        if terminal == "mlterm":
@@ -193,7 +192,7 @@ def check_player_installed(player):
 
 # Default options
 rPadChars = 75
-default_terminal_option = "gnome-terminal"
+default_terminal_option = "xterm"
 default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
 default_timeshift_options = "4 4 10"
@@ -294,40 +293,43 @@ class EnhancedStringDialog(simpledialog.Dialog):
         self.result = self.entry.get()
 
     def show_popup_menu(self, event):
-      self.popup_menu = tk.Menu(self, tearoff=0)
-      self.popup_menu.add_command(label="Cut", command=self.cut)
-      self.popup_menu.add_command(label="Copy", command=self.copy)
-      self.popup_menu.add_command(label="Paste", command=self.paste)
-      self.popup_menu.add_command(label="Delete", command=self.delete)
-      self.popup_menu.tk_popup(event.x_root, event.y_root)
+        self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_command(label="Cut", command=self.cut)
+        self.popup_menu.add_command(label="Copy", command=self.copy)
+        self.popup_menu.add_command(label="Paste", command=self.paste)
+        self.popup_menu.add_command(label="Delete", command=self.delete)
+        self.popup_menu.tk_popup(event.x_root, event.y_root)
 
     def cut(self):
-      if self.entry.selection_present():
-          selected_text = self.entry.selection_get()
-          self.copy_to_clipboard(selected_text)
-          self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        if self.entry.selection_present():
+            selected_text = self.entry.selection_get()
+            self.copy_to_clipboard(selected_text)
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
 
     def copy(self):
-      selected_text = self.entry.get()
-      self.copy_to_clipboard(selected_text)
+        if self.entry.selection_present():
+            selected_text = self.entry.selection_get()
+            self.copy_to_clipboard(selected_text)
 
     def paste(self):
-      clipboard_text = self.master.clipboard_get()
-      if clipboard_text is not None:
-          self.entry.insert(tk.INSERT, clipboard_text)
-      else:
-          pass
+        if self.entry.selection_present():
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        clipboard_text = self.master.clipboard_get()
+        if clipboard_text is not None:
+            self.entry.insert(tk.INSERT, clipboard_text)
+        else:
+            pass
 
     def delete(self):
-      if self.entry.selection_present():
-          self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        if self.entry.selection_present():
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
 
     def copy_to_clipboard(self, text):
-      if text is not None:
-          self.master.clipboard_clear()
-          self.master.clipboard_append(text)
-      else:
-          pass
+        if text is not None:
+            self.master.clipboard_clear()
+            self.master.clipboard_append(text)
+        else:
+            pass
 
 
 class M3uPlaylistPlayer(tk.Frame):
@@ -747,7 +749,7 @@ class M3uPlaylistPlayer(tk.Frame):
                         self.playlist.append((name, url))
         except FileNotFoundError:
             err_message = ("File Not Found", f"The default playlist_{self.spec}.m3u file was not found.")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
     def widgets_updates(self):
         terminal_option = self.current_options["terminal_option"]
@@ -809,7 +811,7 @@ class M3uPlaylistPlayer(tk.Frame):
         if not terminal_option in terminal_installed:
             err_message = ("Terminal Not Installed", f"Warning: Terminal {terminal_option} was not found. Please install it" \
                           f" or choose other terminal.")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
         self.translate.set(False)
 
@@ -833,7 +835,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     model_path = "./models/ggml-{}.bin".format(option)
                     err_message = ("Model Not Installed", f"Warning: File for model {option} was not found. " \
                                   f"Please install it in {model_path} or choose other model.")
-                    self.error_messages.append(err_message)
+                    self.error_messages.put(err_message)
             elif option in lang_codes:
                 self.language_option_menu.unbind("<<MenuSelect>>")
                 lang_name = lang_codes.get(option)
@@ -843,7 +845,7 @@ class M3uPlaylistPlayer(tk.Frame):
             else:
                 err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
                                                     f" config_{self.spec}.json file")
-                self.error_messages.append(err_message)
+                self.error_messages.put(err_message)
 
         options_list = timeshift_options.split()
         option = options_list.pop(0)
@@ -860,7 +862,7 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
                                                     f" config_{self.spec}.json file")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
         option = options_list.pop(0)
         if option.isdigit() and (2 <= int(option) <= 99):
@@ -869,7 +871,7 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
                                                 f" config_{self.spec}.json file")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
         option = options_list.pop(0)
         if option.isdigit() and (1 <= int(option) <= 99):
@@ -878,7 +880,7 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
                                                     f" config_{self.spec}.json file")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
         self.playeronly.set(playeronly_option)
         self.player_option_menu.unbind("<<MenuSelect>>")
@@ -887,7 +889,7 @@ class M3uPlaylistPlayer(tk.Frame):
         if not player_option in player_installed:
             err_message = ("Video Player Not Installed", f"Warning: Video player {player_option} was not found. Please install it " \
                           f"or choose other video player.")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
         self.mpv_options_entry.delete(0, tk.END)
         self.mpv_options_entry.insert(0, mpv_options)
@@ -895,7 +897,7 @@ class M3uPlaylistPlayer(tk.Frame):
         if not subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                                  stderr=subprocess.DEVNULL) == 0:
             err_message = ("Timeshift Player Not Installed", f"Warning: Video player {player_option} was not found. Please install it.")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
     def play_channel(self, event):
         region = self.tree.identify_region(event.x, event.y)
@@ -922,6 +924,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                                      stderr=subprocess.DEVNULL) == 0:
                     mpv_options = f"[vlc {mpv_options}]"
+                    print("Timeshift active.")
                 else:
                     err_message= f"Warning: Video player {player_option} was not found. Please install it."
                     print(err_message)
@@ -952,6 +955,9 @@ class M3uPlaylistPlayer(tk.Frame):
             terminal = self.terminal.get()
             bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
                            translate_value + " " + quality
+
+            if self.playeronly.get():
+                bash_options = bash_options + " playeronly"
             if self.timeshiftactive.get():
                 bash_options = bash_options + " timeshift sync " + self.sync.get() + " segments " + self.segments.get() + " segment_time " + self.segment_time.get()
             if self.spec == "streamlink":
@@ -960,16 +966,10 @@ class M3uPlaylistPlayer(tk.Frame):
                 bash_options = bash_options + " yt-dlp"
             print("Script Options:", bash_options)
 
-            if not self.playeronly.get():
+            if not self.playeronly.get() or self.timeshiftactive.get():
                 url = '"' + url + '"'
                 if self.timeshiftactive.get():
-                    if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
-                                                         stderr=subprocess.DEVNULL) == 0:
-                        mpv_options = f"[vlc {mpv_options}]"
-                    else:
-                        err_message = f"Warning: Video player {player_option} was not found. Please install it."
-                        print(err_message)
-                        simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
+                    pass
                 elif videoplayer == "smplayer" and videoplayer in player_installed:
                     mpv_options = f"[smplayer {mpv_options}]"
                 elif videoplayer == "mpv" and videoplayer in player_installed:
@@ -1109,10 +1109,13 @@ class M3uPlaylistPlayer(tk.Frame):
             self.schedule_save_options()
 
     def copy(self, entry, event=None):
-        selected_text = entry.get()
-        self.copy_to_clipboard(selected_text)
+        if entry.selection_present():
+            selected_text = entry.selection_get()
+            self.copy_to_clipboard(selected_text)
 
     def paste(self, entry, event=None):
+        if entry.selection_present():
+            entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
         clipboard_text = self.master.clipboard_get()
         if clipboard_text is not None:
             entry.insert(tk.INSERT, clipboard_text)
@@ -1178,7 +1181,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.tree.selection_remove()
 
             err_message=("Success", "Channel(s) deleted successfully. Don't forget to save the playlist.")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to delete.")
 
@@ -1214,8 +1217,8 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.tree.move(selection[0], "", index - 1)
                 self.update_list_numbers()
 
-                err_message=("Success", "Channel(s) moved up successfully. Don't forget to save the playlist.")
-                self.error_messages.append(err_message)
+                err_message=("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
+                self.error_messages.put(err_message)
             else:
                 simpledialog.messagebox.showinfo("Info", "The selected channel is already at the top.")
         else:
@@ -1232,8 +1235,8 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.tree.move(selection[0], "", index + 1)
                 self.update_list_numbers()
 
-                err_message=("Success", "Channel(s) moved down successfully. Don't forget to save the playlist.")
-                self.error_messages.append(err_message)
+                err_message=("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
+                self.error_messages.put(err_message)
             else:
                 simpledialog.messagebox.showinfo("Info", "The selected channel is already at the bottom.")
         else:
@@ -1298,7 +1301,7 @@ class M3uPlaylistPlayer(tk.Frame):
         except:
             err_message=("Wrong option",f"Wrong option found, try again after deleting"
                                         f" config_{self.spec}.json file")
-            self.error_messages.append(err_message)
+            self.error_messages.put(err_message)
 
     def schedule_save_options(self, event=None):
         if self.save_options_id:
@@ -1407,7 +1410,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.16\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.20\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -1420,7 +1423,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
 class MainApplication:
     def __init__(self):
-        self.error_messages = []
+        self.error_messages = queue.Queue()
 
         self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
@@ -1521,8 +1524,15 @@ class MainApplication:
 
     def check_error_messages(self):
         while True:
-            show_error_messages(self.error_messages)
-            time.sleep(5)
+            error_messages = set()
+            while not self.error_messages.empty():
+                error_message = self.error_messages.get(block=False)
+                error_messages.add(error_message)
+
+            show_error_messages(error_messages)
+
+            time.sleep(3)
+
 
 if __name__ == "__main__":
     app = MainApplication()
