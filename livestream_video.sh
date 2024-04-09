@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.20 - plays a video stream and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.22 - plays audio/video files or video streams and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -31,10 +31,10 @@
 # -Support for IPTV, YouTube, Twitch, and many others
 # -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
 # -Quantized models support
-# -VAD (voice activity detection)
 #
 #  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
 #
+#  Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
 #  [streamlink] option forces the url to be processed by streamlink
 #  [yt-dlp] option forces the url to be processed by yt-dlp
 #
@@ -79,6 +79,7 @@ fi
 
 url_default="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
 fmt=mp3 # the audio format
+local=0
 step_s=8
 model="base"
 language="auto"
@@ -186,7 +187,16 @@ check_requirements
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        *://* ) url=$1;;
+        *://* | /* | ./* )
+            url=$1
+            if [[ $url == /* ]] || [[ $url == ./* ]]; then
+                local=1
+            fi
+            if [[ $url == ./* ]]; then
+                url=${1#./}
+                url="$(pwd)/$url"
+            fi
+            ;;
         [3-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
         playeronly ) playeronly=$1;;
@@ -266,7 +276,6 @@ if [ "$timeshift" = "timeshift" ]; then
         usage
         exit 1
     fi
-
 fi
 
 mypid=$(ps aux | awk '/[l]ivestream_video\.sh/ {pid=$2} END {print pid}')
@@ -313,10 +322,10 @@ if [ "$playeronly" == "" ]; then
     fi
 fi
 
+
 # if "timeshift" then timeshift
 
-
-if [[ $timeshift == "timeshift" ]]; then
+if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     printf "[+] Timeshift active: '$segments' segments of '$segment_time' minutes and a synchronization of '$sync' seconds.\n\n"
 
     segment_time=$((segment_time * 60))
@@ -463,7 +472,12 @@ if [[ $timeshift == "timeshift" ]]; then
               if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
                   FILEPLAYED="$FILEPLAY"
                   TIMEPLAYED=$(date -r /tmp/"$FILEPLAY" +%s)
-                  in=0
+                  if [ $(echo "$POSITION < $step_s" | bc -l) -eq 1 ]; then
+                      in=0
+                  else
+                      in=2
+                      ((SECONDS=SECONDS+step_s))
+                  fi
                   tin=0
               elif [ "$(date -r /tmp/"$FILEPLAY" +%s)" -gt "$((TIMEPLAYED + segment_time))" ] && [ $tin -eq 0 ]; then
                   tin=1
@@ -531,9 +545,135 @@ if [[ $timeshift == "timeshift" ]]; then
     pkill -e -f "main.*$mypid*"
 
 
-else # No timeshift
+elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video file with vlc
+
+    if [ "$playeronly" == "" ]; then
+        arg="#EXTM3U\n${url}"
+        echo -e $arg > /tmp/playlist_whisper-live0_${mypid}.m3u
+
+        if [[ $mpv_options == "true" ]]; then
+            vlc -I http --http-host 0.0.0.0 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+        else
+            vlc --extraintf=http --http-host 0.0.0.0 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+        fi
+
+        if [ $? -ne 0 ]; then
+            printf "Error: The player could not play the file. Please check your input.\n"
+            exit 1
+        fi
+
+        vlc_pid=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}') # check pidof vlc
+        if [ -z "$vlc_pid" ]; then
+            vlc_pid=0
+            printf "Error: The player could not be executed.\n"
+            exit 1
+        fi
+
+        # do not stop script on error
+        set +e
+
+        FILEPLAYED=""
+        TIMEPLAYED=0
+        SECONDS=0
+        i=-1
+
+        # repeat until player closes
+        while [ $running -eq 1 ]; do
+
+
+            while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
+                sleep 0.1
+            done
+
+            vlc_check
+
+            curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${myport}/requests/status.xml)
+
+                  FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
+
+                  POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
+
+
+            if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+
+                if [ $POSITION -ge 2 ]; then
+
+                    if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
+                        FILEPLAYED="$FILEPLAY"
+                        if [ $(echo "$POSITION < $step_s" | bc -l) -eq 1 ]; then
+                            in=0
+                        else
+                            in=2
+                            ((SECONDS=SECONDS+step_s))
+                        fi
+                    fi
+
+                    err=1
+
+                    segment_played=$(echo ffprobe -i "${url}" -show_format -v quiet | sed -n 's/duration=//p')
+
+                    if ! [[ "$segment_played" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+
+                        rest=$(echo "$segment_played - $POSITION - $sync" | bc -l)
+                        tryed=0
+                        if [ $(echo "$rest < $step_s" | bc -l) -eq 1 ] && [ $(echo "$rest > 0" | bc -l) -eq 1 ]; then
+
+                            while [ $err -ne 0 ] && [ $tryed -lt 10 ]; do
+                                sleep 0.4
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 1" | bc -l) -t $(echo "$rest + 0.5" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                                ((tryed=tryed+1))
+                                err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+                            done
+                            in=3
+
+                        else
+
+                            while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
+                                if [ $in -eq 0 ]; then
+                                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                                    in=1
+                                else
+                                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 1" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                                    in=2
+                                fi
+                                err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+                                ((tryed=tryed+1))
+                            done
+
+                            if [ $in -eq 1 ]; then
+                                ((SECONDS=SECONDS+step_s))
+                            fi
+
+                        fi
+
+                    ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+
+                    fi
+                else
+                  in=0
+                fi
+            fi
+            ((i=i+1))
+
+        done
+
+        pkill -e -f "ffmpeg.*$mypid*"
+        pkill -e -f "main.*$mypid*"
+
+    else
+
+      $mpv_options "${url}" &>/dev/null &
+
+    fi
+
+elif [ "$playeronly" == "" ]; then # No timeshift
+
+    if [[ $local -eq 1 ]]; then
+          ffmpeg -loglevel quiet -y -probesize 32 -i "${url}" -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+          ffmpeg_pid=$!
+
     # continuous stream in native fmt (this file will grow forever!)
-    if [[ $quality == "upper" ]] && [ "$playeronly" == "" ]; then
+    elif [[ $quality == "upper" ]]; then
         case $url in
             *youtube* | *youtu.be* )
                 if ! command -v yt-dlp &>/dev/null; then
@@ -580,9 +720,8 @@ else # No timeshift
                 fi
                 ;;
         esac
-    fi
 
-    if [[ $quality == "lower" ]] && [ "$playeronly" == "" ]; then
+    elif [[ $quality == "lower" ]]; then
         case $url in
             *youtube* | *youtu.be* )
                 if ! command -v yt-dlp &>/dev/null; then
@@ -629,9 +768,8 @@ else # No timeshift
                 fi
                 ;;
         esac
-    fi
 
-    if [[ $quality == "raw" ]] && [ "$playeronly" == "" ]; then
+    elif [[ $quality == "raw" ]]; then
         case $url in
             *youtube* | *youtu.be* )
                 if ! command -v yt-dlp &>/dev/null; then
@@ -662,56 +800,55 @@ else # No timeshift
                 fi
                 ;;
         esac
-
-        $mpv_options $url &>/dev/null &
-
-        if [ $? -ne 0 ]; then
-            printf "Error: The player could not play the stream. Please check your input or try again later\n"
-            exit 1
-        fi
     fi
 
-    if [ "$playeronly" == "" ]; then
+    if [[ $local -eq 0 ]] ; then
+        $mpv_options $url &>/dev/null &
+    else
+        $mpv_options "${url}" &>/dev/null &
+    fi
 
-        printf "Buffering audio. Please wait...\n\n"
-        sleep $(($step_s+3))
+    if [ $? -ne 0 ]; then
+        printf "Error: The player could not play the stream. Please check your input or try again later\n"
+        exit 1
+    fi
 
-        if ! ps -p $ffmpeg_pid > /dev/null; then
-            printf "Error: ffmpeg failed to capture the stream\n"
-            exit 1
-        fi
+    printf "Buffering audio. Please wait...\n\n"
+    sleep $(($step_s+3))
 
-        # do not stop script on error
-        set +e
+    # do not stop script on error
+    set +e
 
-        i=0
-        SECONDS=0
+    i=0
+    SECONDS=0
 
-        while [ $running -eq 1 ]; do
-            # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
-            err=1
-            while [ $err -ne 0 ]; do
-                if [ $i -gt 0 ]; then
-                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 0.8" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                else
-                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$step_s - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                fi
-                err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
-            done
-
-            ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
-
-            while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
-                sleep 0.1
-            done
-            ((i=i+1))
+    while [ $running -eq 1 ]; do
+        # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
+        err=1
+        while [ $err -ne 0 ]; do
+            if [ $i -gt 0 ]; then
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 1" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            else
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$step_s - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+            fi
+            err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
         done
 
-        pkill -e -f "ffmpeg.*$mypid*"
-        pkill -e -f "main.*$mypid*"
+        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
 
-    else
+        while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
+            sleep 0.1
+        done
+        ((i=i+1))
+    done
+
+    pkill -e -f "ffmpeg.*$mypid*"
+    pkill -e -f "main.*$mypid*"
+
+else
+    if [[ $local -eq 0 ]] ; then
         $mpv_options $url &>/dev/null &
+    else
+        $mpv_options "${url}" &>/dev/null &
     fi
-
 fi
