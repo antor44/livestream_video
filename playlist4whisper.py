@@ -29,7 +29,7 @@ and online videos and uses AI technology to transcribe the audio into text. It s
  multi-user execution, and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.22 License: GPL 3.0
+Author: Antonio R. Version: 2.24 License: GPL 3.0
 
 
 Usage:
@@ -1193,8 +1193,16 @@ class M3uPlaylistPlayer(tk.Frame):
 
     # Function to add a file channel
     def add_file_channel(self):
-        file_paths = filedialog.askopenfilenames(title="Select Files", filetypes=[("Video files", "*.mp4 *.avi *.mkv *.mov *.flv *.wmv *.mpeg *.mpg *.3gp *.webm *.mkv *.ogg *.ogm"),
-                  ("Audio files", "*.mp3 *.wav *.flac *.aac *.ogg *.oga *.opus"), ("All files", "*.*")])
+        file_paths = filedialog.askopenfilenames(
+            title="Select Files",
+            filetypes=[
+                ("Media files", "*.mp4 *.avi *.mkv *.mov *.flv *.wmv *.mpeg *.mpg *.3gp *.webm *.mkv *.ogg *.ogm *.mp3 *.wav *.flac *.aac *.oga *.opus"),
+                ("Video files", "*.mp4 *.avi *.mkv *.mov *.flv *.wmv *.mpeg *.mpg *.3gp *.webm *.mkv *.ogg *.ogm"),
+                ("Audio files", "*.mp3 *.wav *.flac *.aac *.ogg *.oga *.opus"),
+                ("All files", "*.*")
+            ]
+        )
+
 
         if file_paths:
             for file_path in file_paths:
@@ -1465,7 +1473,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.22\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.24\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
