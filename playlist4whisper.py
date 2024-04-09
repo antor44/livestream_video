@@ -1,6 +1,7 @@
 """
 
-play4whisper - displays a playlist for "livestream_video.sh". AI technology to transcribe the audio from the livestream.
+play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams
+ and transcribes the audio using AI technology.
 
 Copyright (c) 2023 Antonio R.
 
@@ -23,16 +24,18 @@ https://github.com/antor44/livestream_video
 ---------------------------------
 
 
-"Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays an online video
- and uses AI technology to transcribe the audio into text. It supports multi-instance and multi-user execution,
- and allows for changing options per channel and global options.
+"Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays video files
+and online videos and uses AI technology to transcribe the audio into text. It supports multi-instance and
+ multi-user execution, and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.20 License: GPL 3.0
+Author: Antonio R. Version: 2.22 License: GPL 3.0
 
 
 Usage:
 python playlist4whisper.py
+
+Local audio/video file must be with full path or if the file is in the same directory preceded with './'
 
 -Support for multi-instance and multi-user execution
 -Support for IPTV, YouTube, Twitch and many others
@@ -66,13 +69,13 @@ Usage:
 Example (defaults if no options are specified):
 ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
 
+ For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
  [streamlink] option forces the url to be processed by streamlink
  [yt-dlp] option forces the url to be processed by yt-dlp
 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without
  any modifications for the player. "Upper" and "lower" download only one stream, which might correspond to the best
  or worst stream quality, re-encoded for the player.
-
 
 "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[none]" for no player.
 
@@ -124,6 +127,7 @@ import time
 import queue
 import threading
 import subprocess
+import tempfile
 import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog, PhotoImage
 
@@ -156,6 +160,17 @@ def show_error_messages(error_messages):
 
         previous_error_messages.clear()
         consecutive_same_messages = 0
+
+
+def wait_and_check_process(process, log_file, url):
+    time.sleep(5)
+    with open(log_file.name, "r") as log:
+        log_content = log.read()
+        if "Errors when loading file" in log_content:
+            process.kill()  # Termina el proceso de manera abrupta
+            error_message = f"Error occurred while playing: {url}"
+            print(error_message)
+            simpledialog.messagebox.showerror("Error", error_message)
 
 
 def check_terminal_installed(terminal):
@@ -511,7 +526,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.space_label = tk.Label(self.options_frame0, text="", padx=8)
         self.space_label.pack(side=tk.LEFT)
 
-        self.override_label = tk.Label(self.options_frame0, text="Override options")
+        self.override_label = tk.Label(self.options_frame0, text="Global options")
         self.override_label.pack(side=tk.LEFT)
 
         self.override_options = tk.BooleanVar()
@@ -694,6 +709,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.add_button = tk.Button(self.options_frame3, text="Add", command=self.add_channel)
         self.add_button.pack(side=tk.LEFT)
 
+        self.add_file_button = tk.Button(self.options_frame3, text="Add file", command=self.add_file_channel)
+        self.add_file_button.pack(side=tk.LEFT)
+
         self.delete_button = tk.Button(self.options_frame3, text="Delete", command=self.delete_channel)
         self.delete_button.pack(side=tk.LEFT)
 
@@ -718,7 +736,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_button = tk.Button(self.options_frame3, text="Save", command=self.save_playlist)
         self.save_button.pack(side=tk.LEFT)
 
-        self.about_label = tk.Label(self.options_frame3, text="", padx=20)
+        self.about_label = tk.Label(self.options_frame3, text="", padx=10)
         self.about_label.pack(side=tk.LEFT)
 
         self.about_button = tk.Button(self.options_frame3, text="About", command=self.show_about_window)
@@ -932,24 +950,37 @@ class M3uPlaylistPlayer(tk.Frame):
 
             # Try launching smplayer, mpv, or mplayer
             elif self.playeronly.get() or quality == "raw":
-                if videoplayer == "smplayer" and videoplayer in player_installed:
-                    subprocess.Popen(["smplayer", url, mpv_options])
-                elif videoplayer == "mpv" and videoplayer in player_installed:
-                    subprocess.Popen(["mpv", url, mpv_options])
-                elif videoplayer == "none":
-                    if self.playeronly.get():
+                try:
+                    if videoplayer == "smplayer" and videoplayer in player_installed:
+                        subprocess.Popen(["smplayer", url, mpv_options])
+                        print("Launching smplayer...")
+                    elif videoplayer == "mpv" and videoplayer in player_installed:
+                        temp_file = tempfile.NamedTemporaryFile(delete=False)
+                        with open(temp_file.name, "w") as log_file:
+                            process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
+                            print("Launching mpv...")
+
+                            threading.Thread(target=wait_and_check_process, args=(process, log_file, url)).start()
+                    elif videoplayer == "none":
+                        if self.playeronly.get():
+                            mpv_options = ""
+                            err_message = "None video player selected."
+                            print(err_message)
+                            simpledialog.messagebox.showerror("Error", err_message)
+                    else:
                         mpv_options = ""
-                        err_message= "None video player selected."
+                        err_message = f"No {videoplayer} video player found."
                         print(err_message)
                         simpledialog.messagebox.showerror("Error", err_message)
-                else:
-                    mpv_options = ""
-                    err_message= f"No {videoplayer} video player found."
-                    print(err_message)
-                    simpledialog.messagebox.showerror("Error", err_message)
+                except Exception as e:
+                    error_message = f"Error occurred while launching {videoplayer}: {str(e)}"
+                    print(error_message)
+                    simpledialog.messagebox.showerror("Error", error_message)
+
 
             if quality == "raw":
                 videoplayer = "none"
+
 
             # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
             terminal = self.terminal.get()
@@ -1160,6 +1191,31 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
 
+    # Function to add a file channel
+    def add_file_channel(self):
+        file_paths = filedialog.askopenfilenames(title="Select Files", filetypes=[("Video files", "*.mp4 *.avi *.mkv *.mov *.flv *.wmv *.mpeg *.mpg *.3gp *.webm *.mkv *.ogg *.ogm"),
+                  ("Audio files", "*.mp3 *.wav *.flac *.aac *.ogg *.oga *.opus"), ("All files", "*.*")])
+
+        if file_paths:
+            for file_path in file_paths:
+                # Extract the file name without extension
+                name = os.path.splitext(os.path.basename(file_path))[0]
+
+                selection = self.tree.selection()
+                if selection:
+                    index = self.tree.index(selection[0])
+                    index += 1
+                else:
+                    index = len(self.tree.get_children()) + 1
+
+                # Add file to the list
+                self.tree.insert("", index, values=(index, name, file_path))
+                self.update_list_numbers()
+
+            simpledialog.messagebox.showinfo("Success", "File(s) added successfully. Don't forget to save the playlist.")
+        else:
+            simpledialog.messagebox.showerror("Error", "No file selected.")
+
     # Function to delete a channel
     def delete_channel(self):
         selection = self.tree.selection()
@@ -1184,7 +1240,6 @@ class M3uPlaylistPlayer(tk.Frame):
             self.error_messages.put(err_message)
         else:
             simpledialog.messagebox.showerror("Error", "Select a channel to delete.")
-
 
     # Function to edit a channel
     def edit_channel(self):
@@ -1410,7 +1465,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.20\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.22\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
