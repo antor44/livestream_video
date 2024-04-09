@@ -330,11 +330,11 @@ In this example, the settings modify the background color to black, the foregrou
 
 **Q: How can I synchronize the video and the transcription?**
 
-A: Without the Timeshift option, you can manually synchronize the video and transcription to your desired timing by using the pause and forward/backward buttons of the video player. When Timeshift is activated, the transcription is synchronized with the sync option.
+A: Without the Timeshift option, you can manually synchronize the video and transcription to your desired timing by using the pause and forward/backward buttons of the video player. When Timeshift is activated, the transcription is synchronized with the sync option, which is an automatic but fixed synchronization that cannot be changed during play.
 
 **Q: Why does the video and transcription get desynchronized?**
 
-A: Online video streams are often not the most reliable option for obtaining accurate video synchronization or timestamps. Too, the video and transcription applications work independently, each with its own stream of video or audio. Over time, the desynchronization can also vary, choosing a model that is too large for the processor's capabilities can also affect the synchronization.
+A: There could be several potential causes. Online video streams may not always provide reliable video synchronization or timestamps. Some versions of the programs used by playlist4whisper, like VLC player or ffmpeg, may not accurately address the timestamps of the video being played. Additionally, video and transcription applications work independently, each with its own stream of video or audio. Over time, desynchronization can fluctuate, and choosing a model that is too large for the processor's capabilities can also impact synchronization.
 
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, albeit potentially resulting in the omission of some phrases.
 
