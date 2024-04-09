@@ -6,10 +6,10 @@
 
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
-Playlist4Whisper is an application designed to display playlists for 'livestream_video.sh'. It plays online videos and utilizes AI technology to transcribe audio into text. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options.
+play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.20 License: GPL 3.0
+Author: Antonio R. Version: 2.22 License: GPL 3.0
 
 
 #
@@ -60,6 +60,8 @@ make large-v3
 
 python playlist4whisper.py 
 
+Local audio/video file must be with full path or if the file is in the same directory preceded with './'
+
 *For help with options, see the livestream_video.sh section.
 
 - Supports a fully configurable timeshift feature, exclusive to VLC player (not all streams supported)
@@ -105,6 +107,8 @@ Some notable features:
 #
 
 Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
+
+For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
 
  [streamlink] option forces the url to be processed by streamlink.
  
