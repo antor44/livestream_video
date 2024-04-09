@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.24 - plays audio/video files or video streams and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.26 - plays audio/video files or video streams and transcribes the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -164,8 +164,8 @@ function vlc_check()
 
   if [[ $check_pid != *vlc* ]] && [[ $check_pid != *VLC* ]]; then # timeshift exit
     echo
-    pkill -e -f "^ffmpeg.*$mypid*$"
-    pkill -e -f "^./main -l.*$mypid*$"
+    pkill -e -f "^ffmpeg.*${mypid}.*$"
+    pkill -e -f "^./main.*${mypid}.*$"
     echo
     echo "*** VLC closed. Timeshift finished."
     echo
@@ -545,8 +545,8 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
     done
 
-    pkill -e -f "^ffmpeg.*$mypid*$"
-    pkill -e -f "^./main -l.*$mypid*$"
+    pkill -e -f "^ffmpeg.*${mypid}.*$"
+    pkill -e -f "^./main.*${mypid}.*$"
 
 elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video file with vlc
 
@@ -660,8 +660,8 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
         done
 
-        pkill -e -f "^ffmpeg.*$mypid*$"
-        pkill -e -f "^./main -l.*$mypid*$"
+    pkill -e -f "^ffmpeg.*${mypid}.*$"
+    pkill -e -f "^./main.*${mypid}.*$"
 
     else
 
@@ -828,8 +828,8 @@ elif [ "$playeronly" == "" ]; then # No timeshift
         ((i=i+1))
     done
 
-    pkill -e -f "^ffmpeg.*$mypid*$"
-    pkill -e -f "^./main -l.*$mypid*$"
+    pkill -e -f "^ffmpeg.*${mypid}.*$"
+    pkill -e -f "^./main.*${mypid}.*$"
 
 else
     if [[ $local -eq 0 ]] ; then
