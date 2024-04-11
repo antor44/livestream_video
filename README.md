@@ -350,6 +350,10 @@ Additionally, Whisper utilizes a GPT-2 model, which incorporates a tokenizer res
 
 Choosing a larger Whisper model improves its performance. However, it's important to note that playlist4whisper doesn't enhance transcription accuracy by adding tokens from previous chunks processed. This is due to the added complexity and lack of benefit for smaller models. If accuracy is your top priority and your computer has sufficient power, using a larger model and longer step time would be optimal, resulting in fewer audio splits. Nonetheless, there are many instances where this token system is ineffective for truncated words, so I plan to integrate a VAD system in the near future.
 
+**Q: What's the matter with VAD? Why is it not implemented?**
+
+A: A Voice Activity Detection (VAD) system requires accurate timestamps, but this is not the case with the current versions of ffmpeg and VLC. Additionally, managing these timestamps in a bash script is challenging due to the lack of support for floating-point variables in this programming language. There may be a solution with VLC player and the playlist4whisper's timeshift function that recode the video streams. While the player mainly uses its own muxers and demuxers, the libavcodec library from the FFmpeg project provides many of VLC's codecs. Therefore, both programs, VLC and ffmpeg, may not function equally well (seems like we've hit a comedy of errors here!).
+
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
 A: The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging accents or voice tones, or changes in voices during conversations can pose difficulties. In the future, the addition of sound filters options aims to minimize these issues. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
