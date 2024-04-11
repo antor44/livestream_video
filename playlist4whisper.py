@@ -29,7 +29,7 @@ and online videos and uses AI technology to transcribe the audio into text. It s
  multi-user execution, and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.24 License: GPL 3.0
+Author: Antonio R. Version: 2.26 License: GPL 3.0
 
 
 Usage:
@@ -1064,12 +1064,11 @@ class M3uPlaylistPlayer(tk.Frame):
             # Get the list of files matching the pattern
             files = glob.glob("/tmp/*whisper-live*.*")
 
-            # Check the initial size and timestamp of each file
+            # Check the initial timestamp of each file
             for file in files:
                 try:
-                    initial_size = os.path.getsize(file)
                     initial_timestamp = os.path.getmtime(file)
-                    file_info[file] = (initial_size, initial_timestamp)
+                    file_info[file] = (initial_timestamp)
                 except FileNotFoundError:
                     pass
 
@@ -1085,14 +1084,11 @@ class M3uPlaylistPlayer(tk.Frame):
             # Add the new files to the used_files list
             used_files.extend(new_files)
 
-            # Check the final size and timestamp of each file
+            # Check the final timestamp of each file
             for file in files:
                 try:
-                    final_size = os.path.getsize(file)
                     final_timestamp = os.path.getmtime(file)
-                    if (final_size != file_info.get(file, (None, None))[0] or
-                        final_timestamp != file_info.get(file, (None, None))[1] or
-                        (time.time() - final_timestamp) < 60):
+                    if final_timestamp != file_info.get(file, None) or (time.time() - final_timestamp) <= 60:
                         used_files.append(file)
                 except FileNotFoundError:
                     pass
@@ -1473,7 +1469,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.24\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.26\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
