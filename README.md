@@ -195,7 +195,7 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
-A: This program is based on whisper-cpp, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams and media files even on low-end or old PCs, even those that are at least 10 years old. You can configure the application with models like tiny.en, base.en, or even small.en, which offer very good transcriptions for English language. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
+A: This program is based on whisper-cpp, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams or media files even on low-end or old PCs, even those that are at least 10 years old. You can configure the application with models like tiny.en, base.en, or even small.en, which offer very good transcriptions for English language. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
 
 **Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
 
