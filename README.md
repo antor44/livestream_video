@@ -6,7 +6,7 @@
 
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
-play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options.
+play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options, all of which can be done even with low-level processors.
 
 
 Author: Antonio R. Version: 2.26 License: GPL 3.0
@@ -192,6 +192,10 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 #
 # FAQ
+
+**Q: What quality of transcription can I expect when using only a low-level processor?**
+
+A: This program is based on whisper-cpp, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams and media files even on low-end or old PCs, even those that are at least 10 years old. You can configure the application with models like tiny.en, base.en, or even small.en, which offer very good transcriptions for English language. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
 
 **Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
 
