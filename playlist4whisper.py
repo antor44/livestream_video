@@ -29,7 +29,7 @@ and online videos and uses AI technology to transcribe the audio into text. It s
  multi-user execution, and allows for changing options per channel and global options.
 
 
-Author: Antonio R. Version: 2.26 License: GPL 3.0
+Author: Antonio R. Version: 2.28 License: GPL 3.0
 
 
 Usage:
@@ -162,13 +162,19 @@ def show_error_messages(error_messages):
         consecutive_same_messages = 0
 
 
-def wait_and_check_process(process, log_file, url):
+def wait_and_check_process(process, log_file, url, mpv_options):
     time.sleep(5)
     with open(log_file.name, "r") as log:
         log_content = log.read()
+        error_pattern = re.compile(r"Error.*?option", re.DOTALL)
         if "Errors when loading file" in log_content:
-            process.kill()  # Termina el proceso de manera abrupta
+            process.kill()
             error_message = f"Error occurred while playing: {url}"
+            print(error_message)
+            simpledialog.messagebox.showerror("Error", error_message)
+        elif error_pattern.search(log_content):
+            process.kill()
+            error_message = f"Error in mpv options: {mpv_options}"
             print(error_message)
             simpledialog.messagebox.showerror("Error", error_message)
 
@@ -960,7 +966,7 @@ class M3uPlaylistPlayer(tk.Frame):
                             process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
                             print("Launching mpv...")
 
-                            threading.Thread(target=wait_and_check_process, args=(process, log_file, url)).start()
+                            threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
                     elif videoplayer == "none":
                         if self.playeronly.get():
                             mpv_options = ""
@@ -1058,17 +1064,17 @@ class M3uPlaylistPlayer(tk.Frame):
     # Function to delete temporary videos
     def delete_videos(self):
         try:
-            used_files = []
+            used_files = set()
             file_info = {}
 
             # Get the list of files matching the pattern
-            files = glob.glob("/tmp/*whisper-live*.*")
+            files = set(glob.glob("/tmp/*whisper-live*.*"))
 
             # Check the initial timestamp of each file
             for file in files:
                 try:
                     initial_timestamp = os.path.getmtime(file)
-                    file_info[file] = (initial_timestamp)
+                    file_info[file] = initial_timestamp
                 except FileNotFoundError:
                     pass
 
@@ -1076,20 +1082,17 @@ class M3uPlaylistPlayer(tk.Frame):
             time.sleep(5)
 
             # Get the list of files again after the wait period
-            files_after_wait = glob.glob("/tmp/*whisper-live*.*")
+            files_after_wait = set(glob.glob("/tmp/*whisper-live*.*"))
 
-            # Calculate the files that were created during the wait period
-            new_files = [file for file in files_after_wait if file not in files]
-
-            # Add the new files to the used_files list
-            used_files.extend(new_files)
+            # Add the new files to the files set
+            files.update(files_after_wait)
 
             # Check the final timestamp of each file
             for file in files:
                 try:
                     final_timestamp = os.path.getmtime(file)
                     if final_timestamp != file_info.get(file, None) or (time.time() - final_timestamp) <= 60:
-                        used_files.append(file)
+                        used_files.add(file)
                 except FileNotFoundError:
                     pass
 
@@ -1115,6 +1118,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 simpledialog.messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
         except Exception as e:
             simpledialog.messagebox.showerror("Error", f"Unable to delete /tmp videos: {str(e)}")
+
 
 
     # Popup menu cut, copy, paste, delete
@@ -1469,7 +1473,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.26\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.28\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
