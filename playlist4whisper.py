@@ -1,7 +1,7 @@
 """
 
-play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams
- and transcribes the audio using AI technology.
+play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams,
+ transcribes and translates the audio using AI technology.
 
 Copyright (c) 2023 Antonio R.
 
@@ -24,12 +24,11 @@ https://github.com/antor44/livestream_video
 ---------------------------------
 
 
-"Playlist4Whisper" is an application that displays a playlist for "livestream_video.sh". It plays video files
-and online videos and uses AI technology to transcribe the audio into text. It supports multi-instance and
- multi-user execution, and allows for changing options per channel and global options.
+play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology.
+The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel
+and global options, online translation and Text-to-Speech with translate-shell, all of which can be done even with low-level processors.
 
-
-Author: Antonio R. Version: 2.28 License: GPL 3.0
+Author: Antonio R. Version: 2.30 License: GPL 3.0
 
 
 Usage:
@@ -38,22 +37,26 @@ python playlist4whisper.py
 Local audio/video file must be with full path or if the file is in the same directory preceded with './'
 
 -Support for multi-instance and multi-user execution
--Support for IPTV, YouTube, Twitch and many others
+-Support for IPTV, YouTube, Twitch, and many others
+-Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
+-Quantized models support
+-Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+
+For installing whisper-cpp, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
- and will store options in config_xxx.json.
+and will store options in config_xxx.json.
 
-
-To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases),
+ To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases),
  as well as the script livestream_video.sh, should be copied to the same location as playlist4whisper.py.
  The main executable of whisper.cpp, which is the primary example, should be in the same directory with
  the default executable name 'main'. Additionally, the Whisper model file from OpenAI should be placed
  in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository.
  This can be done using terminal commands such as the following examples:
 
-make tiny.en
+ make tiny.en
 
-make small
+ make small
 
 playlist4whisper.py depends on (smplayer or mpv) video player and (gnome-terminal or konsole or
 xfce4-terminal).
@@ -63,11 +66,10 @@ For Twitch streamlink is required (https://streamlink.github.io)
 
 Options for script:
 
-Usage:
-./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
 
-Example (defaults if no options are specified):
-./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
+Example:
+./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
 
  For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
  [streamlink] option forces the url to be processed by streamlink
@@ -83,7 +85,6 @@ Step: Size of the parts into which videos are divided for inference, size in sec
 
 Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2. large-v3
 ... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
-
 
 Whisper languages:
 
@@ -102,9 +103,17 @@ sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (
 ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa),
 yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
-translate: The "translate" option provides automatic English translation (only English is available).
+translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
 
 playeronly: Play the video stream without transcriptions.
+
+[trans + options]: Online translation and Text-to-Speech with translate-shell.
+
+trans_language: Translation language for translate-shell (https://github.com/soimort/translate-shell)
+
+output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
+
+speak: Online Text-to-Speech using translate-shell.
 
 timeshift: Timeshift feature, only VLC player is supported.
 
@@ -220,6 +229,8 @@ default_timeshift_options = "4 4 10"
 default_playeronly_option = False
 default_player_option = "mpv"
 default_mpv_options = ""
+default_online_translation_option = False
+default_trans_options = "en both speak"
 default_override_option = False
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
@@ -284,6 +295,18 @@ for model in models:
       full_model_name = f"{model}{suffix}"
       if os.path.exists(model_path.format(full_model_name)):
           models_installed.append(full_model_name)
+
+if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL) == 0:
+  options_frame1_text="Only for translate-shell - Online translation and Text-to-Speech are not guaranted!!!"
+else:
+  options_frame1_text="translate-shell Not installed for online translation and speak!!!"
+
+if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL) == 0:
+  options_frame3_text="Only for VLC player - Large files will be stored in /tmp directory!!!"
+else:
+  options_frame3_text="VLC player not installed for Timeshift!!!"
 
 
 class EnhancedStringDialog(simpledialog.Dialog):
@@ -529,7 +552,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.translate_checkbox.pack(side=tk.LEFT)
 
         # Override
-        self.space_label = tk.Label(self.options_frame0, text="", padx=8)
+        self.space_label = tk.Label(self.options_frame0, text="", padx=6)
         self.space_label.pack(side=tk.LEFT)
 
         self.override_label = tk.Label(self.options_frame0, text="Global options")
@@ -541,16 +564,112 @@ class M3uPlaylistPlayer(tk.Frame):
         self.override_checkbox.pack(side=tk.LEFT)
 
         # Second Down Frame
-        self.options_frame1 = tk.Frame(self.container_frame)
-        self.options_frame1.pack(side=tk.TOP, anchor=tk.W)
+
+        self.options_frame1 = tk.LabelFrame(self.container_frame, text=options_frame1_text, padx=10, pady=2)
+
+        self.options_frame1.pack(fill="both", expand=True, padx=10, pady=2)
+
+        # Online translation
+        self.online_translation_label = tk.Label(self.options_frame1, text="Online translation", padx=10)
+        self.online_translation_label.pack(side=tk.LEFT)
+
+        self.online_translation_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.online_translation_frame.pack(side=tk.LEFT)
+
+        self.online_translation = tk.BooleanVar(value=False)
+        self.online_translation_checkbox = tk.Checkbutton(self.online_translation_frame, variable=self.online_translation, onvalue=True,
+                                                 offvalue=False, command=self.save_options)
+        self.online_translation_checkbox.pack(side=tk.LEFT)
+
+        # Translation language
+
+        # Regions and their languages
+        self.trans_language_label = tk.Label(self.options_frame1, text="Language translation", padx=4)
+        self.trans_language_label.pack(side=tk.LEFT)
+
+        self.trans_language_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.trans_language_frame.pack(side=tk.LEFT)
+
+        self.trans_language = tk.StringVar(value="en (English)")
+
+        def update_trans_language_button():
+            selected_option = self.trans_language.get()
+            self.trans_language_option_menu.configure(text=selected_option)
+            self.save_options()
+
+        self.trans_language_option_menu = tk.Menubutton(self.trans_language_frame, textvariable=self.trans_language, indicatoron=True,
+                                                  relief="raised")
+        self.trans_language_option_menu.pack(side=tk.LEFT)
+
+        trans_language_menu = tk.Menu(self.trans_language_option_menu, tearoff=0)
+        self.trans_language_option_menu.configure(menu=trans_language_menu)
+
+        for region, langs in regions.items():
+            sublanguage_menu = tk.Menu(trans_language_menu, tearoff=0)
+            for lang in langs:
+                lang_name = lang_codes.get(lang)
+                full_language_name = f"{lang} ({lang_name})"
+                sublanguage_menu.add_radiobutton(label=full_language_name, value=full_language_name,
+                                                 variable=self.trans_language, command=update_trans_language_button)
+            trans_language_menu.add_cascade(label=region, menu=sublanguage_menu)
+
+        self.trans_language_option_menu["menu"] = trans_language_menu
+
+        self.trans_language_option_menu.bind("<<MenuSelect>>", lambda e: update_trans_language_button())
+
+        # Output text
+        output_text = ["original", "translation", "both", "none"]
+
+        self.output_text_label = tk.Label(self.options_frame1, text="Output text", padx=10)
+        self.output_text_label.pack(side=tk.LEFT)
+
+        self.output_text_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.output_text_frame.pack(side=tk.LEFT)
+
+        self.output_text = tk.StringVar(value="original")
+
+        def update_output_text_button():
+            selected_option = self.output_text.get()
+            self.output_text_option_menu.configure(text=selected_option)
+            self.save_options()
+
+        self.output_text_option_menu = tk.Menubutton(self.output_text_frame, textvariable=self.output_text, indicatoron=True,
+                                                 relief="raised")
+        self.output_text_option_menu.pack(side=tk.LEFT)
+
+        output_text_menu = tk.Menu(self.output_text_option_menu, tearoff=0)
+        self.output_text_option_menu.configure(menu=output_text_menu)
+
+        for qua in output_text:
+            output_text_menu.add_radiobutton(label=qua, value=qua, variable=self.output_text, command=update_output_text_button)
+
+        self.output_text_option_menu.bind("<<MenuSelect>>", lambda e: update_output_text_button())
+
+        # text-to-speech
+        self.speak_label = tk.Label(self.options_frame1, text="Text-to-Speech", padx=10)
+        self.speak_label.pack(side=tk.LEFT)
+
+        self.speak_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.speak_frame.pack(side=tk.LEFT)
+
+        self.speak = tk.BooleanVar(value=False)
+        self.speak_checkbox = tk.Checkbutton(self.speak_frame, variable=self.speak, onvalue=True,
+                                                 offvalue=False, command=self.save_options)
+        self.speak_checkbox.pack(side=tk.LEFT)
+
+
+        # Third Down Frame
+
+        self.options_frame2 = tk.Frame(self.container_frame)
+        self.options_frame2.pack(side=tk.TOP, anchor=tk.W)
 
         # Quality
         quality = ["raw", "upper", "lower"]
 
-        self.quality_label = tk.Label(self.options_frame1, text="Video Quality", padx=10)
+        self.quality_label = tk.Label(self.options_frame2, text="Video Quality", padx=10)
         self.quality_label.pack(side=tk.LEFT)
 
-        self.quality_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.quality_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
         self.quality_frame.pack(side=tk.LEFT)
 
         self.quality = tk.StringVar(value="raw")
@@ -573,10 +692,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.quality_option_menu.bind("<<MenuSelect>>", lambda e: update_quality_button())
 
         # Player Only
-        self.playeronly_label = tk.Label(self.options_frame1, text="Player Only", padx=4)
+        self.playeronly_label = tk.Label(self.options_frame2, text="Player Only", padx=4)
         self.playeronly_label.pack(side=tk.LEFT)
 
-        self.playeronly_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.playeronly_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
         self.playeronly_frame.pack(side=tk.LEFT)
 
         self.playeronly = tk.BooleanVar(value=False)
@@ -585,10 +704,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.playeronly_checkbox.pack(side=tk.LEFT)
 
         # Players
-        self.player_label = tk.Label(self.options_frame1, text="Player", padx=4)
+        self.player_label = tk.Label(self.options_frame2, text="Player", padx=4)
         self.player_label.pack(side=tk.LEFT)
 
-        self.player_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.player_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
         self.player_frame.pack(side=tk.LEFT)
 
         self.player = tk.StringVar(value="smplayer")
@@ -616,10 +735,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.player_option_menu.bind("<<MenuSelect>>", lambda e: update_player_button())
 
         # Player Options
-        self.mpv_options_label = tk.Label(self.options_frame1, text="Player Options", padx=4)
+        self.mpv_options_label = tk.Label(self.options_frame2, text="Player Options", padx=4)
         self.mpv_options_label.pack(side=tk.LEFT)
 
-        self.mpv_options_entry = tk.Entry(self.options_frame1, width=44)
+        self.mpv_options_entry = tk.Entry(self.options_frame2, width=44)
         self.mpv_options_entry.insert(0, self.current_options.get("mpv_options", ""))
         self.mpv_options_entry.pack(side=tk.LEFT)
 
@@ -631,21 +750,17 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_bg = self.mpv_options_entry.cget("bg")
 
 
-        # Third Down Frame
+        # Fourth Down Frame
 
-        if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
-                                             stderr=subprocess.DEVNULL) == 0:
-            self.options_frame2 = tk.LabelFrame(self.container_frame, text="Only for VLC player - Large files will be stored in /tmp directory!!!", padx=10, pady=2)
-        else:
-            self.options_frame2 = tk.LabelFrame(self.container_frame, text="VLC player not installed for Timeshift!!!", padx=10, pady=2)
+        self.options_frame3 = tk.LabelFrame(self.container_frame, text=options_frame3_text, padx=10, pady=2)
 
-        self.options_frame2.pack(fill="both", expand=True, padx=10, pady=2)
+        self.options_frame3.pack(fill="both", expand=True, padx=10, pady=2)
 
         # Timeshift
-        self.timeshiftactive_label = tk.Label(self.options_frame2, text="Timeshift", padx=10)
+        self.timeshiftactive_label = tk.Label(self.options_frame3, text="Timeshift", padx=10)
         self.timeshiftactive_label.pack(side=tk.LEFT)
 
-        self.timeshiftactive_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
+        self.timeshiftactive_frame = tk.Frame(self.options_frame3, highlightthickness=1, highlightbackground="black")
         self.timeshiftactive_frame.pack(side=tk.LEFT)
 
         self.timeshiftactive = tk.BooleanVar(value=False)
@@ -654,10 +769,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.timeshiftactive_checkbox.pack(side=tk.LEFT)
 
         # Synchronization
-        self.sync_label = tk.Label(self.options_frame2, text="Synchronization(sec)", padx=4)
+        self.sync_label = tk.Label(self.options_frame3, text="Synchronization(sec)", padx=4)
         self.sync_label.pack(side=tk.LEFT)
 
-        self.sync_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
+        self.sync_frame = tk.Frame(self.options_frame3, highlightthickness=1, highlightbackground="black")
         self.sync_frame.pack(side=tk.LEFT)
 
         self.sync_options_id = None
@@ -669,10 +784,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.sync_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
         # Segments
-        self.segments_label = tk.Label(self.options_frame2, text="Segments", padx=4)
+        self.segments_label = tk.Label(self.options_frame3, text="Segments", padx=4)
         self.segments_label.pack(side=tk.LEFT)
 
-        self.segments_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
+        self.segments_frame = tk.Frame(self.options_frame3, highlightthickness=1, highlightbackground="black")
         self.segments_frame.pack(side=tk.LEFT)
 
         self.save_options_id = None
@@ -684,10 +799,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.segments_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
         # Segment time
-        self.segment_time_label = tk.Label(self.options_frame2, text="Segment Time(minutes)", padx=4)
+        self.segment_time_label = tk.Label(self.options_frame3, text="Segment Time(minutes)", padx=4)
         self.segment_time_label.pack(side=tk.LEFT)
 
-        self.segment_time_frame = tk.Frame(self.options_frame2, highlightthickness=1, highlightbackground="black")
+        self.segment_time_frame = tk.Frame(self.options_frame3, highlightthickness=1, highlightbackground="black")
         self.segment_time_frame.pack(side=tk.LEFT)
 
         self.segment_time_options_id = None
@@ -698,54 +813,54 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
-        self.delete_videos_button = tk.Button(self.options_frame2, text="Delete all temp files", padx=5, command=self.delete_videos)
+        self.delete_videos_button = tk.Button(self.options_frame3, text="Delete all temp files", padx=5, command=self.delete_videos)
         self.delete_videos_button.pack(side=tk.LEFT, padx=(10, 10))
 
 
         # Buttons
-        self.options_frame3 = tk.Frame(self.container_frame)
-        self.options_frame3.pack(side=tk.TOP, anchor=tk.W)
+        self.options_frame4 = tk.Frame(self.container_frame)
+        self.options_frame4.pack(side=tk.TOP, anchor=tk.W)
 
-        self.options_frame3 = tk.Frame(self.container_frame)
-        self.options_frame3.pack(side=tk.TOP, anchor=tk.W)
+        self.options_frame4 = tk.Frame(self.container_frame)
+        self.options_frame4.pack(side=tk.TOP, anchor=tk.W)
 
-        self.add_label = tk.Label(self.options_frame3, text="Channel", padx=10)
+        self.add_label = tk.Label(self.options_frame4, text="Channel", padx=10)
         self.add_label.pack(side=tk.LEFT)
 
-        self.add_button = tk.Button(self.options_frame3, text="Add", command=self.add_channel)
+        self.add_button = tk.Button(self.options_frame4, text="Add", command=self.add_channel)
         self.add_button.pack(side=tk.LEFT)
 
-        self.add_file_button = tk.Button(self.options_frame3, text="Add file", command=self.add_file_channel)
+        self.add_file_button = tk.Button(self.options_frame4, text="Add file", command=self.add_file_channel)
         self.add_file_button.pack(side=tk.LEFT)
 
-        self.delete_button = tk.Button(self.options_frame3, text="Delete", command=self.delete_channel)
+        self.delete_button = tk.Button(self.options_frame4, text="Delete", command=self.delete_channel)
         self.delete_button.pack(side=tk.LEFT)
 
-        self.edit_button = tk.Button(self.options_frame3, text="Edit", command=self.edit_channel)
+        self.edit_button = tk.Button(self.options_frame4, text="Edit", command=self.edit_channel)
         self.edit_button.pack(side=tk.LEFT)
 
-        self.move_up_button = tk.Button(self.options_frame3, text="Move up", command=self.move_up_channel)
+        self.move_up_button = tk.Button(self.options_frame4, text="Move up", command=self.move_up_channel)
         self.move_up_button.pack(side=tk.LEFT)
 
-        self.move_down_button = tk.Button(self.options_frame3, text="Move down", command=self.move_down_channel)
+        self.move_down_button = tk.Button(self.options_frame4, text="Move down", command=self.move_down_channel)
         self.move_down_button.pack(side=tk.LEFT)
 
-        self.load_label = tk.Label(self.options_frame3, text="Playlist", padx=10)
+        self.load_label = tk.Label(self.options_frame4, text="Playlist", padx=10)
         self.load_label.pack(side=tk.LEFT)
 
-        self.load_button = tk.Button(self.options_frame3, text="Load", command=self.load_playlist)
+        self.load_button = tk.Button(self.options_frame4, text="Load", command=self.load_playlist)
         self.load_button.pack(side=tk.LEFT)
 
-        self.append_button = tk.Button(self.options_frame3, text="Append", command=self.append_playlist)
+        self.append_button = tk.Button(self.options_frame4, text="Append", command=self.append_playlist)
         self.append_button.pack(side=tk.LEFT)
 
-        self.save_button = tk.Button(self.options_frame3, text="Save", command=self.save_playlist)
+        self.save_button = tk.Button(self.options_frame4, text="Save", command=self.save_playlist)
         self.save_button.pack(side=tk.LEFT)
 
-        self.about_label = tk.Label(self.options_frame3, text="", padx=10)
+        self.about_label = tk.Label(self.options_frame4, text="", padx=10)
         self.about_label.pack(side=tk.LEFT)
 
-        self.about_button = tk.Button(self.options_frame3, text="About", command=self.show_about_window)
+        self.about_button = tk.Button(self.options_frame4, text="About", command=self.show_about_window)
         self.about_button.pack(side=tk.LEFT)
 
 
@@ -783,6 +898,8 @@ class M3uPlaylistPlayer(tk.Frame):
         mpv_options = self.current_options["mpv_options"]
         timeshiftactive_option = self.current_options["timeshiftactive_option"]
         timeshift_options = self.current_options["timeshift_options"]
+        online_translation_option = self.current_options["online_translation_option"]
+        trans_options = self.current_options["trans_options"]
 
         self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
         self.step_frame.config(highlightthickness=1, highlightbackground="black")
@@ -797,6 +914,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.sync_frame.config(highlightthickness=1, highlightbackground="black")
         self.segments_frame.config(highlightthickness=1, highlightbackground="black")
         self.segment_time_frame.config(highlightthickness=1, highlightbackground="black")
+        self.online_translation_frame.config(highlightthickness=1, highlightbackground="black")
+        self.trans_language_frame.config(highlightthickness=1, highlightbackground="black")
+        self.output_text_frame.config(highlightthickness=1, highlightbackground="black")
+        self.speak_frame.config(highlightthickness=1, highlightbackground="black")
 
         if not self.override_options.get():
             self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg, insertbackground=self.mpv_fg)
@@ -811,6 +932,8 @@ class M3uPlaylistPlayer(tk.Frame):
                     mpv_options = self.current_options[url].get("mpv_options", "")
                     timeshiftactive_option = self.current_options[url].get("timeshiftactive_option", "")
                     timeshift_options = self.current_options[url].get("timeshift_options", "")
+                    online_translation_option = self.current_options[url].get("online_translation_option", "")
+                    trans_options = self.current_options[url].get("trans_options", "")
 
                     self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
                     self.step_frame.config(highlightthickness=1, highlightbackground="red")
@@ -825,6 +948,10 @@ class M3uPlaylistPlayer(tk.Frame):
                     self.sync_frame.config(highlightthickness=1, highlightbackground="red")
                     self.segments_frame.config(highlightthickness=1, highlightbackground="red")
                     self.segment_time_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.online_translation_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.trans_language_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.output_text_frame.config(highlightthickness=1, highlightbackground="red")
+                    self.speak_frame.config(highlightthickness=1, highlightbackground="red")
         else:
             self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
 
@@ -906,6 +1033,26 @@ class M3uPlaylistPlayer(tk.Frame):
                                                     f" config_{self.spec}.json file")
             self.error_messages.put(err_message)
 
+        options_list = trans_options.split()
+        while options_list:
+            option = options_list.pop(0)
+            if option in lang_codes:
+                self.trans_language_option_menu.unbind("<<MenuSelect>>")
+                lang_name = lang_codes.get(option)
+                full_language_name = f"{option} ({lang_name})"
+                self.trans_language.set(full_language_name)
+                self.trans_language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            elif option in ["original", "translation", "both", "none"]:
+                self.output_text_option_menu.unbind("<<MenuSelect>>")
+                self.output_text.set(option)
+                self.output_text_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+            elif option == "speak":
+                self.speak.set(True)
+            else:
+                err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
+                                                    f" config_{self.spec}.json file")
+                self.error_messages.put(err_message)
+
         self.playeronly.set(playeronly_option)
         self.player_option_menu.unbind("<<MenuSelect>>")
         self.player.set(player_option)
@@ -918,10 +1065,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_options_entry.delete(0, tk.END)
         self.mpv_options_entry.insert(0, mpv_options)
         self.timeshiftactive.set(timeshiftactive_option)
-        if not subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
-                                                 stderr=subprocess.DEVNULL) == 0:
-            err_message = ("Timeshift Player Not Installed", f"Warning: Video player {player_option} was not found. Please install it.")
-            self.error_messages.put(err_message)
+        self.online_translation.set(online_translation_option)
+
 
     def play_channel(self, event):
         region = self.tree.identify_region(event.x, event.y)
@@ -965,7 +1110,6 @@ class M3uPlaylistPlayer(tk.Frame):
                         with open(temp_file.name, "w") as log_file:
                             process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
                             print("Launching mpv...")
-
                             threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
                     elif videoplayer == "none":
                         if self.playeronly.get():
@@ -983,10 +1127,8 @@ class M3uPlaylistPlayer(tk.Frame):
                     print(error_message)
                     simpledialog.messagebox.showerror("Error", error_message)
 
-
             if quality == "raw":
                 videoplayer = "none"
-
 
             # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
             terminal = self.terminal.get()
@@ -1001,6 +1143,23 @@ class M3uPlaylistPlayer(tk.Frame):
                 bash_options = bash_options + " streamlink"
             if self.spec == "yt-dlp":
                 bash_options = bash_options + " yt-dlp"
+
+            if self.online_translation.get():
+                if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
+                                                     stderr=subprocess.DEVNULL) == 0:
+                    trans_language_text = self.trans_language.get()
+                    trans_language_cleaned = trans_language_text.split('(')[0].strip()
+                    if self.speak.get():
+                        speak_value = " speak"
+                    else:
+                        speak_value = ""
+
+                    bash_options = bash_options + " [trans " + trans_language_cleaned + " " + self.output_text.get() + speak_value + "]"
+                    print("Online translation active.")
+                else:
+                    err_message = ("translate-shell Not Installed", f"Warning: Online translation program 'trans' was not found. Please install it.")
+                    self.error_messages.put(err_message)
+
             print("Script Options:", bash_options)
 
             if not self.playeronly.get() or self.timeshiftactive.get():
@@ -1099,7 +1258,7 @@ class M3uPlaylistPlayer(tk.Frame):
             # Extract numbers from filenames of files in use
             used_numbers = set()
             for file in used_files:
-                match = re.search(r'whisper-live0_(\d+)', file)
+                match = re.search(r'whisper-live_(\d+)', file)
                 if match:
                     number = match.group(1)
                     used_numbers.add(number)
@@ -1107,7 +1266,7 @@ class M3uPlaylistPlayer(tk.Frame):
             # Delete files not in use
             deleted_files = 0
             for file in files:
-                match = re.search(r'whisper-live0?_(\d+)', file)
+                match = re.search(r'whisper-live?_(\d+)', file)
                 if match and match.group(1) not in used_numbers:
                     os.remove(file)
                     deleted_files += 1
@@ -1118,7 +1277,6 @@ class M3uPlaylistPlayer(tk.Frame):
                 simpledialog.messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
         except Exception as e:
             simpledialog.messagebox.showerror("Error", f"Unable to delete /tmp videos: {str(e)}")
-
 
 
     # Popup menu cut, copy, paste, delete
@@ -1357,6 +1515,8 @@ class M3uPlaylistPlayer(tk.Frame):
             self.current_options["override_option"] = default_override_option
             self.current_options["timeshiftactive_option"] = default_timeshiftactive_option
             self.current_options["timeshift_options"] = default_timeshift_options
+            self.current_options["online_translation_option"] = default_online_translation_option
+            self.current_options["trans_options"] = default_trans_options
 
             if os.path.exists(config_file):
                 with open(config_file, "r") as file:
@@ -1385,6 +1545,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.sync_frame.config(highlightthickness=1, highlightbackground="black")
         self.segments_frame.config(highlightthickness=1, highlightbackground="black")
         self.segment_time_frame.config(highlightthickness=1, highlightbackground="black")
+        self.online_translation_frame.config(highlightthickness=1, highlightbackground="black")
+        self.trans_language_frame.config(highlightthickness=1, highlightbackground="black")
+        self.output_text_frame.config(highlightthickness=1, highlightbackground="black")
+        self.speak_frame.config(highlightthickness=1, highlightbackground="black")
 
         terminal_option = self.terminal.get()
 
@@ -1413,8 +1577,18 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             simpledialog.messagebox.showerror("Invalid Integer", f"The value is not a valid integer.")
 
-
         timeshift_options = self.sync.get() + " " + self.segments.get() + " " + self.segment_time.get()
+
+        trans_language_text = self.trans_language.get()
+        trans_language_cleaned = trans_language_text.split('(')[0].strip()
+        if self.speak.get():
+            speak_value = " speak"
+        else:
+            speak_value = ""
+
+        online_translation_option = self.online_translation.get()
+
+        trans_options = trans_language_cleaned + " " + self.output_text.get() + speak_value
 
         if self.override_options.get():
             self.current_options["terminal_option"] = terminal_option
@@ -1424,6 +1598,8 @@ class M3uPlaylistPlayer(tk.Frame):
             self.current_options["mpv_options"] = mpv_options
             self.current_options["timeshiftactive_option"] = timeshiftactive_option
             self.current_options["timeshift_options"] = timeshift_options
+            self.current_options["online_translation_option"] = online_translation_option
+            self.current_options["trans_options"] = trans_options
             self.current_options["override_option"] = True
         else:
             selection = self.tree.focus()
@@ -1441,6 +1617,10 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.sync_frame.config(highlightthickness=1, highlightbackground="red")
                 self.segments_frame.config(highlightthickness=1, highlightbackground="red")
                 self.segment_time_frame.config(highlightthickness=1, highlightbackground="red")
+                self.online_translation_frame.config(highlightthickness=1, highlightbackground="red")
+                self.trans_language_frame.config(highlightthickness=1, highlightbackground="red")
+                self.output_text_frame.config(highlightthickness=1, highlightbackground="red")
+                self.speak_frame.config(highlightthickness=1, highlightbackground="red")
 
                 url = self.tree.item(selection, "values")[2]
                 self.current_options[url] = {}
@@ -1451,7 +1631,8 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.current_options[url]["mpv_options"] = mpv_options
                 self.current_options[url]["timeshiftactive_option"] = timeshiftactive_option
                 self.current_options[url]["timeshift_options"] = timeshift_options
-
+                self.current_options[url]["online_translation_option"] = online_translation_option
+                self.current_options[url]["trans_options"] = trans_options
 
         self.save_config()
 
@@ -1473,7 +1654,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.28\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.30\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
