@@ -6,10 +6,10 @@
 
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
-play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, all of which can be done even with low-level processors.
+play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, and allows for changing options per channel and global options, all of which can be done even with low-level processors.
 
 
-Author: Antonio R. Version: 2.30 License: GPL 3.0
+Author: Antonio R. Version: 2.28 License: GPL 3.0
 
 
 #
@@ -26,7 +26,7 @@ python3 playlist4whisper.py
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk
+sudo apt-get install mpv smplayer vlc ffmpeg python3-tk
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
@@ -68,7 +68,6 @@ Local audio/video file must be with full path or if the file is in the same dire
 - Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
 - List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
 - List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
-- Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
  and will store options in config_xxx.json.
@@ -104,9 +103,6 @@ Some notable features:
 -Quantized models support
 
 -MacOS support.
-
--Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
-
 
 #
 
@@ -152,15 +148,7 @@ ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk
 yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 
-translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
-
-[trans + options]: Online translation and Text-to-Speech with translate-shell.
-
-trans_language: Translation language for translate-shell (https://github.com/soimort/translate-shell)
-
-output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
-
-speak: Online Text-to-Speech using translate-shell.
+translate: The "translate" option provides automatic English translation (only English is available).
 
 timeshift: Timeshift feature, only VLC player is supported.
 
@@ -310,7 +298,6 @@ brew install xquartz
 brew install xterm
 brew install vlc
 brew install mpv
-brew install translate-shell
 ```
 
 3. Next, install the necessary Python packages using pip3. Run the following commands:
