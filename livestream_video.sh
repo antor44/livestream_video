@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.26 - plays audio/video files or video streams and transcribes the audio using AI technology.
+# livestream_video.sh v. 2.30 - plays audio/video files or video streams, transcribes and translates the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -25,25 +25,28 @@
 # livestream_video.sh transcribes a video livestream by regularly feeding the output of ffmpeg to whisper.cpp,
 #  based on the implementation in livestream.sh from whisper.cpp
 #
+# For installing whisper-cpp, follow the instructions provided at https://github.com/ggerganov/whisper.cpp"
+#
 # This Linux script adds some new features:
 #
 # -Support for multi-instance and multi-user execution
 # -Support for IPTV, YouTube, Twitch, and many others
 # -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
 # -Quantized models support
+# -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 #
-#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
+#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
 #
-#  Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
-#  [streamlink] option forces the url to be processed by streamlink
-#  [yt-dlp] option forces the url to be processed by yt-dlp
+# Example:"
+# ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]"
 #
-#    Example (defaults if no options are specified):
+# Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
 #
-#     ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer]
+# [streamlink] option forces the url to be processed by streamlink
+# [yt-dlp] option forces the url to be processed by yt-dlp
 #
-#  Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
-#  "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
+# Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
+# "Upper" and "lower" download only one stream, which might correspond to the best or worst stream quality, re-encoded for the player.
 #
 # "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 #
@@ -53,7 +56,15 @@
 #
 # ... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 #
-# translate: The "translate" option provides automatic English translation (only English is available).
+# translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
+#
+# [trans + options]: Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+#
+# trans_language: Translation language for translate-shell.
+#
+# output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
+#
+# speak: Online Text-to-Speech using translate-shell.
 #
 # playeronly: Play the video stream without transcriptions.
 #
@@ -92,6 +103,10 @@ ytdlp_force=""
 segment_time=10
 segments=4
 sync=4
+speak="speak"
+trans=""
+output_text="both"
+trans_language="en"
 
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
@@ -109,6 +124,8 @@ for modele in "${models[@]}"; do
    model_list+=("${modele}${suffix}")
  done
 done
+
+output_text_list=( "original" "translation" "both" "none" )
 
 # functions
 
@@ -225,6 +242,45 @@ while [[ $# -gt 0 ]]; do
         raw | upper | lower ) quality=$1;;
         streamlink ) streamlink_force=$1;;
         yt-dlp ) ytdlp_force=$1;;
+        \[trans* )
+            trans="trans"
+            if ! command -v trans &>/dev/null; then
+                echo "translate-shell is required (https://github.com/soimort/translate-shell)"
+                exit 1
+            fi
+            if [[ $1 == *\]* ]]; then
+                echo "Warning: Missing language option in the trans options. Default is ${trans_language}."
+                trans_option="${trans_language}]"
+            else
+                shift
+                while [[ $1 != *\]* ]]; do
+                    if [[ $1 == "" ]]; then
+                        echo "Error: Missing closing bracket ']' in the trans options."
+                        exit 1
+                    elif [[ " ${output_text_list[@]} " =~ " $1 " ]]; then
+                        output_text=$1
+                    elif [[ " ${languages[@]} " =~ " $1 " ]]; then
+                        trans_language=$1
+                    elif [[ " speak " == " $1 " ]]; then
+                        speak="speak"
+                    else
+                        echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1
+                    fi
+                    shift
+                done
+                trans_option=$1
+                trans_option=${trans_option%\]}
+                if [[ $trans_option == "speak" ]]; then
+                    speak="speak"
+                elif [[ " ${output_text_list[@]} " =~ " $trans_option " ]]; then
+                    output_text=$trans_option
+                elif [[ " ${languages[@]} " =~ " $trans_option " ]]; then
+                    trans_language=$trans_option
+                else
+                    echo ""; echo "*** Wrong option $trans_option"; echo ""; usage; exit 1
+                fi
+            fi
+            ;;
         \[* )
             mpv_options=${1#\[}
             if [[ $mpv_options == none*\]* ]]; then
@@ -326,6 +382,15 @@ if [ "$playeronly" == "" ]; then
     fi
 fi
 
+# if online translate"
+if [ "$trans" == "trans" ]; then
+    if [ "$speak" == "speak" ]; then
+        printf "[+] Online translation into language '$trans_language', output text: '$output_text', Text-to-speech.\n\n"
+    else
+        printf "[+] Online translation into language '$trans_language', output text: '$output_text'.\n\n"
+    fi
+fi
+
 
 # if "timeshift" then timeshift
 
@@ -340,7 +405,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                 echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                 exit 1
             fi
-            ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+            ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
             ffmpeg_pid=$!
             ;;
         * )
@@ -349,17 +414,17 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                     echo "streamlink is required (https://streamlink.github.io)"
                     exit 1
                 fi
-                streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                streamlink $url best -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
                 if ! command -v yt-dlp &>/dev/null; then
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             else
-                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:9? -map 0:a:8? -map 0:a:7? -map 0:a:6? -map 0:a:5? -map 0:a:4? -map 0:a:3? -map 0:a:2? -map 0:a:1? -map 0:a:0? -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live0_${mypid}_buf%03d.avi &
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:9? -map 0:a:8? -map 0:a:7? -map 0:a:6? -map 0:a:5? -map 0:a:4? -map 0:a:3? -map 0:a:2? -map 0:a:1? -map 0:a:0? -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             fi
             ;;
@@ -370,13 +435,13 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     arg='#EXTM3U'
 		x=0
 		while [ $x -lt $segments ]; do
-			arg="$arg"'\n/tmp/whisper-live0_'"${mypid}"'_'"$x"'.avi'
+			arg="$arg"'\n/tmp/whisper-live_'"${mypid}"'_'"$x"'.avi'
 			x=$((x+1))
 		done
-		echo -e $arg > /tmp/playlist_whisper-live0_${mypid}.m3u
+		echo -e $arg > /tmp/playlist_whisper-live_${mypid}.m3u
 
     # launch player
-    ln -f -s /tmp/whisper-live0_${mypid}_buf000.avi /tmp/whisper-live0_${mypid}_0.avi # symlink first buffer at start
+    ln -f -s /tmp/whisper-live_${mypid}_buf000.avi /tmp/whisper-live_${mypid}_0.avi # symlink first buffer at start
 
     if [ "$playeronly" == "" ]; then
         printf "Buffering audio. Please wait...\n\n"
@@ -389,9 +454,9 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     fi
     sleep $(($step_s+5))
     if [[ $mpv_options == "true" ]]; then
-        vlc -I http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+        vlc -I http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${mypid}.m3u >/dev/null 2>&1 &
     else
-        vlc --extraintf=http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+        vlc --extraintf=http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${mypid}.m3u >/dev/null 2>&1 &
     fi
 
     if [ $? -ne 0 ]; then
@@ -423,13 +488,13 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     TIMEPLAYED=0
 
     if [ "$playeronly" != "" ]; then
-      echo "Now recording video buffer /tmp/whisper-live0_${mypid}_$n.avi"
+      echo "Now recording video buffer /tmp/whisper-live_${mypid}_$n.avi"
     fi
 
     while [ $running -eq 1 ]; do
 
-  		if [ -f /tmp/whisper-live0_${mypid}_buf$nbuf.avi ]; then # check split
-  			mv -f /tmp/whisper-live0_${mypid}_buf$abuf.avi /tmp/whisper-live0_${mypid}_$n.avi
+  		if [ -f /tmp/whisper-live_${mypid}_buf$nbuf.avi ]; then # check split
+  			mv -f /tmp/whisper-live_${mypid}_buf$abuf.avi /tmp/whisper-live_${mypid}_$n.avi
   			if [ $n -eq $((segments-1)) ]; then # restart buffer value when last buffer reached
   				n=-1
   			fi
@@ -450,9 +515,9 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
   				nbuf="$xbuf"
   			fi
         n=$((n+1))
-  			ln -f -s /tmp/whisper-live0_${mypid}_buf$abuf.avi /tmp/whisper-live0_${mypid}_$n.avi
+  			ln -f -s /tmp/whisper-live_${mypid}_buf$abuf.avi /tmp/whisper-live_${mypid}_$n.avi
         if [ "$playeronly" != "" ]; then
-          echo "Now recording video buffer /tmp/whisper-live0_${mypid}_$n.avi"
+          echo "Now recording video buffer /tmp/whisper-live_${mypid}_$n.avi"
         fi
   		fi
 
@@ -511,7 +576,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                   else
 
                       while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                          if [ $in -eq 0 ]; then
+                          if [ $in -eq 0 ] && [ $(echo "$((POSITION + sync)) < $((step_s*2))" | bc -l) -eq 1 ]; then
                               ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                               in=1
                           else
@@ -528,7 +593,55 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
                   fi
 
-                  ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+
+                  ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+
+                  if [[ $output_text == "original" ]] || [[ $output_text == "both" ]] || [[ $trans == "" ]]; then
+                      cat /tmp/output-whisper-live_${mypid}.txt | tee -a /tmp/transcription-whisper-live_${mypid}.txt
+                  else
+                      cat /tmp/output-whisper-live_${mypid}.txt >> /tmp/transcription-whisper-live_${mypid}.txt
+                  fi
+
+                  if [[ $trans == "trans" ]]; then
+                      if [[ $speak == "speak" ]]; then
+
+                          if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
+                              if [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                              else
+                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
+                              fi
+                              if [ -f /tmp/whisper-live_${mypid}_b.mp3 ]; then
+
+                                  # Get duration of input audio file in seconds
+                                  duration=$(ffprobe -i /tmp/whisper-live_${mypid}_b.mp3 -show_entries format=duration -v quiet -of csv="p=0")
+
+                                  # Check if duration exceeds maximum time
+                                  if [ -n "$duration" ]; then
+
+                                      if [[ $(echo "$duration > ($step_s - ( $step_s / 16 ))" | bc -l) ]]; then
+                                          acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 16 ))" | bc -l)
+                                      fi
+                                      if [[ $(echo "$acceleration_factor < 1.5" | bc -l) ]]; then
+                                          acceleration_factor="1.5"
+                                      fi
+                                      # Use FFmpeg to speed up the audio file
+                                      mv -f /tmp/whisper-live_${mypid}_b.mp3 /tmp/whisper-live_${mypid}_a.mp3
+                                      ffmpeg -i /tmp/whisper-live_${mypid}_a.mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_b.mp3 >/dev/null 2>&1
+
+                                      # Play the modified audio
+                                      mpv /tmp/whisper-live_${mypid}_b.mp3 &>/dev/null
+                                  fi
+                              fi
+                          fi
+
+                      elif [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                          trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language}
+                      fi
+                  fi
+
+
+
 
               elif [ $tin -eq 1 ]; then
                   echo
@@ -552,12 +665,12 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
     if [ "$playeronly" == "" ]; then
         arg="#EXTM3U\n${url}"
-        echo -e $arg > /tmp/playlist_whisper-live0_${mypid}.m3u
+        echo -e $arg > /tmp/playlist_whisper-live_${mypid}.m3u
 
         if [[ $mpv_options == "true" ]]; then
-            vlc -I http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+            vlc -I http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${mypid}.m3u >/dev/null 2>&1 &
         else
-            vlc --extraintf=http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live0_${mypid}.m3u >/dev/null 2>&1 &
+            vlc --extraintf=http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${mypid}.m3u >/dev/null 2>&1 &
         fi
 
         if [ $? -ne 0 ]; then
@@ -632,7 +745,7 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
                         else
 
                             while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                                if [ $in -eq 0 ]; then
+                                if [ $in -eq 0 ] && [ $(echo "$((POSITION + sync)) < $((step_s*2))" | bc -l) -eq 1 ]; then
                                     ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                                     in=1
                                 else
@@ -649,7 +762,51 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
                         fi
 
-                    ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+                        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+
+                        if [[ $output_text == "original" ]] || [[ $output_text == "both" ]] || [[ $trans == "" ]]; then
+                            cat /tmp/output-whisper-live_${mypid}.txt | tee -a /tmp/transcription-whisper-live_${mypid}.txt
+                        else
+                            cat /tmp/output-whisper-live_${mypid}.txt >> /tmp/transcription-whisper-live_${mypid}.txt
+                        fi
+
+                        if [[ $trans == "trans" ]]; then
+                            if [[ $speak == "speak" ]]; then
+
+                                if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
+                                    if [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                    else
+                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
+                                    fi
+                                    if [ -f /tmp/whisper-live_${mypid}_b.mp3 ]; then
+
+                                        # Get duration of input audio file in seconds
+                                        duration=$(ffprobe -i /tmp/whisper-live_${mypid}_b.mp3 -show_entries format=duration -v quiet -of csv="p=0")
+
+                                        # Check if duration exceeds maximum time
+                                        if [ -n "$duration" ]; then
+
+                                            if [[ $(echo "$duration > ($step_s - ( $step_s / 16 ))" | bc -l) ]]; then
+                                                acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 16 ))" | bc -l)
+                                            fi
+                                            if [[ $(echo "$acceleration_factor < 1.5" | bc -l) ]]; then
+                                                acceleration_factor="1.5"
+                                            fi
+                                            # Use FFmpeg to speed up the audio file
+                                            mv -f /tmp/whisper-live_${mypid}_b.mp3 /tmp/whisper-live_${mypid}_a.mp3
+                                            ffmpeg -i /tmp/whisper-live_${mypid}_a.mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_b.mp3 >/dev/null 2>&1
+
+                                            # Play the modified audio
+                                            mpv /tmp/whisper-live_${mypid}_b.mp3 &>/dev/null
+                                        fi
+                                    fi
+                                fi
+
+                            elif [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language}
+                            fi
+                        fi
 
                     fi
                 else
@@ -672,7 +829,7 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 elif [ "$playeronly" == "" ]; then # No timeshift
 
     if [[ $local -eq 1 ]]; then
-          ffmpeg -loglevel quiet -y -probesize 32 -i "${url}" -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+          ffmpeg -loglevel quiet -y -probesize 32 -i "${url}" -bufsize 44M -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} &
           ffmpeg_pid=$!
           $mpv_options "${url}" &>/dev/null &
     # continuous stream in native fmt (this file will grow forever!)
@@ -684,7 +841,7 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                     exit 1
                 fi
                 ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f b -g "$url")" \
-                    -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                     -bufsize 4M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:${myport} &
                 ffmpeg_pid=$!
                 ;;
@@ -695,7 +852,7 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                         exit 1
                     fi
                     ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -re -i "$(streamlink $url best --stream-url)" \
-                        -bufsize 44M -acodec ${fmt} -map 0:a:0  /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0  /tmp/whisper-live_${mypid}.${fmt} \
                         -bufsize 4M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:${myport} &
                     ffmpeg_pid=$!
                 elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
@@ -704,12 +861,12 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                         exit 1
                     fi
                     ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f b -g "$url")" \
-                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                         -bufsize 4M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:${myport} &
                     ffmpeg_pid=$!
                 else
                     ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                         -bufsize 4M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:${myport} &
                     ffmpeg_pid=$!
                 fi
@@ -726,7 +883,7 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                     exit 1
                 fi
                 ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'worst' -g "$url")" \
-                    -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                    -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                     -bufsize 4M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:${myport} &
                 ffmpeg_pid=$!
                 ;;
@@ -737,7 +894,7 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                         exit 1
                     fi
                     ffmpeg -loglevel quiet -y -probesize 32 -re -i "$(streamlink $url worst --stream-url)" \
-                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                         -bufsize 4M -map_metadata 0 -map 0:v:0 -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:${myport} &
                     ffmpeg_pid=$!
                 elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
@@ -746,12 +903,12 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                         exit 1
                     fi
                     ffmpeg -loglevel quiet -y -probesize 32 -i "$(yt-dlp -i -f 'worst' -g "$url")" \
-                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                         -bufsize 4M -map 0:v:0 -map 0:a -c:v copy -c:a copy -f mpegts udp://127.0.0.1:${myport} &
                     ffmpeg_pid=$!
                 else
                     ffmpeg -loglevel quiet -y -probesize 32 -i $url \
-                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} \
+                        -bufsize 44M -acodec ${fmt} -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} \
                         -bufsize 4M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0 -acodec ${fmt} -threads 2 -vcodec libx264 -preset ultrafast -movflags +faststart -vsync 2 -reset_timestamps 1 -f mpegts udp://127.0.0.1:${myport} &
                     ffmpeg_pid=$!
                 fi
@@ -767,7 +924,7 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                     echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                     exit 1
                 fi
-                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'worst' -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live0_${mypid}.${fmt} &
+                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'worst' -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live_${mypid}.${fmt} &
                 ffmpeg_pid=$!
                 ;;
             * )
@@ -776,17 +933,17 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                         echo "streamlink is required (https://streamlink.github.io)"
                         exit 1
                     fi
-                    streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live0_${mypid}.${fmt} &
+                    streamlink $url worst -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live_${mypid}.${fmt} &
                     ffmpeg_pid=$!
                 elif [[ "$ytdlp_force" = "yt-dlp" ]]; then
                     if ! command -v yt-dlp &>/dev/null; then
                         echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
                         exit 1
                     fi
-                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'worst' -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live0_${mypid}.${fmt} &
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f 'worst' -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -map 0:a:0 -vsync 2 -reset_timestamps 1 /tmp/whisper-live_${mypid}.${fmt} &
                     ffmpeg_pid=$!
                 else
-                    ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live0_${mypid}.${fmt} &
+                    ffmpeg -loglevel quiet -y -probesize 32 -i $url -bufsize 44M -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} &
                     ffmpeg_pid=$!
                 fi
                 ;;
@@ -813,14 +970,56 @@ elif [ "$playeronly" == "" ]; then # No timeshift
         err=1
         while [ $err -ne 0 ]; do
             if [ $i -gt 0 ]; then
-                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 1" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 1" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
             else
-                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live0_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$step_s - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$step_s - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
             fi
             err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
         done
 
-        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whispererr_${mypid} | tail -n 1
+        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+
+        if [[ $output_text == "original" ]] || [[ $output_text == "both" ]] || [[ $trans == "" ]]; then
+            cat /tmp/output-whisper-live_${mypid}.txt | tee -a /tmp/transcription-whisper-live_${mypid}.txt
+        else
+            cat /tmp/output-whisper-live_${mypid}.txt >> /tmp/transcription-whisper-live_${mypid}.txt
+        fi
+
+        if [[ $trans == "trans" ]]; then
+            if [[ $speak == "speak" ]]; then
+                if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
+                    if [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                    else
+                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
+                    fi
+                    if [ -f /tmp/whisper-live_${mypid}_b.mp3 ]; then
+
+                        # Get duration of input audio file in seconds
+                        duration=$(ffprobe -i /tmp/whisper-live_${mypid}_b.mp3 -show_entries format=duration -v quiet -of csv="p=0")
+
+                        # Check if duration exceeds maximum time
+                        if [ -n "$duration" ]; then
+
+                            if [[ $(echo "$duration > ($step_s - ( $step_s / 16 ))" | bc -l) ]]; then
+                                acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 16 ))" | bc -l)
+                            fi
+                            if [[ $(echo "$acceleration_factor < 1.5" | bc -l) ]]; then
+                                acceleration_factor="1.5"
+                            fi
+                            # Use FFmpeg to speed up the audio file
+                            mv -f /tmp/whisper-live_${mypid}_b.mp3 /tmp/whisper-live_${mypid}_a.mp3
+                            ffmpeg -i /tmp/whisper-live_${mypid}_a.mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_b.mp3 >/dev/null 2>&1
+
+                            # Play the modified audio
+                            mpv /tmp/whisper-live_${mypid}_b.mp3 &>/dev/null
+                        fi
+                    fi
+                fi
+            elif [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language}
+            fi
+        fi
 
         while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
             sleep 0.1
