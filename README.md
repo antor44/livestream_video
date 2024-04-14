@@ -26,7 +26,7 @@ python3 playlist4whisper.py
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer trans vlc ffmpeg python3-tk
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
@@ -154,13 +154,13 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
 
-[trans + options]: Online translation and Text-to-Speech with trans.
+[trans + options]: Online translation and Text-to-Speech with translate-shell.
 
-trans_language: Translation language for trans (https://github.com/soimort/translate-shell)
+trans_language: Translation language for translate-shell (https://github.com/soimort/translate-shell)
 
-output_text: Choose the output text during translation with trans: original, translation, both, none.
+output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
 
-speak: Online Text-to-Speech through trans.
+speak: Online Text-to-Speech using translate-shell.
 
 timeshift: Timeshift feature, only VLC player is supported.
 
@@ -310,7 +310,7 @@ brew install xquartz
 brew install xterm
 brew install vlc
 brew install mpv
-brew install trans
+brew install translate-shell
 ```
 
 3. Next, install the necessary Python packages using pip3. Run the following commands:
