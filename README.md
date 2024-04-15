@@ -6,10 +6,10 @@
 
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
-play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, all of which can be done even with low-level processors.
+play4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports fully configurable timeshift features, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 2.30 License: GPL 3.0
+Author: Antonio R. Version: 2.34 License: GPL 3.0
 
 
 #
@@ -69,6 +69,7 @@ Local audio/video file must be with full path or if the file is in the same dire
 - List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
 - List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
 - Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+- Generates subtitles from audio/video files.
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
  and will store options in config_xxx.json.
@@ -107,10 +108,15 @@ Some notable features:
 
 -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 
+-Generates Subtitles from Audio/Video File.
 
 #
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [quality] [ [player executable + player options] ] [timeshift] [sync s] [segments n] [segment_time m]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
+
+Example:
+./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
+
 
 For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
 
@@ -153,6 +159,8 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 
 translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
+
+subtitles: Generates Subtitles from an Audio/Video File.
 
 [trans + options]: Online translation and Text-to-Speech with translate-shell.
 
