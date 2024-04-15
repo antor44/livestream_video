@@ -28,7 +28,7 @@ play4whisper - displays a playlist for "livestream_video.sh" and plays audio/vid
 The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel
 and global options, online translation and Text-to-Speech with translate-shell, all of which can be done even with low-level processors.
 
-Author: Antonio R. Version: 2.30 License: GPL 3.0
+Author: Antonio R. Version: 2.34 License: GPL 3.0
 
 
 Usage:
@@ -66,7 +66,7 @@ For Twitch streamlink is required (https://streamlink.github.io)
 
 Options for script:
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
 
 Example:
 ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
@@ -105,7 +105,7 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
 
-playeronly: Play the video stream without transcriptions.
+subtitles: Generate Subtitles from Audio/Video File.
 
 [trans + options]: Online translation and Text-to-Speech with translate-shell.
 
@@ -114,6 +114,8 @@ trans_language: Translation language for translate-shell (https://github.com/soi
 output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
 
 speak: Online Text-to-Speech using translate-shell.
+
+playeronly: Play the video stream without transcriptions.
 
 timeshift: Timeshift feature, only VLC player is supported.
 
@@ -385,6 +387,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.current_options = {}
         self.list_number = 0
         self.playlist = []
+        self.subtitles = ""
         self.create_widgets()
         self.populate_playlist()
         self.load_options()
@@ -551,7 +554,7 @@ class M3uPlaylistPlayer(tk.Frame):
                                                  offvalue=False, command=self.save_options)
         self.translate_checkbox.pack(side=tk.LEFT)
 
-        # Override
+        # Override global options
         self.space_label = tk.Label(self.options_frame0, text="", padx=6)
         self.space_label.pack(side=tk.LEFT)
 
@@ -818,34 +821,14 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
         # Buttons
-        self.options_frame4 = tk.Frame(self.container_frame)
-        self.options_frame4.pack(side=tk.TOP, anchor=tk.W)
 
         self.options_frame4 = tk.Frame(self.container_frame)
-        self.options_frame4.pack(side=tk.TOP, anchor=tk.W)
+        self.options_frame4.pack(side=tk.LEFT, expand=True, padx=2, pady=2)
 
-        self.add_label = tk.Label(self.options_frame4, text="Channel", padx=10)
-        self.add_label.pack(side=tk.LEFT)
+        self.playlist_label = tk.Label(self.options_frame4, text="Playlist")
+        self.playlist_label.pack(side=tk.TOP)
 
-        self.add_button = tk.Button(self.options_frame4, text="Add", command=self.add_channel)
-        self.add_button.pack(side=tk.LEFT)
-
-        self.add_file_button = tk.Button(self.options_frame4, text="Add file", command=self.add_file_channel)
-        self.add_file_button.pack(side=tk.LEFT)
-
-        self.delete_button = tk.Button(self.options_frame4, text="Delete", command=self.delete_channel)
-        self.delete_button.pack(side=tk.LEFT)
-
-        self.edit_button = tk.Button(self.options_frame4, text="Edit", command=self.edit_channel)
-        self.edit_button.pack(side=tk.LEFT)
-
-        self.move_up_button = tk.Button(self.options_frame4, text="Move up", command=self.move_up_channel)
-        self.move_up_button.pack(side=tk.LEFT)
-
-        self.move_down_button = tk.Button(self.options_frame4, text="Move down", command=self.move_down_channel)
-        self.move_down_button.pack(side=tk.LEFT)
-
-        self.load_label = tk.Label(self.options_frame4, text="Playlist", padx=10)
+        self.load_label = tk.Label(self.options_frame4, text="", padx=2)
         self.load_label.pack(side=tk.LEFT)
 
         self.load_button = tk.Button(self.options_frame4, text="Load", command=self.load_playlist)
@@ -857,10 +840,58 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_button = tk.Button(self.options_frame4, text="Save", command=self.save_playlist)
         self.save_button.pack(side=tk.LEFT)
 
-        self.about_label = tk.Label(self.options_frame4, text="", padx=10)
-        self.about_label.pack(side=tk.LEFT)
 
-        self.about_button = tk.Button(self.options_frame4, text="About", command=self.show_about_window)
+        self.options_frame5 = tk.Frame(self.container_frame)
+        self.options_frame5.pack(side=tk.LEFT, expand=True, pady=2)
+
+        self.channel_label = tk.Label(self.options_frame5, text="Channel/Media File")
+        self.channel_label.pack(side=tk.TOP)
+
+        self.add_label = tk.Label(self.options_frame5, text="", padx=2)
+        self.add_label.pack(side=tk.LEFT)
+
+        self.add_button = tk.Button(self.options_frame5, text="Add", command=self.add_channel)
+        self.add_button.pack(side=tk.LEFT)
+
+        self.add_file_button = tk.Button(self.options_frame5, text="Add File", command=self.add_file_channel)
+        self.add_file_button.pack(side=tk.LEFT)
+
+        self.delete_button = tk.Button(self.options_frame5, text="Delete", command=self.delete_channel)
+        self.delete_button.pack(side=tk.LEFT)
+
+        self.edit_button = tk.Button(self.options_frame5, text="Edit", command=self.edit_channel)
+        self.edit_button.pack(side=tk.LEFT)
+
+        self.move_up_button = tk.Button(self.options_frame5, text="Move up", command=self.move_up_channel)
+        self.move_up_button.pack(side=tk.LEFT)
+
+        self.move_down_button = tk.Button(self.options_frame5, text="Move down", command=self.move_down_channel)
+        self.move_down_button.pack(side=tk.LEFT)
+
+
+        self.options_frame6 = tk.Frame(self.container_frame)
+        self.options_frame6.pack(side=tk.LEFT, expand=True, pady=2)
+
+        self.subtitles_label = tk.Label(self.options_frame6, text="Subtitles")
+        self.subtitles_label.pack(side=tk.TOP)
+
+        self.subtitles_label2 = tk.Label(self.options_frame6, text="", padx=2)
+        self.subtitles_label2.pack(side=tk.LEFT)
+
+        self.subtitles_button = tk.Button(self.options_frame6, text="Generate", command=self.generate_subtitles)
+        self.subtitles_button.pack(side=tk.LEFT)
+
+
+        self.options_frame7 = tk.Frame(self.container_frame)
+        self.options_frame7.pack(side=tk.LEFT, expand=True, pady=2)
+
+        self.about_label = tk.Label(self.options_frame7, text="")
+        self.about_label.pack(side=tk.TOP)
+
+        self.about_label2 = tk.Label(self.options_frame7, text="", padx=4)
+        self.about_label2.pack(side=tk.LEFT)
+
+        self.about_button = tk.Button(self.options_frame7, text="About", command=self.show_about_window)
         self.about_button.pack(side=tk.LEFT)
 
 
@@ -1068,8 +1099,12 @@ class M3uPlaylistPlayer(tk.Frame):
         self.online_translation.set(online_translation_option)
 
 
-    def play_channel(self, event):
-        region = self.tree.identify_region(event.x, event.y)
+    def play_channel(self, event=None):
+
+        if self.subtitles == "subtitles":
+            region = "cell"
+        else:
+            region = self.tree.identify_region(event.x, event.y)
 
         if region == "cell":
             item = self.tree.selection()[0]
@@ -1084,48 +1119,52 @@ class M3uPlaylistPlayer(tk.Frame):
             else:
                 translate_value = ""
 
-            print("Playing channel:", url)
+            if self.subtitles == "subtitles":
+                region = "cell"
+            else:
+                print("Playing channel:", url)
 
             videoplayer = self.player.get()
             quality = self.quality.get()
 
-            if self.timeshiftactive.get():
-                if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
-                                                     stderr=subprocess.DEVNULL) == 0:
-                    mpv_options = f"[vlc {mpv_options}]"
-                    print("Timeshift active.")
-                else:
-                    err_message= f"Warning: Video player {player_option} was not found. Please install it."
-                    print(err_message)
-                    simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
+            if self.subtitles == "":
+                if self.timeshiftactive.get():
+                    if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
+                                                         stderr=subprocess.DEVNULL) == 0:
+                        mpv_options = f"[vlc {mpv_options}]"
+                        print("Timeshift active.")
+                    else:
+                        err_message= f"Warning: Video player {player_option} was not found. Please install it."
+                        print(err_message)
+                        simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
 
-            # Try launching smplayer, mpv, or mplayer
-            elif self.playeronly.get() or quality == "raw":
-                try:
-                    if videoplayer == "smplayer" and videoplayer in player_installed:
-                        subprocess.Popen(["smplayer", url, mpv_options])
-                        print("Launching smplayer...")
-                    elif videoplayer == "mpv" and videoplayer in player_installed:
-                        temp_file = tempfile.NamedTemporaryFile(delete=False)
-                        with open(temp_file.name, "w") as log_file:
-                            process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
-                            print("Launching mpv...")
-                            threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
-                    elif videoplayer == "none":
-                        if self.playeronly.get():
+                # Try launching smplayer, mpv, or mplayer
+                elif self.playeronly.get() or quality == "raw":
+                    try:
+                        if videoplayer == "smplayer" and videoplayer in player_installed:
+                            subprocess.Popen(["smplayer", url, mpv_options])
+                            print("Launching smplayer...")
+                        elif videoplayer == "mpv" and videoplayer in player_installed:
+                            temp_file = tempfile.NamedTemporaryFile(delete=False)
+                            with open(temp_file.name, "w") as log_file:
+                                process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
+                                print("Launching mpv...")
+                                threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
+                        elif videoplayer == "none":
+                            if self.playeronly.get():
+                                mpv_options = ""
+                                err_message = "None video player selected."
+                                print(err_message)
+                                simpledialog.messagebox.showerror("Error", err_message)
+                        else:
                             mpv_options = ""
-                            err_message = "None video player selected."
+                            err_message = f"No {videoplayer} video player found."
                             print(err_message)
                             simpledialog.messagebox.showerror("Error", err_message)
-                    else:
-                        mpv_options = ""
-                        err_message = f"No {videoplayer} video player found."
-                        print(err_message)
-                        simpledialog.messagebox.showerror("Error", err_message)
-                except Exception as e:
-                    error_message = f"Error occurred while launching {videoplayer}: {str(e)}"
-                    print(error_message)
-                    simpledialog.messagebox.showerror("Error", error_message)
+                    except Exception as e:
+                        error_message = f"Error occurred while launching {videoplayer}: {str(e)}"
+                        print(error_message)
+                        simpledialog.messagebox.showerror("Error", error_message)
 
             if quality == "raw":
                 videoplayer = "none"
@@ -1143,6 +1182,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 bash_options = bash_options + " streamlink"
             if self.spec == "yt-dlp":
                 bash_options = bash_options + " yt-dlp"
+
+            if self.subtitles == "subtitles":
+                bash_options = bash_options + " subtitles"
 
             if self.online_translation.get():
                 if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
@@ -1162,9 +1204,9 @@ class M3uPlaylistPlayer(tk.Frame):
 
             print("Script Options:", bash_options)
 
-            if not self.playeronly.get() or self.timeshiftactive.get():
+            if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
                 url = '"' + url + '"'
-                if self.timeshiftactive.get():
+                if self.timeshiftactive.get() or self.subtitles == "subtitles":
                     pass
                 elif videoplayer == "smplayer" and videoplayer in player_installed:
                     mpv_options = f"[smplayer {mpv_options}]"
@@ -1361,7 +1403,6 @@ class M3uPlaylistPlayer(tk.Frame):
             ]
         )
 
-
         if file_paths:
             for file_path in file_paths:
                 # Extract the file name without extension
@@ -1381,6 +1422,26 @@ class M3uPlaylistPlayer(tk.Frame):
             simpledialog.messagebox.showinfo("Success", "File(s) added successfully. Don't forget to save the playlist.")
         else:
             simpledialog.messagebox.showerror("Error", "No file selected.")
+
+
+    # Function to generate subtitles
+    def generate_subtitles(self):
+        selection = self.tree.selection()
+        if selection:
+            item = self.tree.selection()[0]
+            url = self.tree.item(item, "values")[2]
+            if re.match(r'^/|^\./', url):
+                self.subtitles="subtitles"
+                self.play_channel()
+                self.subtitles=""
+                err_message = f"Please wait while generating subtitles for {url}"
+                print(err_message)
+                simpledialog.messagebox.showinfo("Generating Subtitles", err_message)
+            else:
+                simpledialog.messagebox.showerror("Error", "Select a valid local file to generate subtitles.")
+        else:
+            simpledialog.messagebox.showerror("Error", "Select a file to generate subtitles.")
+
 
     # Function to delete a channel
     def delete_channel(self):
@@ -1654,7 +1715,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.30\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.34\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -1671,7 +1732,7 @@ class MainApplication:
 
         self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
-        self.main_window.geometry("840x800")
+        self.main_window.geometry("844x800")
 
         icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
                 "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
