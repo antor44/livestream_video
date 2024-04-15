@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.32 - plays audio/video files or video streams, transcribes and translates the audio using AI technology.
+# livestream_video.sh v. 2.34 - plays audio/video files or video streams, transcribes and translates the audio using AI technology.
 #
 # Copyright (c) 2023 Antonio R.
 #
@@ -35,7 +35,7 @@
 # -Quantized models support
 # -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 #
-#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
+#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
 #
 # Example:"
 # ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]"
@@ -57,6 +57,8 @@
 # ... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 #
 # translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
+#
+# subtitles: Generate Subtitles from Audio/Video File.
 #
 # [trans + options]: Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 #
@@ -107,6 +109,7 @@ speak=""
 trans=""
 output_text="both"
 trans_language="en"
+subtitles=""
 
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
@@ -155,7 +158,7 @@ function list_languages {
 
 usage()
 {
-    echo "Usage: $0 stream_url [step_s] [model] [language] [translate] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
+    echo "Usage: $0 stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
     echo ""
     echo "  Example:"
     echo "    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]"
@@ -216,6 +219,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         [3-9]|[1-5][0-9]|60 ) step_s=$1;;
         translate ) translate=$1;;
+        subtitles ) subtitles=$1;;
         playeronly ) playeronly=$1;;
         timeshift ) timeshift=$1;;
         segment_time ) segment_time=$2
@@ -368,10 +372,7 @@ else
 fi
 echo ""
 
-running=1
-trap "running=0" SIGINT SIGTERM
-
-if [ "$playeronly" == "" ]; then
+if [ "$playeronly" == "" ] || [[ $subtitles == "subtitles" ]] ; then
     # if "translate" then translate to english
     if [[ $translate == "translate" ]]; then
         translate="-tr"
@@ -392,8 +393,88 @@ if [ "$trans" == "trans" ]; then
 fi
 
 
-# if "timeshift" then timeshift
+if [[ $subtitles == "subtitles" ]] && [[ $local -eq 0 ]]; then
+    echo ""
+    echo "Error: Generate Subtitles only available for local Audio/Video Files."
+    echo ""
+    exit 1
+fi
 
+
+# Generate Subtitles from Audio/Video File.
+if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
+
+    echo ""
+    echo "Generating Subtitles..."
+    echo ""
+    # do not stop script on error
+    set +e
+
+    ffmpeg -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le /tmp/whisper-live_${mypid}.wav
+    err=$?
+
+    if [ $err -eq 0 ]; then
+
+        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav -osrt 2> /tmp/whisper-live_${mypid}-err.err
+        err=$?
+
+        url_no_ext="${url%.*}"
+        if [[ $trans == "trans" ]] && [ $err -eq 0 ]; then
+            trans -b :${trans_language} -i /tmp/whisper-live_${mypid}.wav.srt -o /tmp/whisper-live_${mypid}.wav.${trans_language}.srt
+            err=$?
+            destination="${url_no_ext}.${trans_language}.srt"
+            mv /tmp/whisper-live_${mypid}.wav.${trans_language}.srt /tmp/whisper-live_${mypid}.wav.srt
+        elif [ $err -eq 0 ]; then
+            if [[ $translate == "" ]]; then
+                destination="${url_no_ext}.${language}.srt"
+            else
+                destination="${url_no_ext}.en.srt"
+            fi
+        fi
+
+        # Check if destination file already exists
+        if [ -e "$destination" ] && [ $err -eq 0 ]; then
+            echo ""
+            read -p "The file '$destination' already exists. Do you want to overwrite it? (y/n): " response
+            if [ "$response" = "y" ]; then
+                mv /tmp/whisper-live_${mypid}.wav.srt "$destination"
+                err=$?
+            elif [ "$response" = "n" ]; then
+                read -p "Enter a new name with full path for the destination file [${destination}]: " new_destination
+                mv -i /tmp/whisper-live_${mypid}.wav.srt "$new_destination"
+                err=$?
+            else
+                echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${mypid}.wav.srt"
+                err=1
+            fi
+        else
+            mv -i /tmp/whisper-live_${mypid}.wav.srt "$destination"
+            err=$?
+        fi
+    fi
+
+		if [ $err -eq 0 ]; then
+        echo ""
+        echo "Subtitles generated successfully."
+        echo ""
+        exit 0
+    else
+        echo ""
+        echo "An error occurred while generating subtitles."
+        echo ""
+        pkill -e -f "^ffmpeg.*${mypid}.*$"
+        pkill -e -f "^./main.*${mypid}.*$"
+        pkill -e -f "^trans.*${mypid}.*$"
+        exit 1
+    fi
+
+fi
+
+
+running=1
+trap "running=0" SIGINT SIGTERM
+
+# if "timeshift" then timeshift
 if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     printf "[+] Timeshift active: '$segments' segments of '$segment_time' minutes and a synchronization of '$sync' seconds.\n\n"
 
@@ -576,9 +657,13 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                   else
 
                       while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                          if [ $in -eq 0 ] && [ $(echo "$((POSITION + sync)) < $((step_s*2))" | bc -l) -eq 1 ]; then
-                              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                              in=1
+                          if [ $in -eq 0 ]; then
+                              if [ $(echo "$((POSITION)) < $(((step_s+sync)*2))" | bc -l) -eq 1 ]; then
+                                  ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                                  in=1
+                              else
+                                  in=1
+                              fi
                           else
                               ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 0.8" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                               in=2
@@ -606,8 +691,12 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                       if [[ $speak == "speak" ]]; then
 
                           if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
-                              if [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                              if [[ $output_text == "translation" ]]; then
                                   trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                              elif [[ $output_text == "both" ]]; then
+                                  tput rev
+                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                  tput sgr0
                               else
                                   trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
                               fi
@@ -635,8 +724,12 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                               fi
                           fi
 
-                      elif [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
-                          trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language}
+                      elif [[ $output_text == "translation" ]]; then
+                          trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                      elif [[ $output_text == "both" ]]; then
+                          tput rev
+                          trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                          tput sgr0
                       fi
                   fi
 
@@ -745,9 +838,13 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
                         else
 
                             while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                                if [ $in -eq 0 ] && [ $(echo "$((POSITION + sync)) < $((step_s*2))" | bc -l) -eq 1 ]; then
-                                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
-                                    in=1
+                                if [ $in -eq 0 ]; then
+                                    if [ $(echo "$((POSITION)) < $(((step_s+sync)*2))" | bc -l) -eq 1 ]; then
+                                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $sync - 0.8" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
+                                        in=1
+                                    else
+                                        in=1
+                                    fi
                                 else
                                     ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${url}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $sync - 1" | bc -l) -t $(echo "$step_s + 0.0" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
                                     in=2
@@ -774,8 +871,12 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
                             if [[ $speak == "speak" ]]; then
 
                                 if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
-                                    if [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                                    if [[ $output_text == "translation" ]]; then
                                         trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                    elif [[ $output_text == "both" ]]; then
+                                        tput rev
+                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                        tput sgr0
                                     else
                                         trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
                                     fi
@@ -803,8 +904,12 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
                                     fi
                                 fi
 
-                            elif [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
-                                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language}
+                            elif [[ $output_text == "translation" ]]; then
+                                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                            elif [[ $output_text == "both" ]]; then
+                                tput rev
+                                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                tput sgr0
                             fi
                         fi
 
@@ -988,8 +1093,12 @@ elif [ "$playeronly" == "" ]; then # No timeshift
         if [[ $trans == "trans" ]]; then
             if [[ $speak == "speak" ]]; then
                 if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
-                    if [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
+                    if [[ $output_text == "translation" ]]; then
                         trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                    elif [[ $output_text == "both" ]]; then
+                        tput rev
+                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                        tput sgr0
                     else
                         trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
                     fi
@@ -1016,8 +1125,12 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                         fi
                     fi
                 fi
-            elif [[ $output_text == "translation" ]] || [[ $output_text == "both" ]]; then
-                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language}
+            elif [[ $output_text == "translation" ]]; then
+                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} | tee -a /tmp/translation-whisper-live_${mypid}.txt
+            elif [[ $output_text == "both" ]]; then
+                tput rev
+                trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                tput sgr0
             fi
         fi
 
