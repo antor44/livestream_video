@@ -249,7 +249,7 @@ git clone https://github.com/ggerganov/whisper.cpp.git
 ```
 bash ./models/download-ggml-model.sh base.en
 ```
-- Now change directory to the whisper-ccp folder and execute the main example to transcribe an audio file using the following command:
+- Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command:
 ```
 # build the main example
 make
