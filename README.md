@@ -241,15 +241,11 @@ The temporary video buffer files can be saved in another directory, they will ha
 
 A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the main executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper-cpp. The main executable from whisper.cpp needs to be placed in the same directory as playlist4whisper.py and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. These tasks can be accomplished using terminal commands:
 
-- First clone the repository:
+First clone the repository:
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-- Then, download one of the Whisper models converted in ggml format. For example:
-```
-bash ./models/download-ggml-model.sh base.en
-```
-- Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command:
+Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command:
 
 Build the 'main' example
 ```
@@ -259,6 +255,7 @@ Download some models:
 ```
 make tiny.en
 make base.en
+make base
 make small
 make large-v3
 ```
