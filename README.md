@@ -380,7 +380,7 @@ Additionally, Whisper utilizes a GPT-2 model, which incorporates a tokenizer res
 
 Choosing a larger Whisper model improves its performance. However, it's important to note that playlist4whisper doesn't enhance transcription accuracy by adding tokens from previous chunks processed. This is due to the added complexity and lack of benefit for smaller models. If accuracy is your top priority and your computer has sufficient power, using a larger model and longer step time would be optimal, resulting in fewer audio splits. Nonetheless, there are many instances where this token system is ineffective for truncated words, so I plan to integrate a VAD system in the near future.
 
-Additionally, you can generate subtitles for local audio/video files. This feature supports any model size with any processor; the only limitation is the processing time. When generating subtitles, the AI takes into account the maximum tokens supported by this implementation of OpenAI's Whisper AI.
+Alternatively, you can generate subtitles for local audio/video files. This feature supports any model size with any processor; the only limitation is the processing time. When generating subtitles, the AI takes into account the maximum tokens supported by this implementation of OpenAI's Whisper AI.
 
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
