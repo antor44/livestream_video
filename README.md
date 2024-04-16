@@ -60,7 +60,7 @@ make large-v3
 
 python playlist4whisper.py 
 
-Local audio/video file must be with full path or if the file is in the same directory preceded with './'
+Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
 
 *For help with options, see the livestream_video.sh section.
 
