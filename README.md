@@ -412,6 +412,8 @@ There should be no issues running the program on Apple computers with ARM proces
 
 https://github.com/ggerganov/whisper.cpp#core-ml-support
 
+The accelerated versions of whisper-cpp require specific model versions to achieve better performance.
+
 **Q: smplayer does not work with online TV?**
 
 A: First, check if you have passed a player option that is not compatible with smplayer. smplayer depens of mpv or mplayer, the installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option, or if you prefer smplayer, make sure it is configured to use mpv.
