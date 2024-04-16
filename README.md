@@ -245,9 +245,9 @@ First clone the repository:
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command:
+Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command.
 
-Build the 'main' example
+Build the 'main' example:
 ```
 make
 ```
@@ -259,7 +259,7 @@ make base
 make small
 make large-v3
 ```
-Transcribe an audio file (for model base.en)
+Transcribe an audio file (for model base.en):
 ```
 ./main -f samples/jfk.wav
 ```
