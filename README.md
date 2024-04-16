@@ -250,12 +250,20 @@ git clone https://github.com/ggerganov/whisper.cpp.git
 bash ./models/download-ggml-model.sh base.en
 ```
 - Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command:
+
+Build the 'main' example
 ```
-# build the main example
 make
 ```
+Download some models:
 ```
-# transcribe an audio file (for model base.en)
+make tiny.en
+make base.en
+make small
+make large-v3
+```
+Transcribe an audio file (for model base.en)
+```
 ./main -f samples/jfk.wav
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch streamlink is required (https://streamlink.github.io).
