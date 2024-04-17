@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.36 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.38 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -698,34 +698,34 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
                           if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
                               if [[ $output_text == "translation" ]]; then
-                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
                               elif [[ $output_text == "both" ]]; then
                                   tput rev
-                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
                                   tput sgr0
                               else
-                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
+                                  trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
                               fi
-                              if [ -f /tmp/whisper-live_${mypid}_b.mp3 ]; then
+                              if [ -f /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 ]; then
 
                                   # Get duration of input audio file in seconds
-                                  duration=$(ffprobe -i /tmp/whisper-live_${mypid}_b.mp3 -show_entries format=duration -v quiet -of csv="p=0")
+                                  duration=$(ffprobe -i /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
 
                                   # Check if duration exceeds maximum time
                                   if [ -n "$duration" ]; then
 
-                                      if [[ $(echo "$duration > ($step_s - ( $step_s / 16 ))" | bc -l) == 1 ]]; then
-                                          acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 16 ))" | bc -l)
+                                      if [[ $(echo "$duration > ($step_s - ( $step_s / 8 ))" | bc -l) == 1 ]]; then
+                                          acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 8 ))" | bc -l)
                                       fi
                                       if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
                                           acceleration_factor="1.5"
                                       fi
                                       # Use FFmpeg to speed up the audio file
-                                      mv -f /tmp/whisper-live_${mypid}_b.mp3 /tmp/whisper-live_${mypid}_a.mp3
-                                      ffmpeg -i /tmp/whisper-live_${mypid}_a.mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_b.mp3 >/dev/null 2>&1
+                                      mv -f "/tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3" "/tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3"
+                                      ffmpeg -i /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 >/dev/null 2>&1
 
                                       # Play the modified audio
-                                      mpv /tmp/whisper-live_${mypid}_b.mp3 &>/dev/null &
+                                      mpv /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 &>/dev/null &
                                   fi
                               fi
                           fi
@@ -879,34 +879,34 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
                                 if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
                                     if [[ $output_text == "translation" ]]; then
-                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
                                     elif [[ $output_text == "both" ]]; then
                                         tput rev
-                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
                                         tput sgr0
                                     else
-                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
+                                        trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
                                     fi
-                                    if [ -f /tmp/whisper-live_${mypid}_b.mp3 ]; then
+                                    if [ -f /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 ]; then
 
                                         # Get duration of input audio file in seconds
-                                        duration=$(ffprobe -i /tmp/whisper-live_${mypid}_b.mp3 -show_entries format=duration -v quiet -of csv="p=0")
+                                        duration=$(ffprobe -i /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
 
                                         # Check if duration exceeds maximum time
                                         if [ -n "$duration" ]; then
 
-                                            if [[ $(echo "$duration > ($step_s - ( $step_s / 16 ))" | bc -l) == 1 ]]; then
-                                                acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 16 ))" | bc -l)
+                                            if [[ $(echo "$duration > ($step_s - ( $step_s / 8 ))" | bc -l) == 1 ]]; then
+                                                acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 8 ))" | bc -l)
                                             fi
                                             if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
                                                 acceleration_factor="1.5"
                                             fi
                                             # Use FFmpeg to speed up the audio file
-                                            mv -f /tmp/whisper-live_${mypid}_b.mp3 /tmp/whisper-live_${mypid}_a.mp3
-                                            ffmpeg -i /tmp/whisper-live_${mypid}_a.mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_b.mp3 >/dev/null 2>&1
+                                            mv -f /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3
+                                            ffmpeg -i /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 >/dev/null 2>&1
 
                                             # Play the modified audio
-                                            mpv /tmp/whisper-live_${mypid}_b.mp3 &>/dev/null &
+                                            mpv /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 &>/dev/null &
                                         fi
                                     fi
                                 fi
@@ -1101,33 +1101,33 @@ elif [ "$playeronly" == "" ]; then # No timeshift
         if [[ $trans == "trans" ]]; then
             if [ $(wc -m < /tmp/output-whisper-live_${mypid}.txt) -ge 3 ] && [[ $speak == "speak" ]]; then
                 if [[ $output_text == "translation" ]]; then
-                    trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                    trans -i "/tmp/output-whisper-live_${mypid}.txt" -no-warn -b ":${trans_language}" -download-audio-as "/tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3" | tee -a /tmp/translation-whisper-live_${mypid}.txt
                 elif [[ $output_text == "both" ]]; then
                     tput rev
-                    trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
+                    trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt
                     tput sgr0
                 else
-                    trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_b.mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
+                    trans -i /tmp/output-whisper-live_${mypid}.txt -no-warn -b :${trans_language} -download-audio-as /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${mypid}.txt >/dev/null
                 fi
-                if [ -f /tmp/whisper-live_${mypid}_b.mp3 ]; then
+                if [ -f /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 ]; then
 
                     # Get duration of input audio file in seconds
-                    duration=$(ffprobe -i /tmp/whisper-live_${mypid}_b.mp3 -show_entries format=duration -v quiet -of csv="p=0")
+                    duration=$(ffprobe -i /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
 
                     # Check if duration exceeds maximum time
                     if [ -n "$duration" ]; then
-                        if [[ $(echo "$duration > ($step_s - ( $step_s / 16 ))" | bc -l) == 1 ]]; then
-                            acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 16 ))" | bc -l)
+                        if [[ $(echo "$duration > ($step_s - ( $step_s / 8 ))" | bc -l) == 1 ]]; then
+                            acceleration_factor=$(echo "scale=2; $duration / ($step_s - ( $step_s / 8 ))" | bc -l)
                         fi
                         if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
                             acceleration_factor="1.5"
                         fi
                         # Use FFmpeg to speed up the audio file
-                        mv -f /tmp/whisper-live_${mypid}_b.mp3 /tmp/whisper-live_${mypid}_a.mp3
-                        ffmpeg -i /tmp/whisper-live_${mypid}_a.mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_b.mp3 >/dev/null 2>&1
+                        mv -f /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3
+                        ffmpeg -i /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 >/dev/null 2>&1
 
                         # Play the modified audio
-                        mpv /tmp/whisper-live_${mypid}_b.mp3 &>/dev/null &
+                        mpv /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 &>/dev/null &
                     fi
                 fi
             elif [[ $output_text == "translation" ]]; then
