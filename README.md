@@ -358,6 +358,10 @@ To achieve this, you can create a file named ".Xresources" in your user's home d
 ```
 In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
 
+**Q: How can I copy the transcribed text on macOS after xterm has been closed?**
+
+The xterm window is closed when the bash script stops. The behavior of this terminal is different in playlis4whisper due to the different handling of closed windows in macOS. However, you can still find text files with all the transcriptions and translations in your /tmp directory. Please note that the operating system deletes the /tmp directory when the computer boots.
+
 **Q: How can I synchronize the video and the transcription?**
 
 A: Without the Timeshift option, you can manually synchronize the video and transcription to your desired timing by using the pause and forward/backward buttons of the video player. When Timeshift is activated, the transcription is synchronized with the sync option, which is an automatic but fixed synchronization that cannot be changed during play.
