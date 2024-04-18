@@ -1,7 +1,12 @@
 """
 
 play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams,
- transcribes and translates the audio using AI technology.
+transcribing the audio using AI technology. The application supports a fully configurable timeshift feature,
+multi-instance and multi-user execution, allows for changing options per channel and global options,
+online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
+even with low-level processors. Additionally, it generates subtitles from audio/video files.
+
+Author: Antonio R. Version: 2.38 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -24,23 +29,18 @@ https://github.com/antor44/livestream_video
 ---------------------------------
 
 
-play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams and transcribes the audio using AI technology.
-The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel
-and global options, online translation and Text-to-Speech with translate-shell, all of which can be done even with low-level processors.
-
-Author: Antonio R. Version: 2.34 License: GPL 3.0
-
-
 Usage:
 python playlist4whisper.py
 
-Local audio/video file must be with full path or if the file is in the same directory preceded with './'
+Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
 
 -Support for multi-instance and multi-user execution
 -Support for IPTV, YouTube, Twitch, and many others
 -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
 -Quantized models support
 -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+-Generates subtitles from audio/video files.
+
 
 For installing whisper-cpp, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
@@ -105,7 +105,9 @@ yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
 translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
 
-subtitles: Generate Subtitles from Audio/Video File.
+subtitles: Generate Subtitles from an Audio/Video File, with support for language selection, translation feature of Whisper IA,
+ and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the
+ source audio/video file.
 
 [trans + options]: Online translation and Text-to-Speech with translate-shell.
 
@@ -133,6 +135,7 @@ Script and Whisper executable (main), and models directory with at least one arc
 import json
 import re
 import os
+import shutil
 import glob
 import time
 import queue
@@ -140,7 +143,7 @@ import threading
 import subprocess
 import tempfile
 import tkinter as tk
-from tkinter import ttk, filedialog, simpledialog, PhotoImage
+from tkinter import ttk, filedialog, simpledialog, messagebox, PhotoImage, scrolledtext
 
 
 previous_error_messages = set()
@@ -309,6 +312,79 @@ if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
   options_frame3_text="Only for VLC player - Large files will be stored in /tmp directory!!!"
 else:
   options_frame3_text="VLC player not installed for Timeshift!!!"
+
+
+class CustomFileDialog(tk.Toplevel):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.title("Select Files")
+        self.geometry("800x600")
+        self.minsize(400, 300)
+
+        self.selected_files = []
+
+        # File selection frame
+        self.file_selection_frame = tk.Frame(self)
+        self.file_selection_frame.pack(pady=10, fill=tk.BOTH, expand=True)
+
+        # File list
+        self.file_list_frame = tk.Frame(self.file_selection_frame)
+        self.file_list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.file_list = tk.Listbox(self.file_list_frame, width=35, height=10, selectmode=tk.EXTENDED)
+        self.file_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.file_list_scrollbar = tk.Scrollbar(self.file_list_frame, orient=tk.VERTICAL)
+        self.file_list_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.file_list.config(yscrollcommand=self.file_list_scrollbar.set)
+        self.file_list_scrollbar.config(command=self.file_list.yview)
+
+        # File viewer
+        self.file_viewer = scrolledtext.ScrolledText(self.file_selection_frame, width=60, height=10)
+        self.file_viewer.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        self.file_list.bind("<ButtonRelease-1>", self.update_file_viewer)  # Bind mouse click event
+
+        # Buttons
+        self.button_frame = tk.Frame(self)
+        self.button_frame.pack(pady=10, fill=tk.X)
+
+        self.select_button = tk.Button(self.button_frame, text="Save selected", command=self.select_files)
+        self.select_button.pack(side=tk.LEFT, padx=10)
+
+        self.cancel_button = tk.Button(self.button_frame, text="Cancel", command=self.destroy)
+        self.cancel_button.pack(side=tk.RIGHT, padx=10)
+
+
+        # Populate the file list
+        self.populate_file_list()
+
+    def populate_file_list(self):
+        directory = "/tmp"
+        file_paths = [os.path.join(directory, filename) for filename in os.listdir(directory) if
+                   filename.endswith(".srt")  or (filename.endswith(".txt")  and (
+                                filename.startswith("translation") or filename.startswith("transcription")))]
+        for file_path in file_paths:
+          self.file_list.insert(tk.END, file_path)
+
+    def select_files(self):
+        self.selected_files = [self.file_list.get(idx) for idx in self.file_list.curselection()]
+        self.destroy()
+
+    def update_file_viewer(self, event):
+        # Get the index of the clicked item
+        index = self.file_list.nearest(event.y)
+        if index != -1:
+            # Get the file path at the clicked index
+            selected_file = self.file_list.get(index)
+            try:
+                with open(selected_file, 'r') as file:
+                    content = file.read()
+                    self.file_viewer.delete('1.0', tk.END)
+                    self.file_viewer.insert('1.0', content)
+                    self.file_viewer.see('1.0')  # Scroll to the beginning of the file
+            except (FileNotFoundError, PermissionError):
+                pass
 
 
 class EnhancedStringDialog(simpledialog.Dialog):
@@ -659,6 +735,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.speak_checkbox = tk.Checkbutton(self.speak_frame, variable=self.speak, onvalue=True,
                                                  offvalue=False, command=self.save_options)
         self.speak_checkbox.pack(side=tk.LEFT)
+
+        self.save_text_button = tk.Button(self.options_frame1, text="Save texts", command=self.select_files)
+        self.save_text_button.pack(side=tk.RIGHT, padx=10)
 
 
         # Third Down Frame
@@ -1261,6 +1340,31 @@ class M3uPlaylistPlayer(tk.Frame):
                     print(err_message)
                     simpledialog.messagebox.showerror("Error", err_message)
 
+    # Function to Save texts
+    def select_files(self):
+        custom_file_dialog = CustomFileDialog(self)
+        self.wait_window(custom_file_dialog)
+        if custom_file_dialog.selected_files:
+            self.source_files = custom_file_dialog.selected_files
+            self.select_destination()
+
+    def select_destination(self):
+        self.destination_dir = filedialog.askdirectory()
+        if self.destination_dir:
+            self.copy_files()
+
+    def copy_files(self):
+        for file_path in self.source_files:
+            filename = os.path.basename(file_path)
+            destination_file_path = os.path.join(self.destination_dir, filename)
+            if os.path.exists(destination_file_path):
+                if messagebox.askyesno("Overwrite file",
+                                       f"The file {filename} already exists. Do you want to overwrite it?"):
+                    shutil.copyfile(file_path, destination_file_path)
+            else:
+                shutil.copyfile(file_path, destination_file_path)
+        messagebox.showinfo("Copy Completed", "Files copied successfully.")
+
 
     # Function to delete temporary videos
     def delete_videos(self):
@@ -1715,7 +1819,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.34\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.38\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
