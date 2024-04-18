@@ -345,7 +345,7 @@ python3 playlist4whisper.py
 
 Please note that on macOS, only the xterm terminal and the mpv video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
 
-**Q: How can I permanently change the size and colors of the transcription text on macOS?**
+**Q: How can I permanently change the size and colors of the transcription text on macOS? How to display the correct local characters?**
 
 To achieve this, you can create a file named ".Xresources" in your user's home directory (/Users/[user]). Inside the file, you can define specific settings to customize the appearance of the transcription text. For example:
 
@@ -355,8 +355,11 @@ To achieve this, you can create a file named ".Xresources" in your user's home d
 .xterm*font: 10x20
 .xterm*vt100*geometry: 80x10
 .xterm*saveLines: 10000
+.xterm*locale: true 
 ```
 In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+
+The last option '.xterm*locale: true' will activate the same language options in xterm as your macOS terminal.
 
 **Q: How can I copy the transcribed text on macOS after xterm has been closed?**
 
