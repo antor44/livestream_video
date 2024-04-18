@@ -363,7 +363,7 @@ The last option '.xterm*locale: true' will activate the same language options in
 
 **Q: How can I copy the transcribed text on macOS after xterm has been closed?**
 
-The xterm window is closed when the bash script stops. The behavior of this terminal is different in playlis4whisper due to the different handling of closed windows in macOS. However, you can still find text files with all the transcriptions and translations in your /tmp directory. Please note that the operating system deletes the /tmp directory when the computer boots.
+The xterm window is closed when the bash script stops. The behavior of this terminal is different in playlis4whisper due to the different handling of closed windows in macOS. However, you can still find text files with all the transcriptions and translations in your /tmp directory, you can save these files by clicking the "Save Texts" button. Please note that the operating system deletes the /tmp directory when the computer boots.
 
 **Q: How can I synchronize the video and the transcription?**
 
