@@ -359,7 +359,7 @@ To achieve this, you can create a file named ".Xresources" in your user's home d
 ```
 In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
 
-The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal.
+The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
 
 **Q: How can I copy the transcribed text on macOS after xterm has been closed?**
 
