@@ -359,11 +359,11 @@ To achieve this, you can create a file named ".Xresources" in your user's home d
 ```
 In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
 
-The last option '.xterm*locale: true' will activate the same language options in xterm as your macOS terminal.
+The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal.
 
 **Q: How can I copy the transcribed text on macOS after xterm has been closed?**
 
-The xterm window is closed when the bash script stops. The behavior of this terminal is different in playlis4whisper due to the different handling of closed windows in macOS. However, you can still find text files with all the transcriptions and translations in your /tmp directory, you can save these files by clicking the "Save Texts" button. Please note that the operating system deletes the /tmp directory when the computer boots.
+The xterm window closes when the bash script stops. The behavior of this terminal differs in playlis4whisper due to macOS's distinct handling of closed windows. However, you can still find text files containing all the transcriptions and translations in your /tmp directory. Recent versions of playlis4whisper now allow you to easily save these files by clicking the 'Save Texts' button. Please note that the operating system clears the /tmp directory upon computer boot.
 
 **Q: How can I synchronize the video and the transcription?**
 
