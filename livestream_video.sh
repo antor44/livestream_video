@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.38 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.40 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -116,6 +116,9 @@ output_text="both"
 trans_language="en"
 subtitles=""
 
+# Temporary file to store used port numbers
+temp_file="/tmp/used_ports.txt"
+
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 languages=( "auto" "af" "am" "ar" "as" "az" "ba" "be" "bg" "bn" "bo" "br" "bs" "ca" "cs" "cy" "da" "de" "el" "en" "es" "et" "eo" "eu" "fa" "fi" "fo" "fr" "ga" "gl" "gu" "ha" "haw" "he" "hi" "hr" "ht" "hu" "hy" "id" "is" "it" "ja" "jw" "ka" "kk" "km" "kn" "ko" "ku" "ky" "la" "lb" "ln" "lo" "lt" "lv" "mg" "mi" "mk" "ml" "mn" "mr" "ms" "mt" "my" "ne" "nl" "nn" "no" "oc" "or" "pa" "pl" "ps" "pt" "ro" "ru" "sa" "sd" "sh" "si" "sk" "sl" "sn" "so" "sq" "sr" "su" "sv" "sw" "ta" "te" "tg" "th" "tl" "tk" "tr" "tt" "ug" "uk" "ur" "uz" "vi" "vo" "wa" "xh" "yi" "yo" "zh" "zu")
@@ -191,6 +194,8 @@ function vlc_check()
     echo
     pkill -e -f "^ffmpeg.*${mypid}.*$"
     pkill -e -f "^./main.*${mypid}.*$"
+    # Remove the used port from the temporary file
+    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
     echo
     echo "*** VLC closed. Timeshift finished."
     echo
@@ -198,13 +203,31 @@ function vlc_check()
   fi
 }
 
-# Function to convert the PID to a port number
+# Function to get a unique random port number
 get_unique_port() {
-    pid=$1
-    port=$(( (pid % 64512) + 1024 ))
-    echo $port
-}
+    local min=1024
+    local max=65535
+    local random_port
 
+    # Create the temporary file if it doesn't exist
+    if ! [ -f "$temp_file" ]; then
+        touch "$temp_file"
+    fi
+
+    while true; do
+        # Generate a random port number between 1024 and 65535
+        random_port=$((RANDOM % (max - min + 1) + min))
+
+        # Check if the random port is already in use
+        if ! grep -q "$random_port" "$temp_file"; then
+            echo "$random_port" >> "$temp_file"
+            break
+        fi
+    done
+
+    # Return the generated unique port
+    echo "$random_port"
+}
 
 
 # main
@@ -345,8 +368,6 @@ fi
 
 mypid=$(ps aux | awk '/livestream_video\.sh/ {pid=$2} END {print pid}')
 
-myport=$(get_unique_port "$mypid")
-
 if [ -n "$mypid" ]; then
     if [ -e "/tmp/whisper-live_${mypid}.wav" ] && ! [ -w "/tmp/whisper-live_${mypid}.wav" ]; then
       echo ""
@@ -356,6 +377,7 @@ if [ -n "$mypid" ]; then
     else
       echo ""
       if [[ "$timeshift" = "timeshift" ]] || ( [ $local -eq 0 ] && [[ "$playeronly" == "" ]] && ([[ $quality == "upper" ]] || [[ $quality == "lower" ]])); then
+          myport=$(get_unique_port "$mypid")
           echo "New script PID: $mypid - Loopback port: $myport"
       else
           echo "New script PID: $mypid"
@@ -365,7 +387,6 @@ else
   echo ""
   echo "An unknown error has occurred."
   echo ""
-  exit 1
 fi
 
 echo ""
@@ -402,6 +423,8 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 0 ]]; then
     echo ""
     echo "Error: Generate Subtitles only available for local Audio/Video Files."
     echo ""
+    # Remove the used port from the temporary file
+    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
     exit 1
 fi
 
@@ -470,6 +493,8 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
         pkill -e -f "^ffmpeg.*${mypid}.*$"
         pkill -e -f "^./main.*${mypid}.*$"
         pkill -e -f "^trans.*${mypid}.*$"
+        # Remove the used port from the temporary file
+        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
         exit 1
     fi
 
@@ -759,6 +784,8 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
     pkill -e -f "^./main.*${mypid}.*$"
+    # Remove the used port from the temporary file
+    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
 
 elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video file with vlc
 
@@ -931,6 +958,8 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
     pkill -e -f "^./main.*${mypid}.*$"
+    # Remove the used port from the temporary file
+    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
 
     else
 
@@ -1146,6 +1175,8 @@ elif [ "$playeronly" == "" ]; then # No timeshift
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
     pkill -e -f "^./main.*${mypid}.*$"
+    # Remove the used port from the temporary file
+    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
 
 else
     if [[ $local -eq 0 ]] ; then
