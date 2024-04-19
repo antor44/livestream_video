@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.38 License: GPL 3.0
+Author: Antonio R. Version: 2.40 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -1210,7 +1210,6 @@ class M3uPlaylistPlayer(tk.Frame):
                 if self.timeshiftactive.get():
                     if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                                          stderr=subprocess.DEVNULL) == 0:
-                        mpv_options = f"[vlc {mpv_options}]"
                         print("Timeshift active.")
                     else:
                         err_message= f"Warning: Video player {player_option} was not found. Please install it."
@@ -1261,7 +1260,6 @@ class M3uPlaylistPlayer(tk.Frame):
                 bash_options = bash_options + " streamlink"
             if self.spec == "yt-dlp":
                 bash_options = bash_options + " yt-dlp"
-
             if self.subtitles == "subtitles":
                 bash_options = bash_options + " subtitles"
 
@@ -1286,7 +1284,7 @@ class M3uPlaylistPlayer(tk.Frame):
             if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
                 url = '"' + url + '"'
                 if self.timeshiftactive.get() or self.subtitles == "subtitles":
-                    pass
+                    mpv_options = f"[vlc {mpv_options}]"
                 elif videoplayer == "smplayer" and videoplayer in player_installed:
                     mpv_options = f"[smplayer {mpv_options}]"
                 elif videoplayer == "mpv" and videoplayer in player_installed:
@@ -1340,30 +1338,62 @@ class M3uPlaylistPlayer(tk.Frame):
                     print(err_message)
                     simpledialog.messagebox.showerror("Error", err_message)
 
+
     # Function to Save texts
+    def get_overwrite_action(self, filename):
+        action = messagebox.askquestion("Overwrite File",
+                                        f"The file {filename} already exists. Do you want to overwrite it?",
+                                        icon='warning',
+                                        type='yesnocancel',
+                                        default='yes')
+        if action == 'yes':
+            return 'overwrite'
+        elif action == 'cancel':
+            return 'skip'
+        elif action == 'no':
+            new_filename = filedialog.asksaveasfilename(initialdir=self.destination_dir,
+                                                        initialfile=filename,
+                                                        title="Rename File")
+            if new_filename:
+                return new_filename  # Return the new filename if chosen
+            else:
+                return 'skip'  # User cancelled rename selection
+
     def select_files(self):
         custom_file_dialog = CustomFileDialog(self)
         self.wait_window(custom_file_dialog)
         if custom_file_dialog.selected_files:
             self.source_files = custom_file_dialog.selected_files
             self.select_destination()
+        else:
+            messagebox.showwarning("No Files Selected", "No files were selected.")
 
     def select_destination(self):
         self.destination_dir = filedialog.askdirectory()
         if self.destination_dir:
             self.copy_files()
+        else:
+            messagebox.showwarning("No Destination Selected", "No destination directory was selected.")
 
     def copy_files(self):
         for file_path in self.source_files:
             filename = os.path.basename(file_path)
             destination_file_path = os.path.join(self.destination_dir, filename)
             if os.path.exists(destination_file_path):
-                if messagebox.askyesno("Overwrite file",
-                                       f"The file {filename} already exists. Do you want to overwrite it?"):
+                if os.path.samefile(file_path, destination_file_path):
+                    messagebox.showwarning("Same File", f"The file {filename} is the same as the source file. Skipping.")
+                    continue
+
+                action = self.get_overwrite_action(filename)
+                if action == 'overwrite':
                     shutil.copyfile(file_path, destination_file_path)
+                elif action == 'skip':
+                    continue
+                else:  # action is the new filename
+                    shutil.copyfile(file_path, action)
             else:
                 shutil.copyfile(file_path, destination_file_path)
-        messagebox.showinfo("Copy Completed", "Files copied successfully.")
+        messagebox.showinfo("Copying Process Completed", "Copying Process completed successfully.")
 
 
     # Function to delete temporary videos
@@ -1819,7 +1849,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.38\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.40\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
