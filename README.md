@@ -62,14 +62,7 @@ python playlist4whisper.py
 
 Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
 
-*For help with options, see the livestream_video.sh section.
-
-- Supports a fully configurable timeshift feature, exclusive to VLC player (not all streams supported)
-- Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
-- List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
-- List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
-- Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
-- Generates subtitles from audio/video files.
+*Check out the section on livestream_video.sh for help with the available options.
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
  and will store options in config_xxx.json.
@@ -94,21 +87,16 @@ https://github.com/ggerganov/whisper.cpp
 
 Some notable features:
 
--Supports a fully configurable timeshift feature, exclusive to VLC player (not all streams supported)
-  
--Support for IPTV, YouTube, Twitch, and many others
-
--Support for multi-instance and multi-user execution (To use this feature with SMPlayer: Go to Preferences -> Interface -> Instances, and disable the option to use only one instance)
-
--Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English
-
--Quantized models support
-
--MacOS support.
-
--Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
-
--Generates Subtitles from Audio/Video File.
+- Supports a fully configurable timeshift feature, exclusive to VLC player (not all streams supported)
+- Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
+- List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
+- List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
+- Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+- Generates subtitles from audio/video files.
+- Support for multi-instance and multi-user execution (To use this feature with SMPlayer: Go to Preferences -> Interface -> Instances, and disable the option to use only one instance)
+- Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English
+- Quantized models support
+- MacOS support.
 
 #
 
