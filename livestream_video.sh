@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.40 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.42 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -117,7 +117,7 @@ trans_language="en"
 subtitles=""
 
 # Temporary file to store used port numbers
-temp_file="/tmp/used_ports.txt"
+temp_file="/tmp/used_ports-livestream_video.txt"
 
 # Whisper languages:
 # auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), haw (Hawaiian), he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
@@ -208,10 +208,17 @@ get_unique_port() {
     local min=1024
     local max=65535
     local random_port
+    local max_ports=$((max - min + 1))
 
     # Create the temporary file if it doesn't exist
     if ! [ -f "$temp_file" ]; then
         touch "$temp_file"
+    fi
+
+    # Check if the temporary file exceeds the maximum number of ports
+    if [ "$(wc -l < "$temp_file")" -ge "$max_ports" ]; then
+        echo "Error: Maximum number of ports ($max_ports) reached!"
+        exit 1
     fi
 
     while true; do
@@ -1167,10 +1174,13 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                 tput sgr0
             fi
         fi
+
         while [ $SECONDS -lt $((($i+1)*$step_s)) ]; do
             sleep 0.1
         done
+
         ((i=i+1))
+
     done
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
