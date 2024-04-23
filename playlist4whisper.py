@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.40 License: GPL 3.0
+Author: Antonio R. Version: 2.42 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -241,6 +241,10 @@ terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "x
 player = ["none", "smplayer", "mpv"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3"]
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
+model_path = "./models/ggml-{}.bin"
+model_list = models + [model + suffix for model in models for suffix in suffixes]
+main_executable = "./main"
+quantize_executable = "./quantize"
 
 lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
            'az': 'Azerbaijani', 'be': 'Belarusian', 'bg': 'Bulgarian', 'bn': 'Bengali', 'br': 'Breton',
@@ -287,19 +291,6 @@ player_installed = []
 for play in player:
   if check_player_installed(play):
       player_installed.append(play)
-
-model_list = models + [model + suffix for model in models for suffix in suffixes]
-
-model_path = "./models/ggml-{}.bin"
-models_installed = []
-for model in models:
-  if os.path.exists(model_path.format(model)):
-      models_installed.append(model)
-
-  for suffix in suffixes:
-      full_model_name = f"{model}{suffix}"
-      if os.path.exists(model_path.format(full_model_name)):
-          models_installed.append(full_model_name)
 
 if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL) == 0:
@@ -464,6 +455,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.list_number = 0
         self.playlist = []
         self.subtitles = ""
+        self.selected_model_old = ""
         self.create_widgets()
         self.populate_playlist()
         self.load_options()
@@ -541,6 +533,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.step_s_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
         # Whisper models
+        self.models_installed = []
+        self.update_installed_models()
+
         self.model_label = tk.Label(self.options_frame0, text="Model", padx=4)
         self.model_label.pack(side=tk.LEFT)
 
@@ -548,38 +543,14 @@ class M3uPlaylistPlayer(tk.Frame):
         self.model_frame.pack(side=tk.LEFT)
 
         self.model = tk.StringVar(value="base")
-
-        def update_model_button():
-            selected_option = self.model.get()
-            self.model_option_menu.configure(text=selected_option)
-            self.save_options()
-
-        self.model_option_menu = tk.Menubutton(self.model_frame, textvariable=self.model, indicatoron=True,
-                                               relief="raised")
+        self.model_option_menu = tk.Menubutton(self.model_frame, textvariable=self.model, indicatoron=True, relief="raised")
         self.model_option_menu.pack(side=tk.LEFT)
 
-        model_menu = tk.Menu(self.model_option_menu, tearoff=0)
-        self.model_option_menu.configure(menu=model_menu)
+        self.model_menu = tk.Menu(self.model_option_menu, tearoff=0)
+        self.model_option_menu.configure(menu=self.model_menu)
 
-        for model in models:
-            suffix_menu = tk.Menu(model_menu, tearoff=0)
+        self.update_model_menu()  # Initialize the model menu
 
-            if model in models_installed:
-                suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button)
-            else:
-                suffix_menu.add_radiobutton(label=model, value=model, variable=self.model, command=update_model_button,
-                                            state="disabled")
-
-            for suffix in suffixes:
-                full_model_name = f"{model}{suffix}"
-                if full_model_name in models_installed:
-                    suffix_menu.add_radiobutton(label=full_model_name, value=full_model_name, variable=self.model,
-                                                command=update_model_button)
-                else:
-                    suffix_menu.add_radiobutton(label=full_model_name, value=full_model_name, variable=self.model,
-                                                command=update_model_button, state="disabled")
-
-            model_menu.add_cascade(label=model, menu=suffix_menu)
 
         # Regions and their languages
         self.language_label = tk.Label(self.options_frame0, text="Language", padx=4)
@@ -1000,6 +971,269 @@ class M3uPlaylistPlayer(tk.Frame):
             err_message = ("File Not Found", f"The default playlist_{self.spec}.m3u file was not found.")
             self.error_messages.put(err_message)
 
+
+    def update_installed_models(self):
+        self.models_installed = []
+        for model in models:
+            if os.path.exists(model_path.format(model)):
+                self.models_installed.append(model)
+            for suffix in suffixes:
+                full_model_name = f"{model}{suffix}"
+                if os.path.exists(model_path.format(full_model_name)):
+                    self.models_installed.append(full_model_name)
+
+
+    def update_model_menu(self):
+        self.model_menu.delete(0, tk.END)
+
+        default_fg = tk.Label().cget("fg")
+        disabled_fg = tk.Label().cget("disabledforeground")
+
+        for model in models:
+            suffix_menu = tk.Menu(self.model_menu, tearoff=0)
+            model_installed = model in self.models_installed
+
+            suffix_menu.add_radiobutton(
+                label=f"{model}*" if model_installed else model,
+                value=model,
+                variable=self.model,
+                command=self.update_model_button,
+                state="normal",
+                foreground=default_fg if model_installed else disabled_fg,
+                activeforeground=default_fg if model_installed else disabled_fg,
+                activebackground="white",
+            )
+
+            for suffix in suffixes:
+                full_model_name = f"{model}{suffix}"
+                model_suffix_installed = full_model_name in self.models_installed
+
+                suffix_menu.add_radiobutton(
+                    label=f"{full_model_name}*" if model_suffix_installed else full_model_name,
+                    value=full_model_name,
+                    variable=self.model,
+                    command=self.update_model_button,
+                    state="normal",
+                    foreground=default_fg if model_suffix_installed else disabled_fg,
+                    activeforeground=default_fg if model_suffix_installed else disabled_fg,
+                    activebackground="white",
+                )
+
+            self.model_menu.add_cascade(label=model, menu=suffix_menu)
+
+        self.model_option_menu.grab_release()
+
+
+    def install_model(self, model_name):
+        terminal = self.terminal.get()
+
+        if os.path.exists(quantize_executable):
+            try:
+                base_model, suffix = self.parse_model_name(model_name)
+
+                if terminal == "gnome-terminal" and subprocess.run(["gnome-terminal", "--version"]).returncode == 0:
+                    if suffix:
+                        subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"make {base_model}; ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}; exit"])
+                    else:
+                        subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"make {model_name}; exit"])
+
+                elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
+                    if suffix:
+                        script_content = f"""\
+                                        make {base_model}
+                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        """
+                    else:
+                        script_content = f"make {model_name}"
+                    subprocess.Popen(["konsole", "-e", f"bash -c '{script_content}'"])
+
+                elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
+                    if suffix:
+                        subprocess.Popen(["lxterm", "-e", f"make {base_model}; ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}"])
+                    else:
+                        subprocess.Popen(["lxterm", "-e", f"make {model_name}"])
+
+                elif terminal == "mate-terminal" and subprocess.run(["mate-terminal", "--version"]).returncode == 0:
+                    if suffix:
+                        script_content = f"""\
+                                        make {base_model}
+                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        """
+                    else:
+                        script_content = f"make {model_name}"
+
+                    subprocess.Popen(["mate-terminal", "-e", f"bash -c '{script_content}'"])
+
+                elif terminal == "mlterm":
+                    result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
+                    mlterm_output = result.stdout
+                    if "mlterm" in mlterm_output:
+                        if suffix:
+                            script_content = f"""\
+                                            bash -c '
+                                            make {base_model}
+                                            ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}'
+                                            """
+                        else:
+                            script_content = f"""\
+                                            bash -c '
+                                            make {model_name}'
+                                            """
+                        subprocess.Popen(["bash", "-c", f"mlterm -e {script_content}"])
+
+                elif terminal == "xfce4-terminal" and subprocess.run(["xfce4-terminal", "--version"]).returncode == 0:
+                    if suffix:
+                        script_content = f"""\
+                                        make {base_model}
+                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        """
+                    else:
+                        script_content = f"make {model_name}"
+
+                    subprocess.Popen(["xfce4-terminal", "-e", f"bash -c '{script_content}'"])
+
+                elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
+                    if suffix:
+                        script_content = f"""\
+                                        make {base_model}
+                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        """
+                    else:
+                        script_content = f"make {model_name}"
+
+                    subprocess.Popen(["xterm", "-e", f"bash -c '{script_content}'"])
+
+                else:
+                    err_message = "No compatible terminal found."
+                    print(err_message)
+                    messagebox.showerror("Error", err_message)
+
+                root = tk.Toplevel(self.master)
+                root.title("Model Installation")
+                root.transient(self.master)
+                root.grab_set()
+                root.focus_force()
+                root.resizable(False, False)
+                root.attributes('-topmost', False)
+
+                root.update_idletasks()
+                width = 600
+                height = 100
+                x = (root.winfo_screenwidth() // 2) - (width // 2)
+                y = (root.winfo_screenheight() // 2) - (height // 2)
+                root.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+
+                message = f"Installing {model_name} model. Please note that the model will be installed may not be optimized for an accelerated version of Whisper-cpp. Please wait..."
+                label = tk.Label(root, text=message, wraplength=550, justify="left")
+                label.pack(padx=20, pady=20)
+
+                root.update()
+                time.sleep(5)
+                # Get the PIDs of all processes containing the command "make {base_model}"
+                process_ids = self.find_make_model_processes(base_model)
+
+                # Wait for all found processes to finish
+                if process_ids:
+                    self.wait_for_process_completion(process_ids, f"make {base_model}")
+                else:
+                    print("No processes found to wait for.")
+
+                root.grab_release()
+                root.destroy()
+
+            except OSError as e:
+                print("Error executing command:", e)
+                messagebox.showerror("Error", "Error executing command.")
+
+        else:
+            err_message = "Quantize executable does not exist."
+            print(err_message)
+            messagebox.showerror("Error", err_message)
+
+    def find_make_model_processes(self, base_model):
+        try:
+            result = subprocess.run(["ps", "x"], capture_output=True, text=True)
+            process_ids = []
+            for line in result.stdout.split("\n"):
+                columns = line.split()
+                if len(columns) > 4:
+                    command = columns[4:]
+                    full_command = ' '.join(command)
+                    if f"make {base_model}" in full_command:
+                        pid = columns[0]
+                        process_ids.append(pid)
+            return process_ids
+        except Exception as e:
+            print(f"Error finding 'make {base_model}' processes: {e}")
+            return []
+
+    def wait_for_process_completion(self, pids, process_name):
+        timeout = 5
+        for pid in pids:
+            while True:
+                time.sleep(1)
+                try:
+                    check_pid = subprocess.run(["ps", "-p", str(pid), "-o", "command"], capture_output=True, text=True, timeout=timeout).stdout.strip()
+                    if process_name not in check_pid:
+                        print(f"Process {pid} has finished.")
+                        break
+                except subprocess.TimeoutExpired:
+                    print(f"Process {pid} ({process_name}) has finished (timeout expired).")
+                    break
+
+
+    def parse_model_name(self, model_name):
+        suffix = ""
+        if model_name in models:
+            base_model = model_name
+        else:
+            for model in models:
+                for sfx in suffixes:
+                    full_model_name = f"{model}{sfx}"
+                    if full_model_name == model_name:
+                        base_model = model
+                        suffix = sfx
+                        break
+                if suffix:
+                    break
+
+        return base_model, suffix
+
+
+    def update_model_button(self):
+        selected_option = self.model.get()
+        if selected_option not in self.models_installed:
+            action = messagebox.askquestion("Model Installation",
+                                            f"The model {selected_option} is not installed. Do you want to install it?",
+                                            icon='warning',
+                                            type='yesnocancel',
+                                            default='yes')
+            if action == 'yes':
+                self.install_model(selected_option)
+                self.update_installed_models()
+                self.update_model_menu()
+
+                if os.path.exists(model_path.format(selected_option)):
+                    self.model_option_menu.configure(text=selected_option)
+                    self.save_options()
+                    err_message = f"Successfully installed {selected_option} model."
+                    print(err_message)
+                    messagebox.showinfo("Model Installed", err_message)
+                else:
+                    self.model_option_menu.configure(text=self.selected_model_old)
+                    self.model.set(self.selected_model_old)
+                    err_message = f"The model {selected_option} could not be installed."
+                    print(err_message)
+                    messagebox.showerror("Error", err_message)
+            else:
+                self.model_option_menu.configure(text=self.selected_model_old)
+                self.model.set(self.selected_model_old)
+
+        else:
+            self.model_option_menu.configure(text=selected_option)
+            self.save_options()
+
+
     def widgets_updates(self):
         terminal_option = self.current_options["terminal_option"]
         bash_options = self.current_options["bash_options"]
@@ -1091,8 +1325,9 @@ class M3uPlaylistPlayer(tk.Frame):
             elif option in model_list:
                 self.model_option_menu.unbind("<<MenuSelect>>")
                 self.model.set(option)
+                self.selected_model_old = self.model.get()
                 self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-                if not option in models_installed:
+                if not option in self.models_installed:
                     model_path = "./models/ggml-{}.bin".format(option)
                     err_message = ("Model Not Installed", f"Warning: File for model {option} was not found. " \
                                   f"Please install it in {model_path} or choose other model.")
@@ -1452,7 +1687,9 @@ class M3uPlaylistPlayer(tk.Frame):
             else:
                 simpledialog.messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
         except Exception as e:
-            simpledialog.messagebox.showerror("Error", f"Unable to delete /tmp videos: {str(e)}")
+            error_message = f"Unable to delete /tmp videos: {str(e)}"
+            print(error_message)
+            simpledialog.messagebox.showerror("Error", error_message)
 
 
     # Popup menu cut, copy, paste, delete
@@ -1849,7 +2086,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.40\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.42\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
