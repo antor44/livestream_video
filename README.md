@@ -91,7 +91,7 @@ Some notable features:
 - Support for IPTV, YouTube, Twitch. Supports a wide range of video services through streamlink or yt-dlp, including: Dailymotion, Vimeo, Livestream, Ustream, Facebook, and many more
 - List of supported sites by streamlink (not all supported or outdated): https://streamlink.github.io/plugins.html
 - List of supported sites by yt-dlp (not all supported or outdated): https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md
-- Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+- Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell).
 - Generates subtitles from audio/video files.
 - Support for multi-instance and multi-user execution (To use this feature with SMPlayer: Go to Preferences -> Interface -> Instances, and disable the option to use only one instance)
 - Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English
@@ -107,6 +107,8 @@ Example:
 
 
 For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
+
+The text-to-speech feature and translation to languages other than English are performed via the internet, thanks to the Translate-shell app, which utilizes a free Google service. However, the availability of this service is not guaranteed and the text-to-speech feature only works for chunks of a few seconds.
 
  [streamlink] option forces the url to be processed by streamlink.
  
@@ -150,9 +152,9 @@ translate: The "translate" feature offers automatic English translation using Wh
 
 subtitles: Generate Subtitles from an Audio/Video File, with support for language selection, translation feature of Whisper IA, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source audio/video file.
 
-[trans + options]: Online translation and Text-to-Speech with translate-shell.
+[trans + options]: Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 
-trans_language: Translation language for translate-shell (https://github.com/soimort/translate-shell)
+trans_language: Translation language for translate-shell.
 
 output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
 
