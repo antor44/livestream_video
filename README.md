@@ -15,14 +15,15 @@ Author: Antonio R. Version: 2.42 License: GPL 3.0
 #
 # Installation
 
-1. Download and build whisper-cpp to a new directory, then download some models following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
+1. Download and build whisper-cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
 
-2. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
+2. Then you can download some models using the command: make [model], or you can also download them from the playlist4whisper GUI.
 
-3. Finally, you can launch the GUI by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh.
-```
-python3 playlist4whisper.py
-```
+3. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
+
+4. You can start the GUI by entering the following command in the terminal, just make sure you're in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+
+python playlist4whisper.py or python3 playlist4whisper.py
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
@@ -58,7 +59,9 @@ make large-v3
 #
 # Usage: 
 
-python playlist4whisper.py 
+```
+python playlist4whisper.py
+```
 
 Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
 
@@ -426,3 +429,6 @@ A: Yes, of course, many of the URLs of channels that you find published on the i
  
 In the case of YouTube and Twitch, watching channels through standalone applications such as yt-dlp or streamlink poses a conflict with the companies as they cannot control the advertisements you see. In other words, they are not interested in this approach and may make it difficult or prevent you from accessing their video streams.
 
+
+python3 playlist4whisper.py
+```
