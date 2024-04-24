@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.42 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.44 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -667,7 +667,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                       ((SECONDS=SECONDS+step_s))
                   fi
                   tin=0
-              elif [ "$(date -r /tmp/"$FILEPLAY" +%s)" -gt "$((TIMEPLAYED + segment_time))" ] && [ $tin -eq 0 ]; then
+              elif [ "$(date -r /tmp/"$FILEPLAY" +%s)" -gt "$((TIMEPLAYED + segment_time + 6))" ] && [ $tin -eq 0 ]; then
                   tin=1
               fi
 
@@ -752,10 +752,13 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                                       if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
                                           acceleration_factor="1.5"
                                       fi
+                                      if [[ $(echo "$acceleration_factor < 2.5" | bc -l) == 1 ]] && [ $in -eq 1 ]; then
+                                          acceleration_factor="2.5"
+                                      fi
                                       # Use FFmpeg to speed up the audio file
                                       mv -f "/tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3" "/tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3"
                                       ffmpeg -i /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 >/dev/null 2>&1
-
+                                      sleep 0.5
                                       # Play the modified audio
                                       mpv /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 &>/dev/null &
                                   fi
@@ -776,7 +779,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
               elif [ $tin -eq 1 ]; then
                   echo
-                  echo "*** You have reached the configured timeshift window time. The version of the video file $FILEPLAY you are watching has been overwritten. You can still watch it, but without transcriptions. Please note that subsequent video files may also be overwritten. To avoid this limitation in the future, consider configuring Timeshift with more segments and/or longer segment times."
+                  echo "!!! Timeshift window reached. Video $FILEPLAY overwritten. You can still watch it, but without transcriptions. Next files may be affected. Adjust Timeshift for more segments/longer times !!!"
                   echo
                   tin=2
               fi
