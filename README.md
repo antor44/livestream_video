@@ -1,4 +1,4 @@
-# playlist4whisper GUI
+F# playlist4whisper GUI
 
 **Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
@@ -42,7 +42,7 @@ pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using the playlist4whisper application or by using terminal commands, like the examples below:
+The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using the playlist application or by using terminal commands, like the examples below:
 ```
 make tiny.en
 ```
@@ -60,7 +60,7 @@ make large-v3
 # Usage: 
 
 ```
-python playlist4whisper.py
+python playlist.py
 ```
 
 *Check out the section on livestream_video.sh for help with the available options.
@@ -80,7 +80,7 @@ For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, an
 #
 # livestream_video.sh
 
-This is a command-line program with the same transcription functions as playlist4whisper GUI and can be run independently of the GUI, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
+This is a command-line program with the same transcription functions as playlist GUI and can be run independently of the GUI, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
 
 livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
@@ -170,7 +170,7 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 #
 
-## playlist4whisper GUI Screenshots:
+## playlist GUI Screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
@@ -356,7 +356,7 @@ The final option '.xterm*locale: true' will enable the same language settings in
 
 **Q: How can I copy the transcribed text on macOS after xterm has been closed?**
 
-The xterm window closes when the bash script stops. The behavior of this terminal differs in playlis4whisper due to macOS's distinct handling of closed windows. However, you can still find text files containing all the transcriptions and translations in your /tmp directory. Recent versions of playlis4whisper now allow you to easily save these files by clicking the 'Save Texts' button. Please note that the operating system clears the /tmp directory upon computer boot.
+The xterm window closes when the bash script stops. The behavior of this terminal differs in playlist4whisper due to macOS's distinct handling of closed windows. However, you can still find text files containing all the transcriptions and translations in your /tmp directory. Recent versions of playlist4whisper now allow you to easily save these files by clicking the 'Save Texts' button. Please note that the operating system clears the /tmp directory upon computer boot.
 
 **Q: How can I synchronize the video and the transcription?**
 
