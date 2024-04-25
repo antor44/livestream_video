@@ -106,26 +106,22 @@ Some notable features:
 Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
 
 Example:
+```
 ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
-
+```
 
 For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
 
 The text-to-speech feature and translation to languages other than English are performed via the internet, thanks to the Translate-shell app, which utilizes a free Google service. However, the availability of this service is not guaranteed and the text-to-speech feature only works for short segments of a few seconds and is limited to certain languages.
 
- [streamlink] option forces the url to be processed by streamlink.
+[streamlink] forces the url to be processed by streamlink.
  
- [yt-dlp] option forces the url to be processed by yt-dlp.
-
-   Example (defaults if no options are specified):
-
-    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [mpv]
-
+[yt-dlp] forces the url to be processed by yt-dlp.
 
 Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
  "Upper" and "lower" download only one stream and re-encoded for the player, which might correspond to the best or worst stream quality, it is intended to save downloaded data, although not all streams support it.
 
-"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
+[player executable + player options], valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 
 Step: Size of the parts into which videos are divided for inference, size in seconds.
 
