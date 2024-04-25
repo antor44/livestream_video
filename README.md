@@ -1,4 +1,4 @@
-F# playlist4whisper GUI
+# playlist4whisper GUI
 
 **Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
@@ -42,7 +42,7 @@ pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using the playlist application or by using terminal commands, like the examples below:
+The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using the playlist4whisper application or by using terminal commands, like the examples below:
 ```
 make tiny.en
 ```
@@ -60,7 +60,7 @@ make large-v3
 # Usage: 
 
 ```
-python playlist.py
+python playlist4whisper.py
 ```
 
 *Check out the section on livestream_video.sh for help with the available options.
@@ -80,7 +80,7 @@ For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, an
 #
 # livestream_video.sh
 
-This is a command-line program with the same transcription functions as playlist GUI and can be run independently of the GUI, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
+This is a command-line program with the same transcription functions as playlist4whisper GUI and can be run independently of the GUI, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
 
 livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
@@ -170,7 +170,7 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 #
 
-## playlist GUI Screenshots:
+## playlist4whisper GUI Screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
