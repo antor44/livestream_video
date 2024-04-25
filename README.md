@@ -123,7 +123,7 @@ quality: The valid options are "raw," "upper," and "lower". "Raw" is used to dow
 
 [player executable + player options], valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 
-step_s: Size of the parts into which videos are divided for inference, size in seconds.
+step_s: Size of the sound parts into which videos are divided for AI inference, measured in seconds.
 
 Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3
 
