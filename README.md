@@ -63,9 +63,9 @@ make large-v3
 python playlist4whisper.py
 ```
 
-Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
-
 *Check out the section on livestream_video.sh for help with the available options.
+
+Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
 
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
  and will store options in config_xxx.json.
