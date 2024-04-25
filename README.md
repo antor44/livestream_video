@@ -6,7 +6,7 @@
 
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
-play4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
+playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
 Author: Antonio R. Version: 2.42 License: GPL 3.0
@@ -304,9 +304,9 @@ A: You can use a program for placing windows in Linux, such as devilspie, and co
     )
     )
 
-**Q: How can I run play4whisper.py on macOS?**
+**Q: How can I run playlist4whisper.py on macOS?**
 
-You can run play4whisper.py on macOS by following these steps:
+You can run playlist4whisper.py on macOS by following these steps:
 
 1. Install Homebrew by visiting https://brew.sh/ and following the installation instructions.
 
