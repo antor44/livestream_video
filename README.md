@@ -17,7 +17,7 @@ Author: Antonio R. Version: 2.42 License: GPL 3.0
 
 1. Download and build whisper-cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
 
-2. Then you can download some models using the command: make [model], or you can also download them from the playlist4whisper GUI.
+2. Then you can download some models using the command: make [model], or you can also download them from the playlist4whisper's models menu.
 
 3. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
 
