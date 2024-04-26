@@ -1,4 +1,4 @@
-# playlist4whisper GUI
+# playlist4whisper
 
 **Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
@@ -21,7 +21,7 @@ Author: Antonio R. Version: 2.42 License: GPL 3.0
 
 3. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
 
-4. You can start the GUI by entering the following command in the terminal, just make sure you're in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+4. You can start the app by entering the following command in the terminal, just make sure you're in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
 
 python playlist4whisper.py or python3 playlist4whisper.py
 
@@ -80,7 +80,7 @@ For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, an
 #
 # livestream_video.sh
 
-This is a command-line program with the same transcription functions as playlist4whisper GUI and can be run independently of the GUI, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
+This is a command-line program with the same transcription functions as playlist4whisper and can be run independently of this GUI/frontend, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
 
 livestream_video.sh is a linux script to transcribe video livestream by feeding ffmpeg output to whisper.cpp at regular intervals, based on livestream.sh from whisper.cpp:
 
@@ -170,7 +170,7 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 #
 
-## playlist4whisper GUI Screenshots:
+## playlist4whispe Screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
@@ -331,7 +331,7 @@ pip3 install streamlink
 
 5. playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
 
-6. Finally, you can launch the GUI by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+6. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
 ```
 python3 playlist4whisper.py
 ```
