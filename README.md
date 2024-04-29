@@ -13,17 +13,42 @@ Author: Antonio R. Version: 2.42 License: GPL 3.0
 
 
 #
-# Installation
+# Installation for linux
 
 1. Download and build whisper-cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
 
-2. Then you can download some models using the command: make [model], or you can also download them from the playlist4whisper's models menu.
+Download the source code of whisper-cpp:
 
-3. Download and unzip the default playlist4whisper.py, livestream_video.sh and playlist_xxx.m3u files, they should all be located in the same directory as whisper-cpp.
-
-4. You can start the app by entering the following command in the terminal, just make sure you're in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
-
-python playlist4whisper.py or python3 playlist4whisper.py
+```
+git clone https://github.com/ggerganov/whisper.cpp.git
+```
+Change the default directory to the whisper-cpp directory, which is whisper.cpp:
+```
+cd whisper.cpp
+```
+Compile whisper-cpp for CPU mode:
+```
+make
+```
+Download some models:
+```
+make tiny.en
+```
+```
+make base.en
+```
+```
+make base
+```
+2. Download playlist4whisper and livestream_vdeo.sh, you can use the following command:
+```
+git clone https://github.com/antor44/livestream_video.git
+```
+Stay where you executed the command, move all to whisper.cpp directory:
+```
+mv livestream_video/* ~/whisper.cpp
+```
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, in Windows is whsiper.cpp
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
@@ -42,7 +67,104 @@ pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-The main executable of whisper.cpp, which is the primary example, should be in the same directory with the default executable name 'main'. Additionally, the whisper model files should be placed in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository. This can be done using the playlist4whisper application or by using terminal commands, like the examples below:
+3. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+```
+python3 playlist4whisper.py
+```
+
+#
+# Installation for macOS
+
+You can run playlist4whisper.py on macOS by following these steps:
+
+1. Install Homebrew by visiting https://brew.sh/ and following the installation instructions.
+
+2. Once Homebrew is installed, open a terminal and install the required dependencies. Run the following commands:
+
+```
+brew install python3
+brew install python-tk@3.11
+brew install make
+brew install xquartz
+brew install xterm
+brew install vlc
+brew install mpv
+brew install translate-shell
+```
+
+3. Next, install the necessary Python packages using pip3. Run the following commands:
+
+```
+pip3 install yt-dlp
+pip3 install streamlink
+```
+
+4. Download some models and compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
+. If you encounter an "Illegal instruction: 4" error during compilation, you can resolve it by deleting line 67 "CFLAGS += -mf16c" in the Makefile.
+
+5. playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
+
+6. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+```
+python3 playlist4whisper.py
+```
+
+Please note that on macOS, only the xterm terminal and the mpv video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
+
+#
+# Installation for Windows 10/11
+
+playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software.
+
+Open PowerShell or Windows Command Prompt in administrator mode by right-clicking and selecting "Run as administrator", and install WSL2:
+
+```
+wsl --install
+```
+This command will enable the features necessary to run WSL and install the Ubuntu distribution of Linux (the default distribution). Once this is done, you will need to restart.
+
+Upon the initial launch of a newly installed Linux distribution, a console window will appear and prompt you to wait while files are decompressed and stored on your machine. Subsequent launches should be completed in less than a second.
+
+After successfully installing WSL and Ubuntu, the next step is to set up a user account and password for your new Linux distribution.
+
+Open the Linux terminal, not the Windows terminal. Then update the packages in your distribution:
+```
+sudo apt update
+```
+Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
+```
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip bc xterm
+```
+For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
+
+The easy way to install yt-dlp and streamlink:
+```
+pip3 install yt-dlp
+```
+```
+pip3 install streamlink
+```
+Or to upgrade them:
+```
+pip3 install --upgrade yt-dlp
+```
+```
+pip3 install --upgrade streamlink
+```
+Download the source code of whisper-cpp:
+
+```
+git clone https://github.com/ggerganov/whisper.cpp.git
+```
+Change the default directory to the whisper-cpp directory, which is whisper.cpp:
+```
+cd whisper.cpp
+```
+Compile whisper-cpp for CPU mode:
+```
+make
+```
+Download some models:
 ```
 make tiny.en
 ```
@@ -50,14 +172,30 @@ make tiny.en
 make base.en
 ```
 ```
-make small
+make base
 ```
+To download playlist4whisper and livestream_vdeo.sh, you can use the following command:
 ```
-make large-v3
+git clone https://github.com/antor44/livestream_video.git
 ```
+Stay where you executed the command, move all to whisper.cpp directory:
+```
+mv livestream_video/* ~/whisper.cpp
+```
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, in Windows is whsiper.cpp
+
+Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+```
+python3 playlist4whisper.py
+```
+MPV player and terminals like gnome-terminal seem not to work in Windows. Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never.
+
+For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
 #
 # Usage: 
+
+Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
 
 ```
 python3 playlist4whisper.py
@@ -170,7 +308,7 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 
 #
 
-## playlist4whispe Screenshots:
+## playlist4whisper Screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
@@ -299,44 +437,6 @@ A: You can use a program for placing windows in Linux, such as devilspie, and co
     ( println "match" )
     )
     )
-
-**Q: How can I run playlist4whisper.py on macOS?**
-
-You can run playlist4whisper.py on macOS by following these steps:
-
-1. Install Homebrew by visiting https://brew.sh/ and following the installation instructions.
-
-2. Once Homebrew is installed, open a terminal and install the required dependencies. Run the following commands:
-
-```
-brew install python3
-brew install python-tk@3.11
-brew install make
-brew install xquartz
-brew install xterm
-brew install vlc
-brew install mpv
-brew install translate-shell
-```
-
-3. Next, install the necessary Python packages using pip3. Run the following commands:
-
-```
-pip3 install yt-dlp
-pip3 install streamlink
-```
-
-4. Download some models and compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
-. If you encounter an "Illegal instruction: 4" error during compilation, you can resolve it by deleting line 67 "CFLAGS += -mf16c" in the Makefile.
-
-5. playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
-
-6. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
-```
-python3 playlist4whisper.py
-```
-
-Please note that on macOS, only the xterm terminal and the mpv video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
 
 **Q: How can I permanently change the size and colors of the transcription text on macOS? How to display the correct local characters?**
 
