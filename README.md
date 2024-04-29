@@ -322,8 +322,6 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV11.jpg)
 #
 ## livestream_video.sh screenshots:
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV.jpg)
-#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV3.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV4.jpg)
