@@ -311,6 +311,8 @@ segment_time: Time for each segment file(1 <= minutes <= 99).
 ## playlist4whisper Screenshots:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
+#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
