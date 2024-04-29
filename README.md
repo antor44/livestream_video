@@ -181,7 +181,7 @@ Stay where you executed the command, move all to whisper.cpp directory:
 ```
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, in Windows is whsiper.cpp
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, whisper.cpp
 
 Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
 ```
