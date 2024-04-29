@@ -60,7 +60,7 @@ make large-v3
 # Usage: 
 
 ```
-python playlist4whisper.py
+python3 playlist4whisper.py
 ```
 
 *Check out the section on livestream_video.sh for help with the available options.
