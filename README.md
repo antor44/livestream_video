@@ -27,7 +27,7 @@ python playlist4whisper.py or python3 playlist4whisper.py
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
