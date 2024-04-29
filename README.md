@@ -17,7 +17,7 @@ Author: Antonio R. Version: 2.42 License: GPL 3.0
 
 1. Download and build whisper-cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
 
-Download the source code of whisper-cpp:
+Download the source code of whisper-cpp from your home directory:
 
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
@@ -40,7 +40,7 @@ make base.en
 ```
 make base
 ```
-2. Download playlist4whisper and livestream_vdeo.sh, you can use the following command:
+2. Download playlist4whisper and livestream_video.sh, you can use the following command:
 ```
 git clone https://github.com/antor44/livestream_video.git
 ```
@@ -48,7 +48,7 @@ Stay where you executed the command, move all to whisper.cpp directory:
 ```
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, in Windows is whsiper.cpp
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
@@ -99,8 +99,7 @@ pip3 install yt-dlp
 pip3 install streamlink
 ```
 
-4. Download some models and compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
-. If you encounter an "Illegal instruction: 4" error during compilation, you can resolve it by deleting line 67 "CFLAGS += -mf16c" in the Makefile.
+4. Download some models and compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp. If you encounter an "Illegal instruction: 4" error during compilation, you can resolve it by deleting line 67 "CFLAGS += -mf16c" in the Makefile.
 
 5. playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
 
@@ -156,7 +155,7 @@ Download the source code of whisper-cpp:
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Change the default directory to the whisper-cpp directory, which is whisper.cpp:
+Change the default directory to the whisper-cpp directory:
 ```
 cd whisper.cpp
 ```
@@ -174,7 +173,7 @@ make base.en
 ```
 make base
 ```
-To download playlist4whisper and livestream_vdeo.sh, you can use the following command:
+To download playlist4whisper and livestream_video.sh, you can use the following command:
 ```
 git clone https://github.com/antor44/livestream_video.git
 ```
