@@ -189,7 +189,7 @@ Finally, you can launch the app by entering the following command in the termina
 ```
 python3 playlist4whisper.py
 ```
-MPV player and terminals like gnome-terminal seem not to work in Windows. 
+MPV player and Linux terminals like gnome-terminal seem not to work in Windows; they might require additional configuration and/or packages to install.
 
 #
 # Usage: 
