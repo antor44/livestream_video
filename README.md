@@ -71,7 +71,9 @@ pip3 install --upgrade streamlink
 ```
 python3 playlist4whisper.py
 ```
+Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
 
+For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 #
 # Installation for macOS
 
@@ -113,7 +115,7 @@ Please note that on macOS, only the xterm terminal and the mpv video player are 
 #
 # Installation for Windows 10/11
 
-playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software.
+playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. It's not as smooth as Linux or macOS, although you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, also with GPU acceleration.
 
 Open PowerShell or Windows Command Prompt in administrator mode by right-clicking and selecting "Run as administrator", and install WSL2:
 
@@ -187,9 +189,7 @@ Finally, you can launch the app by entering the following command in the termina
 ```
 python3 playlist4whisper.py
 ```
-MPV player and terminals like gnome-terminal seem not to work in Windows. Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never.
-
-For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
+MPV player and terminals like gnome-terminal seem not to work in Windows. 
 
 #
 # Usage: 
@@ -210,7 +210,9 @@ The program will load the default playlists playlist_iptv.m3u, playlist_youtube.
 
 The majority of online video streams should work. Ensure that your installed yt-dlp and streamlink are up-to-date.
 
-Recommended Linux video player (when timeshift is not active): SMPlayer, based on mvp, due to its capabilities to timeshift online streams for synchronized live video with transcription.
+Recommended Linux video player (when playlist4whisper's timeshift with VLC is not active): SMPlayer, based on mpv, due to its capabilities to timeshift online streams for manual synchronization of live video with transcriptions.
+
+Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
