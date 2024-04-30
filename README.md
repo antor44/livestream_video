@@ -115,7 +115,7 @@ Please note that on macOS, only the xterm terminal and the mpv video player are 
 #
 # Installation for Windows 10/11
 
-playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. It's not as smooth as Linux or macOS, although you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, also with GPU acceleration.
+playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. It does not have the same level of stability and smoothness as Linux or macOS, anyway you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, also with GPU acceleration.
 
 Open PowerShell or Windows Command Prompt in administrator mode by right-clicking and selecting "Run as administrator", and install WSL2:
 
@@ -134,7 +134,7 @@ sudo apt update
 ```
 Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip bc xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip bc gnome-terminal xterm
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
