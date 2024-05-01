@@ -132,6 +132,9 @@ Open the Linux terminal, not the Windows terminal. Then update the packages in y
 ```
 sudo apt update
 ```
+```
+sudo apt upgrade
+```
 Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip bc gnome-terminal xterm
