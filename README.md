@@ -115,7 +115,7 @@ Please note that on macOS, only the xterm terminal and the mpv video player are 
 #
 # Installation for Windows 10/11
 
-playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 does not offer the same level of stability and smoothness as Linux or macOS. Nevertheless, you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, which also supports GPU acceleration.
+playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. Specifically, when using the VLC player, you may encounter audio issues. Nevertheless, you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, which also supports GPU acceleration.
 
 Open PowerShell or Windows Command Prompt in administrator mode by right-clicking and selecting "Run as administrator", and install WSL2:
 
