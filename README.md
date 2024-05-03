@@ -9,7 +9,7 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 2.42 License: GPL 3.0
+Author: Antonio R. Version: 2.50 License: GPL 3.0
 
 
 #
@@ -210,7 +210,6 @@ Local audio/video files must be referenced with the full file path. Alternativel
 The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
  and will store options in config_xxx.json.
  
-
 The majority of online video streams should work. Ensure that your installed yt-dlp and streamlink are up-to-date.
 
 Recommended Linux video player (when playlist4whisper's timeshift with VLC is not active): SMPlayer, based on mpv, due to its capabilities to timeshift online streams for manual synchronization of live video with transcriptions.
@@ -242,10 +241,11 @@ Some notable features:
 - Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English
 - Quantized models support
 - MacOS support.
+- Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
 
 #
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]] [pulse:index or avfoundation:index]
 
 Example:
 ```
@@ -309,6 +309,7 @@ segments: Number of segment files for timeshift (2 =< n <= 99).
 
 segment_time: Time for each segment file(1 <= minutes <= 99).
 
+pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
 
 #
 
