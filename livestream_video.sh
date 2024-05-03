@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.44 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.50 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -38,8 +38,9 @@
 # -Quantized models support
 # -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 # -Generates subtitles from audio/video files.
+# -Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
 #
-#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
+#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]] [pulse:index or avfoundation:index]"
 #
 # Example:"
 # ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]"
@@ -83,6 +84,8 @@
 #
 # segment_time: Time for each segment file(1 <= minutes <= 99).
 #
+# pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS.
+#
 # This script and whisper-cpp's executable 'main', and models directory with at least one archive model, must reside in the same directory.
 #
 
@@ -115,6 +118,8 @@ trans=""
 output_text="both"
 trans_language="en"
 subtitles=""
+audio_source=""
+audio_index="0"
 
 # Temporary file to store used port numbers
 temp_file="/tmp/used_ports-livestream_video.txt"
@@ -253,6 +258,9 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         [3-9]|[1-5][0-9]|60 ) step_s=$1;;
+        pulse* | avfoundation* )
+            audio_source=$1
+            ;;
         translate ) translate=$1;;
         subtitles ) subtitles=$1;;
         playeronly ) playeronly=$1;;
@@ -397,11 +405,25 @@ else
 fi
 
 echo ""
-if [ -z "$url" ]; then
-    url="$url_default"
-    echo " * No url specified, using default: $url"
+
+if [[ "$audio_source" == "pulse:"* ]] || [[ "$audio_source" == "avfoundation:"* ]]; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS
+        url="avfoundation"
+        audio_index="${audio_source##*:}"
+    else
+        # Linux
+        url="pulse"
+        audio_index="${audio_source##*:}"
+    fi
+    echo " * Audio source: $audio_source"
 else
-    echo " * url specified by user: $url"
+    if [ -z "$url" ]; then
+        url="$url_default"
+        echo " * No url specified, using default: $url"
+    else
+        echo " * url specified by user: $url"
+    fi
 fi
 echo ""
 
@@ -518,6 +540,14 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     segment_time=$((segment_time * 60))
 
     case $url in
+        pulse )
+            ffmpeg -loglevel quiet -y -f pulse -i "$audio_index" -threads 2 -f segment -segment_time $segment_time /tmp/whisper-live_${mypid}_buf%03d.avi &
+            ffmpeg_pid=$!
+            ;;
+        avfoundation )
+            ffmpeg -loglevel quiet -y -f avfoundation -i :"${audio_index}" -threads 2 -f segment -segment_time $segment_time /tmp/whisper-live_${mypid}_buf%03d.avi &
+            ffmpeg_pid=$!
+            ;;
         *youtube* | *youtu.be* )
             if ! command -v yt-dlp &>/dev/null; then
                 echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
@@ -558,19 +588,52 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 		done
 		echo -e $arg > /tmp/playlist_whisper-live_${mypid}.m3u
 
-    # launch player
-    ln -f -s /tmp/whisper-live_${mypid}_buf000.avi /tmp/whisper-live_${mypid}_0.avi # symlink first buffer at start
+    # Define the maximum time to wait in seconds
+    max_wait_time=20
+
+    # Define the file path pattern
+    file_path="/tmp/whisper-live_${mypid}_buf000.avi"
+
+    # Get the start time
+    start_time=$(date +%s)
+
+    # Loop until the file exists or the maximum wait time is reached
+    while [ ! -f "$file_path" ]; do
+        # Get the current time
+        current_time=$(date +%s)
+
+        # Calculate the elapsed time
+        elapsed_time=$((current_time - start_time))
+
+        # Check if the maximum wait time is exceeded
+        if [ "$elapsed_time" -ge "$max_wait_time" ]; then
+            echo "Maximum wait time exceeded."
+            break
+        fi
+
+        # Wait for a short interval before checking again
+        sleep 0.1
+    done
+
+    # Check if the file exists after the loop
+    if [ -f "$file_path" ]; then
+        # launch player
+        ln -f -s /tmp/whisper-live_${mypid}_buf000.avi /tmp/whisper-live_${mypid}_0.avi # symlink first buffer at start
+    else
+        printf "Error: ffmpeg failed to capture the stream\n"
+        exit 1
+    fi
 
     if [ "$playeronly" == "" ]; then
         printf "Buffering audio. Please wait...\n\n"
     fi
-    sleep 15
 
     if ! ps -p $ffmpeg_pid > /dev/null; then
         printf "Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
-    sleep $(($step_s+5))
+
+    sleep $(($step_s+$sync))
     if [[ $mpv_options == "true" ]]; then
         vlc -I http --http-host 127.0.0.1 --http-port "$myport" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${mypid}.m3u >/dev/null 2>&1 &
     else
@@ -708,6 +771,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                           fi
                           err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
                           ((tryed=tryed+1))
+                          sleep 0.4
                       done
 
                       if [ $in -eq 1 ]; then
@@ -752,13 +816,9 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                                       if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
                                           acceleration_factor="1.5"
                                       fi
-                                      if [[ $(echo "$acceleration_factor < 2.5" | bc -l) == 1 ]] && [ $in -eq 1 ]; then
-                                          acceleration_factor="2.5"
-                                      fi
                                       # Use FFmpeg to speed up the audio file
                                       mv -f "/tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3" "/tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3"
                                       ffmpeg -i /tmp/whisper-live_${mypid}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 >/dev/null 2>&1
-                                      sleep 0.5
                                       # Play the modified audio
                                       mpv /tmp/whisper-live_${mypid}_$(((i+2)%2)).mp3 &>/dev/null &
                                   fi
@@ -895,6 +955,7 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
                                 fi
                                 err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
                                 ((tryed=tryed+1))
+                                sleep 0.4
                             done
 
                             if [ $in -eq 1 ]; then
@@ -979,11 +1040,21 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
 elif [ "$playeronly" == "" ]; then # No timeshift
 
-    if [[ $local -eq 1 ]]; then
+    if [ $url == "pulse" ]; then
+          ffmpeg -loglevel quiet -y -f pulse -i "$audio_index" /tmp/whisper-live_${mypid}.${fmt} &
+          ffmpeg_pid=$!
+          $mpv_options /tmp/whisper-live_${mypid}.${fmt} &>/dev/null &
+
+    elif [ $url == "avfoundation" ]; then
+          ffmpeg -loglevel quiet -y -f avfoundation -i :"${audio_index}" /tmp/whisper-live_${mypid}.${fmt} &
+          ffmpeg_pid=$!
+          $mpv_options /tmp/whisper-live_${mypid}.${fmt} &>/dev/null &
+
+    elif [[ $local -eq 1 ]]; then
           ffmpeg -loglevel quiet -y -probesize 32 -i "${url}" -bufsize 44M -map 0:a:0 /tmp/whisper-live_${mypid}.${fmt} &
           ffmpeg_pid=$!
           $mpv_options "${url}" &>/dev/null &
-    # continuous stream in native fmt (this file will grow forever!)
+
     elif [[ $quality == "upper" ]]; then
         case $url in
             *youtube* | *youtu.be* )
@@ -1023,8 +1094,41 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                 fi
                 ;;
         esac
-        sleep 2
-        nohup $mpv_options udp://127.0.0.1:${myport} >/dev/null 2>&1 &
+        # Define the maximum time to wait in seconds
+        max_wait_time=20
+
+        # Define the file path pattern
+        file_path="/tmp/whisper-live_${mypid}.${fmt}"
+
+        # Get the start time
+        start_time=$(date +%s)
+
+        # Loop until the file exists or the maximum wait time is reached
+        while [ ! -f "$file_path" ]; do
+            # Get the current time
+            current_time=$(date +%s)
+
+            # Calculate the elapsed time
+            elapsed_time=$((current_time - start_time))
+
+            # Check if the maximum wait time is exceeded
+            if [ "$elapsed_time" -ge "$max_wait_time" ]; then
+                echo "Maximum wait time exceeded."
+                break
+            fi
+
+            # Wait for a short interval before checking again
+            sleep 0.1
+        done
+
+        # Check if the file exists after the loop
+        if [ -f "$file_path" ]; then
+            # launch player
+            nohup $mpv_options udp://127.0.0.1:${myport} >/dev/null 2>&1 &
+        else
+            printf "Error: ffmpeg failed to capture the stream\n"
+            exit 1
+        fi
 
     elif [[ $quality == "lower" ]]; then
         case $url in
@@ -1065,8 +1169,41 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                 fi
                 ;;
         esac
-        sleep 2
-        nohup $mpv_options udp://127.0.0.1:${myport} >/dev/null 2>&1 &
+        # Define the maximum time to wait in seconds
+        max_wait_time=20
+
+        # Define the file path pattern
+        file_path="/tmp/whisper-live_${mypid}.${fmt}"
+
+        # Get the start time
+        start_time=$(date +%s)
+
+        # Loop until the file exists or the maximum wait time is reached
+        while [ ! -f "$file_path" ]; do
+            # Get the current time
+            current_time=$(date +%s)
+
+            # Calculate the elapsed time
+            elapsed_time=$((current_time - start_time))
+
+            # Check if the maximum wait time is exceeded
+            if [ "$elapsed_time" -ge "$max_wait_time" ]; then
+                echo "Maximum wait time exceeded."
+                break
+            fi
+
+            # Wait for a short interval before checking again
+            sleep 0.1
+        done
+
+        # Check if the file exists after the loop
+        if [ -f "$file_path" ]; then
+            # launch player
+            nohup $mpv_options udp://127.0.0.1:${myport} >/dev/null 2>&1 &
+        else
+            printf "Error: ffmpeg failed to capture the stream\n"
+            exit 1
+        fi
 
     elif [[ $quality == "raw" ]]; then
         case $url in
@@ -1099,7 +1236,41 @@ elif [ "$playeronly" == "" ]; then # No timeshift
                 fi
                 ;;
         esac
-        $mpv_options $url &>/dev/null &
+        # Define the maximum time to wait in seconds
+        max_wait_time=20
+
+        # Define the file path pattern
+        file_path="/tmp/whisper-live_${mypid}.${fmt}"
+
+        # Get the start time
+        start_time=$(date +%s)
+
+        # Loop until the file exists or the maximum wait time is reached
+        while [ ! -f "$file_path" ]; do
+            # Get the current time
+            current_time=$(date +%s)
+
+            # Calculate the elapsed time
+            elapsed_time=$((current_time - start_time))
+
+            # Check if the maximum wait time is exceeded
+            if [ "$elapsed_time" -ge "$max_wait_time" ]; then
+                echo "Maximum wait time exceeded."
+                break
+            fi
+
+            # Wait for a short interval before checking again
+            sleep 0.1
+        done
+
+        # Check if the file exists after the loop
+        if [ -f "$file_path" ]; then
+            # launch player
+            $mpv_options $url &>/dev/null &
+        else
+            printf "Error: ffmpeg failed to capture the stream\n"
+            exit 1
+        fi
     fi
 
     if [ $? -ne 0 ]; then
@@ -1108,7 +1279,7 @@ elif [ "$playeronly" == "" ]; then # No timeshift
     fi
 
     printf "Buffering audio. Please wait...\n\n"
-    sleep $(($step_s+3))
+    sleep $(($step_s))
 
     # do not stop script on error
     set +e
@@ -1120,13 +1291,16 @@ elif [ "$playeronly" == "" ]; then # No timeshift
     while [ $running -eq 1 ]; do
         # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
         err=1
-        while [ $err -ne 0 ]; do
+        tryed=0
+        while [ $err -ne 0 ] && [ $tryed -lt $step_s ]; do
             if [ $i -gt 0 ]; then
                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $step_s - 1" | bc -l) -t $(echo "$step_s" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
             else
                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${mypid}.${fmt} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$step_s - 1" | bc -l) /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}.err
             fi
             err=$(cat /tmp/whisper-live_${mypid}.err | wc -l)
+            ((tryed=tryed+1))
+            sleep 0.5
         done
 
         ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
