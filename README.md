@@ -373,6 +373,16 @@ The videos can be navigated in VLC as if it were a playlist with multiple videos
 
 The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live_131263_3.avi, or for the last one being recorded, whisper-live_131263_buf033.avi. The files are stored in the /tmp directory in both Linux and macOS, which typically serves as the temporary directory and is usually cleared upon restarting the computer.
 
+**Q: What are the capabilities of Playlist4Whisper for transcribing or translating sound cards or devices?**
+
+Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
+
+The capabilities to transcribe audio inputs or "what you hear" on the desktop exist in numerous scenarios depending on the capabilities of sound cards, webcams, microphones, and USB-connected headphones. Sound cards or devices in duplex mode support recording and listening simultaneously. Some models allow combinations for recording multiple inputs and simultaneous playback, while there is also software available, both free and paid, that enables this functionality.
+
+For Linux, devices suffixed with 'monitor' are loopback devices that allow you to record all sounds 'what you hear' on your desktop. These devices, along with applications, can be configured individually using PulseAudio Volume Control. For macOS, you can only use loopback devices through a virtual device with an Audio Loopback Driver like Blackhole (free license) or Loopback (commercial license).
+
+For Windows, loopback sound for native applications is supported through a virtual driver, an additional piece of software similar to macOS. However, playlist4whisper is executed in the Linux virtual environment WSL2. Sound capacities depend on each Linux application and on PulseAudio and Microsoft support for virtualized sound in WSL2. In principle, there is no access to Windows native applications.
+
 **Q: Why is the program not working?**
 
 A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the main executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper-cpp. The main executable from whisper.cpp needs to be placed in the same directory as playlist4whisper.py and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. These tasks can be accomplished using terminal commands:
