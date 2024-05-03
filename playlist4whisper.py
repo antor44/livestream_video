@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.42 License: GPL 3.0
+Author: Antonio R. Version: 2.50 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -40,6 +40,7 @@ Local audio/video files must be referenced with the full file path. Alternativel
 -Quantized models support
 -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
 -Generates subtitles from audio/video files.
+-Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
 
 
 For installing whisper-cpp, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
@@ -66,7 +67,7 @@ For Twitch streamlink is required (https://streamlink.github.io)
 
 Options for script:
 
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]
+Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]] [pulse:index or avfoundation:index]
 
 Example:
 ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
@@ -127,6 +128,7 @@ segments: Number of segment files for timeshift (2 =< n <= 99).
 
 segment_time: Time for each segment file(1 <= minutes <= 99).
 
+pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS.
 
 Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
 
@@ -135,6 +137,7 @@ Script and Whisper executable (main), and models directory with at least one arc
 import json
 import re
 import os
+import platform
 import shutil
 import glob
 import time
@@ -444,10 +447,11 @@ class EnhancedStringDialog(simpledialog.Dialog):
         else:
             pass
 
-
 class M3uPlaylistPlayer(tk.Frame):
     def __init__(self, parent, spec, bash_script, error_messages):
         super().__init__(parent)
+        self.root = parent
+
         self.spec = spec
         self.bash_script = bash_script
         self.error_messages = error_messages
@@ -881,41 +885,44 @@ class M3uPlaylistPlayer(tk.Frame):
         self.load_label = tk.Label(self.options_frame4, text="", padx=2)
         self.load_label.pack(side=tk.LEFT)
 
-        self.load_button = tk.Button(self.options_frame4, text="Load", command=self.load_playlist)
+        self.load_button = tk.Button(self.options_frame4, text="Load", command=self.load_playlist, padx=4)
         self.load_button.pack(side=tk.LEFT)
 
-        self.append_button = tk.Button(self.options_frame4, text="Append", command=self.append_playlist)
+        self.append_button = tk.Button(self.options_frame4, text="Append", command=self.append_playlist, padx=4)
         self.append_button.pack(side=tk.LEFT)
 
-        self.save_button = tk.Button(self.options_frame4, text="Save", command=self.save_playlist)
+        self.save_button = tk.Button(self.options_frame4, text="Save", command=self.save_playlist, padx=4)
         self.save_button.pack(side=tk.LEFT)
 
 
         self.options_frame5 = tk.Frame(self.container_frame)
         self.options_frame5.pack(side=tk.LEFT, expand=True, pady=2)
 
-        self.channel_label = tk.Label(self.options_frame5, text="Channel/Media File")
+        self.channel_label = tk.Label(self.options_frame5, text="Channel/Media File/Audio source")
         self.channel_label.pack(side=tk.TOP)
 
         self.add_label = tk.Label(self.options_frame5, text="", padx=2)
         self.add_label.pack(side=tk.LEFT)
 
-        self.add_button = tk.Button(self.options_frame5, text="Add", command=self.add_channel)
+        self.add_button = tk.Button(self.options_frame5, text="Add", command=self.add_channel, padx=4)
         self.add_button.pack(side=tk.LEFT)
 
-        self.add_file_button = tk.Button(self.options_frame5, text="Add File", command=self.add_file_channel)
+        self.add_file_button = tk.Button(self.options_frame5, text="Add File", command=self.add_file_channel, padx=4)
         self.add_file_button.pack(side=tk.LEFT)
 
-        self.delete_button = tk.Button(self.options_frame5, text="Delete", command=self.delete_channel)
+        self.add_audio_button = tk.Button(self.options_frame5, text="Add Audio", command=self.add_audio_source, padx=4)
+        self.add_audio_button.pack(side=tk.LEFT)
+
+        self.delete_button = tk.Button(self.options_frame5, text="Delete", command=self.delete_channel, padx=4)
         self.delete_button.pack(side=tk.LEFT)
 
-        self.edit_button = tk.Button(self.options_frame5, text="Edit", command=self.edit_channel)
+        self.edit_button = tk.Button(self.options_frame5, text="Edit", command=self.edit_channel, padx=4)
         self.edit_button.pack(side=tk.LEFT)
 
-        self.move_up_button = tk.Button(self.options_frame5, text="Move up", command=self.move_up_channel)
+        self.move_up_button = tk.Button(self.options_frame5, text="Move up", command=self.move_up_channel, padx=4)
         self.move_up_button.pack(side=tk.LEFT)
 
-        self.move_down_button = tk.Button(self.options_frame5, text="Move down", command=self.move_down_channel)
+        self.move_down_button = tk.Button(self.options_frame5, text="Move down", command=self.move_down_channel, padx=4)
         self.move_down_button.pack(side=tk.LEFT)
 
 
@@ -928,7 +935,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.subtitles_label2 = tk.Label(self.options_frame6, text="", padx=2)
         self.subtitles_label2.pack(side=tk.LEFT)
 
-        self.subtitles_button = tk.Button(self.options_frame6, text="Generate", command=self.generate_subtitles)
+        self.subtitles_button = tk.Button(self.options_frame6, text="Generate", command=self.generate_subtitles, padx=4)
         self.subtitles_button.pack(side=tk.LEFT)
 
 
@@ -941,7 +948,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.about_label2 = tk.Label(self.options_frame7, text="", padx=4)
         self.about_label2.pack(side=tk.LEFT)
 
-        self.about_button = tk.Button(self.options_frame7, text="About", command=self.show_about_window)
+        self.about_button = tk.Button(self.options_frame7, text="About", command=self.show_about_window, padx=4)
         self.about_button.pack(side=tk.LEFT)
 
 
@@ -1423,6 +1430,7 @@ class M3uPlaylistPlayer(tk.Frame):
         if region == "cell":
             item = self.tree.selection()[0]
             url = self.tree.item(item, "values")[2]
+
             mpv_options = self.mpv_options_entry.get()
 
             language_text = self.language.get()
@@ -1441,7 +1449,8 @@ class M3uPlaylistPlayer(tk.Frame):
             videoplayer = self.player.get()
             quality = self.quality.get()
 
-            if self.subtitles == "":
+            if self.subtitles == "" and (not url.startswith("pulse") and not url.startswith("avfoundation")):
+
                 if self.timeshiftactive.get():
                     if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                                          stderr=subprocess.DEVNULL) == 0:
@@ -1795,6 +1804,234 @@ class M3uPlaylistPlayer(tk.Frame):
             simpledialog.messagebox.showerror("Error", "No file selected.")
 
 
+    def get_input_sources(self):
+        try:
+            if platform.system() == "Linux":
+                output = subprocess.check_output(["pactl", "list", "short", "sources"]).decode("utf-8")
+                sources = []
+                for line in output.splitlines():
+                    parts = line.split()
+                    index = parts[0]
+                    name = re.match(r'\d+\s+(\S+)', line).group(1)
+                    sources.append(f"{index} {name}")
+                return sources
+
+            elif platform.system() == "Darwin":
+                ffmpeg_process = subprocess.run(["ffmpeg", "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+
+                if ffmpeg_process.returncode != 0:
+                    print(f"Error: ffmpeg command returned non-zero exit status {ffmpeg_process.returncode}")
+
+                output = ffmpeg_process.stdout
+                if output == "":
+                    output = ffmpeg_process.stderr
+                    if output == "":
+                        print("Error: ffmpeg command did not produce any output")
+                        return []
+
+                sources = []
+                in_audio_devices = False
+                for line in output.splitlines():
+                    line = line.strip()
+                    if "AVFoundation audio devices:" in line:
+                        in_audio_devices = True
+                    elif in_audio_devices:
+                        match = re.search(r'\[(\d+)\]\s*(.*?)$', line)
+                        if match:
+                            index, name = match.groups()
+                            sources.append(f"{index} {name.strip()}")
+                        else:
+                            in_audio_devices = False
+                return sources
+
+            else:
+                return []
+        except subprocess.CalledProcessError as e:
+            print("Error:", e.output)
+            return []
+
+
+    def add_audio_source(self):
+        # Create a new window or widget to select the sound card
+        audio_select_window = tk.Toplevel(self.root)
+        audio_select_window.title("Select Sound Card")
+
+        # Get the screen dimensions
+        screen_width = audio_select_window.winfo_screenwidth()
+        screen_height = audio_select_window.winfo_screenheight()
+
+        # Calculate the coordinates for the window to be in the middle
+        x = (screen_width / 2) - (400 / 2)  # Adjust 400 to your desired window width
+        y = (screen_height / 2) - (300 / 2)  # Adjust 300 to your desired window height
+
+        # Set the window size and position
+        audio_select_window.geometry(f"400x300+{int(x)}+{int(y)}")  # Adjust width and height as needed
+
+        # Get the list of available input sources
+        input_sources = self.get_input_sources()
+
+        # Create a frame to hold the text message and radio buttons
+        frame = tk.Frame(audio_select_window)
+        frame.pack(pady=10)
+
+        # Determine the appropriate message based on the platform
+        if platform.system() == "Linux":
+            message = "Please select a sound device. Devices suffixed with 'monitor' are loopback devices that allow you to record all sounds 'what you hear' on your desktop. These devices, along with applications, can be configured individually using PulseAudio Volume Control."
+        elif platform.system() == "Darwin":
+            message = "Please select a sound device. Loopback devices allow you to record all sounds 'what you hear' on your desktop. First, create a virtual device using an Audio Loopback Driver like Blackhole or Loopback."
+        else:
+            message = "Select one sound device."
+
+        # Create a label with the message
+        label = tk.Label(frame, text=message, wraplength=380, justify="left")
+        label.pack()
+
+        # Create a frame to hold the radio buttons
+        radio_frame = tk.Frame(frame)
+        radio_frame.pack(pady=10)
+
+        # Create a StringVar to store the user's selection
+        self.selected_sound_card = tk.StringVar()
+
+        # Create radio buttons for each input source
+        for source in input_sources:
+            radio_button = tk.Radiobutton(radio_frame, text=source, variable=self.selected_sound_card, value=source)
+            radio_button.pack(anchor=tk.W)
+
+        # Create button frame
+        button_frame = tk.Frame(frame)
+        button_frame.pack(pady=10)
+
+        # Create a button to confirm the selection
+        confirm_button = tk.Button(button_frame, text="Confirm", command=lambda: self.add_audio_source_confirm(audio_select_window, input_sources, self.selected_sound_card.get()))
+        confirm_button.pack(side=tk.LEFT, padx=5)
+
+        # Create a button to cancel the operation
+        cancel_button = tk.Button(button_frame, text="Cancel", command=audio_select_window.destroy)
+        cancel_button.pack(side=tk.LEFT, padx=5)
+
+
+    def add_audio_source_confirm(self, audio_select_window, input_sources, selected_text):
+        ffmpeg_process = None
+        ffplay_process = None
+
+        # Close the sound card selection window
+        audio_select_window.destroy()
+
+        if selected_text:
+            selected_index_str, _ = selected_text.split(" ", 1)
+            selected_index = int(selected_index_str)
+
+            # Get the selected input source
+            selected_source = None
+            for source in input_sources:
+                if source.startswith(selected_index_str):
+                    selected_source = source
+                    break
+
+            if selected_source is not None:
+
+                # Perform actions with the selected input source based on platform
+                if platform.system() == "Linux":
+                    # Linux
+                    audio_path = f"pulse:{selected_index}"
+                    name = f"Linux Input pulse - {selected_source}"
+                elif platform.system() == "Darwin":
+                    # macOS
+                    audio_path = f"avfoundation:{selected_index}"
+                    name = f"macOS Input avfoundation - {selected_source}"
+                else:
+                    print("Unsupported platform")
+                    return
+
+                test = True
+
+                # Prompt the user to test the selected sound source
+                test_sound_source = tk.messagebox.askyesno("Test Sound Source", "Do you want to test the selected sound source?")
+
+                if test_sound_source:
+                    action = tk.messagebox.askquestion("Test Sound Source",
+                                                    f"Ensure you have anything connected or anything playing in the selected sound device: {name}. An audio will be recorded to test it. Proceed?",
+                                                    icon='warning',
+                                                    type='yesnocancel',
+                                                    default='yes')
+                    if action == 'yes':
+                        try:
+                            if audio_path.startswith("pulse:"):
+                                ffmpeg_process = subprocess.Popen(["ffmpeg", "-loglevel", "quiet", "-y", "-f", "pulse", "-i", f"{selected_index}", "/tmp/whisper-live_0_test.wav"])
+                            elif audio_path.startswith("avfoundation:"):
+                                ffmpeg_process = subprocess.Popen(["ffmpeg", "-loglevel", "quiet", "-y", "-f", "avfoundation", "-i", f":{selected_index}", "/tmp/whisper-live_0_test.wav"])
+
+                            max_wait_time = 5
+                            file_path = '/tmp/whisper-live_0_test.wav'
+                            start_time = time.time()
+
+                            # Loop until the file exists or the maximum wait time is reached
+                            while not os.path.exists(file_path):
+                                # Check if the maximum wait time is exceeded
+                                if time.time() - start_time >= max_wait_time:
+                                    print("Maximum wait time exceeded.")
+                                    break
+
+                                # Wait for a short interval before checking again
+                                time.sleep(0.1)
+
+                            # Wait for a short interval again
+                            time.sleep(2)
+                            # Check if the file exists after the loop
+                            if os.path.exists(file_path):
+
+                                ffplay_process = subprocess.Popen(["ffplay", "-loglevel", "quiet", "/tmp/whisper-live_0_test.wav"])
+
+                                action = tk.messagebox.askquestion("Test Sound Source",
+                                                                f"Testing selected sound device: {name}. Do you hear it?",
+                                                                icon='warning',
+                                                                type='yesnocancel',
+                                                                default='yes')
+                                if action == 'yes':
+                                    test = True
+                                else:
+                                    test = False
+
+                            else:
+                                print(f"File {file_path} does not exist.")
+                                test = False
+
+                        except Exception as e:
+                            # Handle other exceptions
+                            tk.messagebox.showerror("Error", f"Error testing sound source: {str(e)}")
+                            test = False
+
+                    else:
+                        tk.messagebox.showerror("Error", "Could not test the selected audio device.")
+                        test = False
+
+                if ffmpeg_process:
+                    ffmpeg_process.terminate()
+                if ffplay_process:
+                    ffplay_process.terminate()
+
+                if test:
+                    selection = self.tree.selection()
+                    if selection:
+                        index = self.tree.index(selection[0])
+                        index += 1
+                    else:
+                        index = len(self.tree.get_children()) + 1
+
+                    # Add audio source to the list
+                    self.tree.insert("", index, values=(index, name, audio_path))
+                    self.update_list_numbers()
+                    simpledialog.messagebox.showinfo("Success", "Audio source added successfully. Don't forget to save the playlist.")
+                    print(f"Selected sound card: {name}")
+
+            else:
+                simpledialog.messagebox.showerror("Error", "No audio source selected.")
+
+        else:
+            simpledialog.messagebox.showerror("Error", "No audio source selected.")
+
+
     # Function to generate subtitles
     def generate_subtitles(self):
         selection = self.tree.selection()
@@ -2086,7 +2323,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.42\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.50\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
