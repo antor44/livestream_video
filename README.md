@@ -381,7 +381,7 @@ The capabilities to transcribe audio inputs or "what you hear" on the desktop ex
 
 For Linux, devices suffixed with 'monitor' are loopback devices that allow you to record all sounds 'what you hear' on your desktop. These devices, along with applications, can be configured individually using PulseAudio Volume Control. For macOS, you can only use loopback devices through a virtual device with an Audio Loopback Driver like Blackhole (free license) or Loopback (commercial license).
 
-For Windows, loopback sound for native applications is supported through a virtual driver, an additional piece of software similar to macOS. However, playlist4whisper is executed in the Linux virtual environment WSL2. Sound capacities depend on each Linux application and on PulseAudio and Microsoft support for virtualized sound in WSL2. In principle, there is no access to Windows native applications.
+For Windows, loopback sound for native applications is supported through a virtual driver, an additional piece of software similar to macOS. However, playlist4whisper is executed in the Linux virtual environment WSL2. Sound capacities depend on each Linux application and on PulseAudio and Microsoft support for virtualized sound in WSL2. In principle, there is no direct access to Windows native applications.
 
 **Q: Why is the program not working?**
 
