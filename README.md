@@ -373,7 +373,7 @@ The videos can be navigated in VLC as if it were a playlist with multiple videos
 
 The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live_131263_3.avi, or for the last one being recorded, whisper-live_131263_buf033.avi. The files are stored in the /tmp directory in both Linux and macOS, which typically serves as the temporary directory and is usually cleared upon restarting the computer.
 
-**Q: What are the capabilities of Playlist4Whisper for transcribing or translating sound cards or devices? Are USB devices supported in Linux?**
+**Q: What can Playlist4Whisper do in terms of transcribing or translating sound card or sound device inputs? Are USB devices supported in Linux?**
 
 The quality of the transcription depends on your computer's capabilities, the chosen model, volume, and sound configuration on your operating system, as well as the ambient noise. Please note that this is a preliminary feature. There is a several-second delay between live sound and transcriptions, with no possibility for synchronization.
 
