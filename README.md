@@ -5,7 +5,7 @@ playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio
 
 Author: Antonio R. Version: 2.50 License: GPL 3.0
 
-[<img src="https://github.com/antor44/livestream_video/blob/main/Paypal-QR-Button.png">](https://www.paypal.com/donate/?business=D2SKZRE6RVAZG&no_recurring=0&currency_code=EUR)
+[<img src="https://github.com/antor44/livestream_video/blob/main/Paypal-QR-Button.png">](https://www.paypal.com/donate/?business=D2SKZRE6RVAZG&no_recurring=0&item_name=Your+donation+powers+our+commitment+to+providing+free%2C+efficient+transcription+%26+translation+tools.+Thank+you+for+contributing.&currency_code=EUR)
 
 
 #
