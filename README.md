@@ -1,15 +1,11 @@
 # playlist4whisper
 
-**Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
-
-**To use the Timeshift feature, ensure that VLC is configured to repeat the playlist infinitely, not just the current file.**
-
-**Ensure that your installed yt-dlp and streamlink are up-to-date.**
-
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
 Author: Antonio R. Version: 2.50 License: GPL 3.0
+
+[<img src="https://github.com/antor44/livestream_video/blob/main/Paypal-QR-Button.png">](https://www.paypal.com/donate/?business=D2SKZRE6RVAZG&no_recurring=0&currency_code=EUR)
 
 
 #
@@ -196,6 +192,12 @@ MPV player is not working on Windows, potentially due to the need for additional
 
 #
 # Usage: 
+
+**Warning: When updating, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
+
+**To use the Timeshift feature, ensure that VLC is configured to repeat the playlist infinitely, not just the current file.**
+
+**Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
 Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
 
