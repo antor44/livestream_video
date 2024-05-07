@@ -100,31 +100,36 @@ pip3 install streamlink
 4. Compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
 
 From your base user directory where you want to store the subdirectory containing all the files, download the source code for whisper-cpp:
-
+```
 git clone https://github.com/ggerganov/whisper.cpp.git
-
+```
 Change the default directory to the whisper-cpp directory:
-
+```
 cd whisper.cpp
-
+```
 Compile whisper-cpp for CPU mode:
-
+```
 make
-
+```
 Download some models:
-
+```
 make tiny.en
+```
+```
 make base.en
+```
+```
 make base
+```
 
 To download playlist4whisper and livestream_video.sh, you can use the following command:
-
+```
 git clone https://github.com/antor44/livestream_video.git
-
+```
 Stay where you executed the command, move all to whisper.cpp directory:
-
+```
 mv livestream_video/* ~/whisper.cpp
-
+```
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp and its 'main' executable.
 
 10. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
