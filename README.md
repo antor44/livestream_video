@@ -99,7 +99,7 @@ pip3 install streamlink
 
 4. Compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
 
-From your base user directory where you want to store the subdirectory containing all the files, download the source code for whisper-cpp:
+From your base user directory (/Users/[user]) download the source code for whisper-cpp:
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
