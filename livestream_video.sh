@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.50 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.52 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -26,11 +26,30 @@
 #--------------------------------------------------------------------------------------------------------
 #
 #
-# livestream_video.sh is based on whisper.cpp
+# livestream_video.sh is based on whisper.cpp, and also supports OpenAI's Whisper.
 #
-# For installing whisper-cpp, follow the instructions provided at https://github.com/ggerganov/whisper.cpp"
+# To install whisper-cpp:
 #
-# This Linux script adds some new features:
+# pip3 install pywhispercpp
+#
+# For macOS and linux with brew repository:
+#
+# brew install whisper-cpp
+#
+# or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions):
+#
+# pip3 install openai-whisper
+#
+# For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+#
+# The required model files must be stored in the subdirectory ./models using playlist4whisper, or follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+#
+# Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
+#
+# OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper-cpp model.
+#
+#
+# Features of this bash script:
 #
 # -Support for multi-instance and multi-user execution
 # -Support for IPTV, YouTube, Twitch, and many others
@@ -147,14 +166,40 @@ output_text_list=( "original" "translation" "both" "none" )
 
 check_requirements()
 {
-    if ! command -v ./main &>/dev/null; then
-        echo "whisper.cpp main executable is required (make)"
+    # Find and select executable
+
+    # Array of executable names in priority order
+    executables=("./main" "whisper-cpp" "pwcpp" "whisper")
+
+    # Loop through each executable name
+    for exe in "${executables[@]}"; do
+        # Check if the executable exists in the current directory or in the PATH
+        if [[ -x "$(command -v "$exe")" ]]; then
+            # Save the first executable found and exit loop
+            whisper_executable="$exe"
+            break
+        fi
+    done
+
+    if [[ -z "$whisper_executable" ]]; then
+        echo "Whisper executable is required."
         exit 1
+    else
+        echo "Found whisper executable: ${whisper_executable}"
+        current_dir=$(pwd)
+        models_dir="$current_dir/models"
+        if [ ! -d "$models_dir" ]; then
+            mkdir -p "$models_dir"
+        fi
     fi
 
     if ! command -v ffmpeg &>/dev/null; then
-        echo "ffmpeg is required (https://ffmpeg.org)"
+        echo "ffmpeg is required (https://ffmpeg.org)."
         exit 1
+    fi
+    if [[ "$whisper_executable" == "whisper" && ! -f "./models/${model}.pt" ]]; then
+      echo "Please wait until the model file is downloaded for first time."
+      whisper --threads 4 --model ${model} --model_dir ./models /tmp/whisper-live_${mypid}.wav > /dev/null 2> /tmp/whisper-live_${mypid}-err.err
     fi
 }
 
@@ -198,9 +243,11 @@ function vlc_check()
   if [[ $check_pid != *vlc* ]] && [[ $check_pid != *VLC* ]]; then # timeshift exit
     echo
     pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^./main.*${mypid}.*$"
+    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
-    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    if [ -f "$temp_file" ]; then
+        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    fi
     echo
     echo "*** VLC closed. Timeshift finished."
     echo
@@ -453,7 +500,9 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 0 ]]; then
     echo "Error: Generate Subtitles only available for local Audio/Video Files."
     echo ""
     # Remove the used port from the temporary file
-    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    if [ -f "$temp_file" ]; then
+        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    fi
     exit 1
 fi
 
@@ -471,10 +520,26 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
     err=$?
 
     if [ $err -eq 0 ]; then
-
-        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav -osrt 2> /tmp/whisper-live_${mypid}-err.err
-        err=$?
-
+        if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+            "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav -osrt 2> /tmp/whisper-live_${mypid}-err.err
+            err=$?
+        elif [[ "$whisper_executable" == "pwcpp" ]]; then
+            if [[ "$translate" == "translate" ]]; then
+                pwcpp --language ${language} --translate translate --n_threads 4 -m ./models/ggml-${model}.bin -osrt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                err=$?
+            else
+                pwcpp --language ${language} --n_threads 4 -m ./models/ggml-${model}.bin -osrt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                err=$?
+            fi
+        elif [[ "$whisper_executable" == "whisper" ]]; then
+            if [[ "$translate" == "translate" ]]; then
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_format srt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                err=$?
+            else
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_format srt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                err=$?
+            fi
+        fi
         url_no_ext="${url%.*}"
         if [[ $trans == "trans" ]] && [ $err -eq 0 ]; then
             trans -b :${trans_language} -i /tmp/whisper-live_${mypid}.wav.srt -o /tmp/whisper-live_${mypid}.wav.${trans_language}.srt
@@ -520,10 +585,12 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
         echo "An error occurred while generating subtitles."
         echo ""
         pkill -e -f "^ffmpeg.*${mypid}.*$"
-        pkill -e -f "^./main.*${mypid}.*$"
+        pkill -e -f "^${whisper_executable}.*${mypid}.*$"
         pkill -e -f "^trans.*${mypid}.*$"
         # Remove the used port from the temporary file
-        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+        if [ -f "$temp_file" ]; then
+            awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+        fi
         exit 1
     fi
 
@@ -780,8 +847,27 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
                   fi
 
-
-                  ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                  if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+                      "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                      err=$?
+                  elif [[ "$whisper_executable" == "pwcpp" ]]; then
+                      if [[ "$translate" == "translate" ]]; then
+                          pwcpp --language ${language} --translate translate --n_threads 4 -m ./models/ggml-${model}.bin -otxt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                          err=$?
+                      else
+                          pwcpp --language ${language} --n_threads 4 -m ./models/ggml-${model}.bin -otxt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                          err=$?
+                      fi
+                  elif [[ "$whisper_executable" == "whisper" ]]; then
+                      if [[ "$translate" == "translate" ]]; then
+                          whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                          err=$?
+                      else
+                          whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                          err=$?
+                      fi
+                      sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${mypid}.txt > /tmp/output-whisper-live_${mypid}.txt
+                  fi
 
                   if [[ $output_text == "original" ]] || [[ $output_text == "both" ]] || [[ $trans == "" ]]; then
                       cat /tmp/output-whisper-live_${mypid}.txt | tee -a /tmp/transcription-whisper-live_${mypid}.txt
@@ -834,9 +920,6 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                       fi
                   fi
 
-
-
-
               elif [ $tin -eq 1 ]; then
                   echo
                   echo "!!! Timeshift window reached. Video $FILEPLAY overwritten. You can still watch it, but without transcriptions. Next files may be affected. Adjust Timeshift for more segments/longer times !!!"
@@ -853,9 +936,11 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     done
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^./main.*${mypid}.*$"
+    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
-    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    if [ -f "$temp_file" ]; then
+        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    fi
 
 elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video file with vlc
 
@@ -964,7 +1049,27 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
                         fi
 
-                        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                        if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+                            "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                            err=$?
+                        elif [[ "$whisper_executable" == "pwcpp" ]]; then
+                            if [[ "$translate" == "translate" ]]; then
+                                pwcpp --language ${language} --translate translate --n_threads 4 -m ./models/ggml-${model}.bin -otxt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                                err=$?
+                            else
+                                pwcpp --language ${language} --n_threads 4 -m ./models/ggml-${model}.bin -otxt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                                err=$?
+                            fi
+                        elif [[ "$whisper_executable" == "whisper" ]]; then
+                            if [[ "$translate" == "translate" ]]; then
+                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                err=$?
+                            else
+                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                err=$?
+                            fi
+                            sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${mypid}.txt > /tmp/output-whisper-live_${mypid}.txt
+                        fi
 
                         if [[ $output_text == "original" ]] || [[ $output_text == "both" ]] || [[ $trans == "" ]]; then
                             cat /tmp/output-whisper-live_${mypid}.txt | tee -a /tmp/transcription-whisper-live_${mypid}.txt
@@ -1028,9 +1133,11 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
         done
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^./main.*${mypid}.*$"
+    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
-    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    if [ -f "$temp_file" ]; then
+        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    fi
 
     else
 
@@ -1303,7 +1410,27 @@ elif [ "$playeronly" == "" ]; then # No timeshift
             sleep 0.5
         done
 
-        ./main -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+        if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+            "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+            err=$?
+        elif [[ "$whisper_executable" == "pwcpp" ]]; then
+            if [[ "$translate" == "translate" ]]; then
+                pwcpp --language ${language} --translate translate --n_threads 4 -m ./models/ggml-${model}.bin -otxt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                err=$?
+            else
+                pwcpp --language ${language} --n_threads 4 -m ./models/ggml-${model}.bin -otxt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
+                err=$?
+            fi
+        elif [[ "$whisper_executable" == "whisper" ]]; then
+            if [[ "$translate" == "translate" ]]; then
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                err=$?
+            else
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                err=$?
+            fi
+            sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${mypid}.txt > /tmp/output-whisper-live_${mypid}.txt
+        fi
 
         if [[ $output_text == "original" ]] || [[ $output_text == "both" ]] || [[ $trans == "" ]]; then
             cat /tmp/output-whisper-live_${mypid}.txt | tee -a /tmp/transcription-whisper-live_${mypid}.txt
@@ -1361,9 +1488,11 @@ elif [ "$playeronly" == "" ]; then # No timeshift
     done
 
     pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^./main.*${mypid}.*$"
+    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
-    awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    if [ -f "$temp_file" ]; then
+        awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
+    fi
 
 else
     if [[ $local -eq 0 ]] ; then
