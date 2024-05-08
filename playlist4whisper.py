@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.50 License: GPL 3.0
+Author: Antonio R. Version: 2.52 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -43,10 +43,21 @@ Local audio/video files must be referenced with the full file path. Alternativel
 -Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
 
 
-For installing whisper-cpp, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+playlist4whisper and livestream_video.sh is based on whisper.cpp, and also supports OpenAI's Whisper.
 
-The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
-and will store options in config_xxx.json.
+To install whisper-cpp:
+
+ pip3 install pywhispercpp
+
+For macOS and linux with brew repository:
+
+ brew install whisper-cpp
+
+or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions): 
+
+ pip3 install openai-whisper
+
+For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
  To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases),
  as well as the script livestream_video.sh, should be copied to the same location as playlist4whisper.py.
@@ -58,6 +69,16 @@ and will store options in config_xxx.json.
  make tiny.en
 
  make small
+
+Additionally, the required model files can be downloaded using playlist4whisper if they have not yet been installed after selecting the model.
+
+Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
+
+OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper-cpp model.
+
+
+The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
+and will store options in config_xxx.json.
 
 playlist4whisper.py depends on (smplayer or mpv) video player and (gnome-terminal or konsole or
 xfce4-terminal).
@@ -246,7 +267,6 @@ models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en"
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 model_path = "./models/ggml-{}.bin"
 model_list = models + [model + suffix for model in models for suffix in suffixes]
-main_executable = "./main"
 quantize_executable = "./quantize"
 
 lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
@@ -284,6 +304,49 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
           "Oceania": ["haw", "mi", "mg"],
           "Americas": ["ht"],
           "World": ["ar", "en", "eo", "es", "de", "fr", "pt", "ru", "zh"]}
+
+
+# Array of executable names in priority order
+executables = ["./main", "whisper-cpp", "pwcpp", "whisper"]
+
+# Function to find and select executable
+import shutil
+
+# Function to find and select executable
+def find_and_select_executable():
+    for exe in executables:
+        # Check if the executable exists in the PATH
+        full_path = shutil.which(exe)
+        if full_path is not None:
+            # Save the first executable found and exit loop
+            return exe
+    return None
+
+# Call function to find and select executable
+whisper_executable = find_and_select_executable()
+
+if whisper_executable is None:
+    print("Whisper executable is required.")
+    exit(1)
+else:
+    print("Found whisper executable:", whisper_executable, "(", shutil.which(whisper_executable), ")")
+    current_dir = os.getcwd()
+    models_dir = os.path.join(current_dir, "models")
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+
+# Check if ffmpeg is installed
+ffmpeg_process = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+
+if ffmpeg_process.returncode != 0:
+    print(f"Error: ffmpeg command returned non-zero exit status {ffmpeg_process.returncode}")
+
+output = ffmpeg_process.stdout
+if output == "":
+    output = ffmpeg_process.stderr
+    if output == "":
+        print("ffmpeg is required (https://ffmpeg.org).")
+        exit(1)
 
 terminal_installed = []
 for term in terminal:
@@ -981,13 +1044,17 @@ class M3uPlaylistPlayer(tk.Frame):
 
     def update_installed_models(self):
         self.models_installed = []
-        for model in models:
-            if os.path.exists(model_path.format(model)):
-                self.models_installed.append(model)
-            for suffix in suffixes:
-                full_model_name = f"{model}{suffix}"
-                if os.path.exists(model_path.format(full_model_name)):
-                    self.models_installed.append(full_model_name)
+
+        if whisper_executable == "whisper":
+            self.models_installed = models
+        else:
+            for model in models:
+                if os.path.exists(model_path.format(model)):
+                    self.models_installed.append(model)
+                for suffix in suffixes:
+                    full_model_name = f"{model}{suffix}"
+                    if os.path.exists(model_path.format(full_model_name)):
+                        self.models_installed.append(full_model_name)
 
 
     def update_model_menu(self):
@@ -2323,7 +2390,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.50\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.52\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
