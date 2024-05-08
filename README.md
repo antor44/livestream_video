@@ -3,13 +3,38 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 2.50 License: GPL 3.0
+Author: Antonio R. Version: 2.52 License: GPL 3.0
 
 [<img src="https://github.com/antor44/livestream_video/blob/main/Paypal-QR-Button.png">](https://www.paypal.com/donate/?business=D2SKZRE6RVAZG&no_recurring=0&item_name=Your+donation+powers+our+commitment+to+providing+free%2C+efficient+transcription+%26+translation+tools.+Thank+you+for+contributing.&currency_code=EUR)
 
 
+
+playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, vlc, ffmpeg, python3-tk, python3-pip, bc, and xterm are installed.
+
+To install whisper-cpp:
+```
+pip3 install pywhispercpp
+```
+For macOS and linux with brew repository:
+```
+brew install whisper-cpp
+```
+or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions):
+```
+pip3 install openai-whisper
+```
+For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+
+The required model files must be stored in the subdirectory ./models using playlist4whisper (this feature is only supported for the compiled version), or follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+
+Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
+
+OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper-cpp model.
+
+
 #
-# Installation for linux
+# Detailed installation for linux
+
 
 1. Download and build whisper-cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
 
@@ -71,7 +96,7 @@ Before using VLC go to Tools->Preferences and Show setting: All. Then Interface-
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 #
-# Installation for macOS
+# Detailed Installation for macOS
 
 You can run playlist4whisper.py on macOS by following these steps:
 
@@ -140,7 +165,7 @@ python3 playlist4whisper.py
 Please note that on macOS, only the xterm terminal and the mpv video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
 
 #
-# Installation for Windows 10/11
+# Detailed installation for Windows 10/11
 
 playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. When using the VLC player, which is required for one of the main features, you might run into audio issues with the default settings. Nevertheless, you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, which also supports GPU acceleration.
 
