@@ -7,7 +7,8 @@ Author: Antonio R. Version: 2.52 License: GPL 3.0
 
 [<img src="https://github.com/antor44/livestream_video/blob/main/Paypal-QR-Button.png">](https://www.paypal.com/donate/?business=D2SKZRE6RVAZG&no_recurring=0&item_name=Your+donation+powers+our+commitment+to+providing+free%2C+efficient+transcription+%26+translation+tools.+Thank+you+for+contributing.&currency_code=EUR)
 
-
+#
+# Quick start
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, vlc, ffmpeg, python3-tk, python3-pip, bc, and xterm are installed.
 
@@ -25,7 +26,7 @@ pip3 install openai-whisper
 ```
 For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
-The required model files must be stored in the subdirectory ./models using playlist4whisper (this feature is only supported for the compiled version), or follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+The required model files must be stored in the subdirectory ./models using playlist4whisper (this feature is only supported for the compiled version), or follow the instructions provided at https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
 
 Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
 
