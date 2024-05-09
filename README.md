@@ -20,7 +20,7 @@ For macOS and linux with brew repository:
 ```
 brew install whisper-cpp
 ```
-or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions):
+or for OpenAI's Whisper (not fully supported, except for generating subtitles for local audio/video files):
 ```
 pip3 install openai-whisper
 ```
