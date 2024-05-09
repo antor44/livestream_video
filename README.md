@@ -12,7 +12,7 @@ Author: Antonio R. Version: 2.52 License: GPL 3.0
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, vlc, ffmpeg, python3-tk, python3-pip, bc, and xterm are installed.
 
-To install whisper-cpp, choose one of these options:
+To install whisper-cpp, choose one of these options (you can install all, Whisper-cpp executables are prioritized, with ./main executable being the first choice):
 ```
 pip3 install pywhispercpp
 ```
