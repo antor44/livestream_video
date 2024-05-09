@@ -26,7 +26,8 @@ pip3 install openai-whisper
 ```
 For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
-The required model files must be stored in the subdirectory ./models using playlist4whisper (this feature is only supported for the compiled version), or follow the instructions provided at https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
+
+The required model files must be stored in the subdirectory ./models. They can be automatically downloaded using playlist4whisper (this feature is only supported for the compiled version of whisper-cpp), or you can follow the instructions provided at https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
 
 Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
 
