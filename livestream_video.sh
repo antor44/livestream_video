@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.52 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.54 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -474,7 +474,7 @@ else
 fi
 echo ""
 
-if [ "$playeronly" == "" ] || [[ $subtitles == "subtitles" ]] ; then
+if [[ "$playeronly" == "" ]] || [[ $subtitles == "subtitles" ]] ; then
     # if "translate" then translate to english
     if [[ $translate == "translate" ]]; then
         translate="-tr"
@@ -486,8 +486,8 @@ if [ "$playeronly" == "" ] || [[ $subtitles == "subtitles" ]] ; then
 fi
 
 # if online translate"
-if [ "$trans" == "trans" ]; then
-    if [ "$speak" == "speak" ]; then
+if [[ "$trans" == "trans" ]]; then
+    if [[ "$speak" == "speak" ]]; then
         printf "[+] Online translation into language '$trans_language', output text: '$output_text', Text-to-speech.\n\n"
     else
         printf "[+] Online translation into language '$trans_language', output text: '$output_text'.\n\n"
@@ -533,13 +533,25 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
             fi
         elif [[ "$whisper_executable" == "whisper" ]]; then
             if [[ "$translate" == "translate" ]]; then
-                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_format srt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
-                err=$?
+                if [[ "$language" == "auto" ]]; then
+                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                    err=$?
+                else
+                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                    err=$?
+                fi
             else
-                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_format srt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
-                err=$?
+                if [[ "$language" == "auto" ]]; then
+                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                      err=$?
+                else
+                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err
+                      err=$?
+                fi
             fi
+            mv /tmp/whisper-live_${mypid}.srt /tmp/whisper-live_${mypid}.wav.srt
         fi
+
         url_no_ext="${url%.*}"
         if [[ $trans == "trans" ]] && [ $err -eq 0 ]; then
             trans -b :${trans_language} -i /tmp/whisper-live_${mypid}.wav.srt -o /tmp/whisper-live_${mypid}.wav.${trans_language}.srt
@@ -565,6 +577,10 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
                 read -p "Enter a new name with full path for the destination file [${destination}]: " new_destination
                 mv -i /tmp/whisper-live_${mypid}.wav.srt "$new_destination"
                 err=$?
+                if [ $err -ne 0 ]; then
+                    echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${mypid}.wav.srt"
+                    err=1
+                fi
             else
                 echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${mypid}.wav.srt"
                 err=1
@@ -685,13 +701,14 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
     # Check if the file exists after the loop
     if [ -f "$file_path" ]; then
         # launch player
+        sleep 10
         ln -f -s /tmp/whisper-live_${mypid}_buf000.avi /tmp/whisper-live_${mypid}_0.avi # symlink first buffer at start
     else
         printf "Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
 
-    if [ "$playeronly" == "" ]; then
+    if [[ "$playeronly" == "" ]]; then
         printf "Buffering audio. Please wait...\n\n"
     fi
 
@@ -783,7 +800,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
             POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
 
-      if [[ "$POSITION" =~ ^[0-9]+$ ]] && [ "$playeronly" == "" ]; then
+      if [[ "$POSITION" =~ ^[0-9]+$ ]] && [[ "$playeronly" == "" ]]; then
 
           if [ $POSITION -ge 2 ]; then
 
@@ -860,11 +877,21 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                       fi
                   elif [[ "$whisper_executable" == "whisper" ]]; then
                       if [[ "$translate" == "translate" ]]; then
-                          whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
-                          err=$?
+                          if [[ "$language" == "auto" ]]; then
+                              whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                              err=$?
+                          else
+                              whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                              err=$?
+                          fi
                       else
-                          whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
-                          err=$?
+                          if [[ "$language" == "auto" ]]; then
+                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                err=$?
+                          else
+                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                err=$?
+                          fi
                       fi
                       sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${mypid}.txt > /tmp/output-whisper-live_${mypid}.txt
                   fi
@@ -944,7 +971,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
 elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video file with vlc
 
-    if [ "$playeronly" == "" ]; then
+    if [[ "$playeronly" == "" ]]; then
         arg="#EXTM3U\n${url}"
         echo -e $arg > /tmp/playlist_whisper-live_${mypid}.m3u
 
@@ -1062,11 +1089,21 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
                             fi
                         elif [[ "$whisper_executable" == "whisper" ]]; then
                             if [[ "$translate" == "translate" ]]; then
-                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
-                                err=$?
+                                if [[ "$language" == "auto" ]]; then
+                                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                    err=$?
+                                else
+                                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                    err=$?
+                                fi
                             else
-                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
-                                err=$?
+                                if [[ "$language" == "auto" ]]; then
+                                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                      err=$?
+                                else
+                                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                                      err=$?
+                                fi
                             fi
                             sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${mypid}.txt > /tmp/output-whisper-live_${mypid}.txt
                         fi
@@ -1145,14 +1182,14 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
     fi
 
-elif [ "$playeronly" == "" ]; then # No timeshift
+elif [[ "$playeronly" == "" ]]; then # No timeshift
 
-    if [ $url == "pulse" ]; then
+    if [[ $url == "pulse" ]]; then
           ffmpeg -loglevel quiet -y -f pulse -i "$audio_index" /tmp/whisper-live_${mypid}.${fmt} &
           ffmpeg_pid=$!
           $mpv_options /tmp/whisper-live_${mypid}.${fmt} &>/dev/null &
 
-    elif [ $url == "avfoundation" ]; then
+    elif [[ $url == "avfoundation" ]]; then
           ffmpeg -loglevel quiet -y -f avfoundation -i :"${audio_index}" /tmp/whisper-live_${mypid}.${fmt} &
           ffmpeg_pid=$!
           $mpv_options /tmp/whisper-live_${mypid}.${fmt} &>/dev/null &
@@ -1423,11 +1460,21 @@ elif [ "$playeronly" == "" ]; then # No timeshift
             fi
         elif [[ "$whisper_executable" == "whisper" ]]; then
             if [[ "$translate" == "translate" ]]; then
-                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
-                err=$?
+                if [[ "$language" == "auto" ]]; then
+                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                    err=$?
+                else
+                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                    err=$?
+                fi
             else
-                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
-                err=$?
+              if [[ "$language" == "auto" ]]; then
+                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                    err=$?
+              else
+                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${language} --threads 4 --model ${model} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${mypid}.wav 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${mypid}.txt >/dev/null
+                    err=$?
+              fi
             fi
             sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${mypid}.txt > /tmp/output-whisper-live_${mypid}.txt
         fi
