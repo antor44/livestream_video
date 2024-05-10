@@ -567,7 +567,7 @@ A: The audio file types supported by playlist4whisper are all those supported by
 
 **Q: Sometimes when I generate a subtitle, the text is ruined and gets stuck with a repeated phrase.**
 
-A: This is one of the well-known limitations of the current version of OpenAI's Whisper AI, which occurs even with the larger models. You could try again with another model size or try cutting the audio/video file into various chunks.
+A: This is one of the well-known limitations of the current version of OpenAI's Whisper AI, known as hallucinations. This issue persists even with larger models and is even more problematic in the latest and more accurate larger-v3 model. You could try using a different model or attempt to divide the audio/video file into various chunks. The optional OpenAI Whisper executable could help reduce hallucinations when generating subtitles. However, there are many parameters shared by users, and no one has found the magic formula yet.
 
 **Q: The transcriptions I get are not accurate?**
 
