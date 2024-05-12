@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.52 License: GPL 3.0
+Author: Antonio R. Version: 2.54 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -53,7 +53,7 @@ For macOS and linux with brew repository:
 
  brew install whisper-cpp
 
-or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions): 
+or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions):
 
  pip3 install openai-whisper
 
@@ -308,9 +308,6 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
 
 # Array of executable names in priority order
 executables = ["./main", "whisper-cpp", "pwcpp", "whisper"]
-
-# Function to find and select executable
-import shutil
 
 # Function to find and select executable
 def find_and_select_executable():
@@ -1945,7 +1942,7 @@ class M3uPlaylistPlayer(tk.Frame):
         if platform.system() == "Linux":
             message = "Please select a sound device. Devices suffixed with 'monitor' are loopback devices that allow you to record all sounds 'what you hear' on your desktop. These devices, along with applications, can be configured individually using PulseAudio Volume Control."
         elif platform.system() == "Darwin":
-            message = "Please select a sound device. Loopback devices allow you to record all sounds 'what you hear' on your desktop. First, create a virtual device using an Audio Loopback Driver like Blackhole or Loopback."
+            message = "Please select a sound device. Loopback devices allow you to record all sounds 'what you hear' on your desktop. First, create a virtual device using an Audio Loopback Driver like Blackhole, VB-Cable or Loopback."
         else:
             message = "Select one sound device."
 
@@ -2390,7 +2387,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.52\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.54\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
