@@ -318,8 +318,8 @@ The text-to-speech feature and translation to languages other than English are p
  
 [yt-dlp] forces the url to be processed by yt-dlp.
 
-quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without any modifications for the player.
- "Upper" and "lower" download only one stream and re-encoded for the player, which might correspond to the best or worst stream quality, it is intended to save downloaded data, although not all streams support it.
+quality: Video quality options are "raw," "upper," and "lower", quality also affects when timeshift is active for IPTV. "Raw" is used to download another video stream without any modifications for the player.
+"Upper" and "lower" download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality. This is intended to save downloaded data, although not all streams support it.
 
 [player executable + player options], valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
 
