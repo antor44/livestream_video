@@ -273,6 +273,8 @@ Example:
 python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
 ```
 This command will create three tabs with the names "Tab1", "Tab2", "Tab3", and the colors red, green, and orange ("#ff7e00"), respectively.
+
+You can also run different "playlist4whisper" copies in separate directories, each with its own playlist and configuration files.
 #
 *Check out the section on livestream_video.sh for help with the available options.
 
