@@ -269,9 +269,9 @@ Playlist4Whisper accepts optional command-line arguments to add any number of ta
  If a color is specified in hexadecimal RGB format, enclose it in double quotes.
  
 Example:
-
+```
 python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
-
+```
 This command will create three tabs with the names "Tab1", "Tab2", "Tab3", and the colors red, green, and orange ("#ff7e00"), respectively.
 #
 *Check out the section on livestream_video.sh for help with the available options.
