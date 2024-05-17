@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.54 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.56 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -180,12 +180,12 @@ check_requirements()
             break
         fi
     done
-
+    echo
     if [[ -z "$whisper_executable" ]]; then
         echo "Whisper executable is required."
         exit 1
     else
-        echo "Found whisper executable: ${whisper_executable}"
+        echo -n "Found whisper executable: ${whisper_executable} - "
         current_dir=$(pwd)
         models_dir="$current_dir/models"
         if [ ! -d "$models_dir" ]; then
@@ -437,7 +437,6 @@ if [ -n "$mypid" ]; then
       echo ""
       exit 1
     else
-      echo ""
       if [[ "$timeshift" = "timeshift" ]] || ( [ $local -eq 0 ] && [[ "$playeronly" == "" ]] && ([[ $quality == "upper" ]] || [[ $quality == "lower" ]])); then
           myport=$(get_unique_port "$mypid")
           echo "New script PID: $mypid - Loopback port: $myport"
@@ -465,11 +464,12 @@ if [[ "$audio_source" == "pulse:"* ]] || [[ "$audio_source" == "avfoundation:"* 
     fi
     echo " * Audio source: $audio_source"
 else
+    echo -n "[+] Quality: $quality - "
     if [ -z "$url" ]; then
         url="$url_default"
-        echo " * No url specified, using default: $url"
+        echo "No url specified, using default: $url"
     else
-        echo " * url specified by user: $url"
+        echo "url specified by user: $url"
     fi
 fi
 echo ""
@@ -655,8 +655,13 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
                 ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $url) -bufsize 44M -acodec ${fmt} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
                 ffmpeg_pid=$!
             else
-                ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:9? -map 0:a:8? -map 0:a:7? -map 0:a:6? -map 0:a:5? -map 0:a:4? -map 0:a:3? -map 0:a:2? -map 0:a:1? -map 0:a:0? -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
-                ffmpeg_pid=$!
+                if [[ $quality == "lower" ]]; then
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0? -map 0:a:1? -map 0:a:2? -map 0:a:3? -map 0:a:4? -map 0:a:5? -map 0:a:6? -map 0:a:7? -map 0:a:8? -map 0:a:9? -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
+                    ffmpeg_pid=$!
+                else
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $url -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:9? -map 0:a:8? -map 0:a:7? -map 0:a:6? -map 0:a:5? -map 0:a:4? -map 0:a:3? -map 0:a:2? -map 0:a:1? -map 0:a:0? -acodec ${fmt} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $segment_time -reset_timestamps 1 /tmp/whisper-live_${mypid}_buf%03d.avi &
+                    ffmpeg_pid=$!
+                fi
             fi
             ;;
     esac
