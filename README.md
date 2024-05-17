@@ -3,7 +3,7 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 2.54 License: GPL 3.0
+Author: Antonio R. Version: 2.58 License: GPL 3.0
 
 #
 # Quick start
@@ -260,7 +260,20 @@ Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py
 ```
 python3 playlist4whisper.py
 ```
+Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application.
+ The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase.
 
+--tabs: Accepts a list of tab names. If a tab name contains spaces, enclose it in double quotes.
+
+--colors: Accepts a list of tab colors. Colors can be specified as color names (e.g., "red") or hexadecimal RGB values (e.g., "#ff0000").
+ If a color is specified in hexadecimal RGB format, enclose it in double quotes.
+ 
+Example:
+
+python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
+
+This command will create three tabs with the names "Tab1", "Tab2", "Tab3", and the colors red, green, and orange ("#ff7e00"), respectively.
+#
 *Check out the section on livestream_video.sh for help with the available options.
 
 Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
