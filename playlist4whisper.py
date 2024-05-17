@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.54 License: GPL 3.0
+Author: Antonio R. Version: 2.58 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -30,7 +30,22 @@ https://github.com/antor44/livestream_video
 
 
 Usage:
-python playlist4whisper.py
+python3 playlist4whisper.py
+
+
+Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application.
+ The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase.
+
+--tabs: Accepts a list of tab names. Use lowercase letters for tab names. If a tab name contains spaces, enclose it in double quotes.
+--colors: Accepts a list of tab colors. Colors can be specified as color names (e.g., "red") or hexadecimal RGB values (e.g., "#ff0000").
+ If a color is specified in hexadecimal RGB format, enclose it in double quotes.
+
+Example:
+
+python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
+
+This command will create three tabs with the names "Tab1", "Tab2", "Tab3", and the colors red, green, and orange ("#ff7e00"), respectively.
+
 
 Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
 
@@ -97,9 +112,11 @@ Example:
  [streamlink] option forces the url to be processed by streamlink
  [yt-dlp] option forces the url to be processed by yt-dlp
 
-Quality: The valid options are "raw," "upper," and "lower". "Raw" is used to download another video stream without
- any modifications for the player. "Upper" and "lower" download only one stream, which might correspond to the best
- or worst stream quality, re-encoded for the player.
+Quality: Video quality options are "raw," "upper," and "lower", quality also affects when timeshift is active for IPTV.
+ "Raw" is used to download another video stream without any modifications for the player. "Upper" and "lower" download
+  only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality. This is
+  intended to save downloaded data, although not all streams support it.
+
 
 "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[none]" for no player.
 
@@ -162,12 +179,13 @@ import platform
 import shutil
 import glob
 import time
+import argparse
 import queue
 import threading
 import subprocess
 import tempfile
 import tkinter as tk
-from tkinter import ttk, filedialog, simpledialog, messagebox, PhotoImage, scrolledtext
+from tkinter import ttk, filedialog, messagebox, PhotoImage, scrolledtext
 
 
 previous_error_messages = set()
@@ -194,7 +212,7 @@ def show_error_messages(error_messages):
         for error_type, error_text in unique_error_messages:
             err_message = f"{error_type}: {error_text}"
             print(err_message)
-            simpledialog.messagebox.showinfo("Warning", err_message)
+            messagebox.showinfo("Warning", err_message)
 
         previous_error_messages.clear()
         consecutive_same_messages = 0
@@ -209,12 +227,12 @@ def wait_and_check_process(process, log_file, url, mpv_options):
             process.kill()
             error_message = f"Error occurred while playing: {url}"
             print(error_message)
-            simpledialog.messagebox.showerror("Error", error_message)
+            messagebox.showerror("Error", error_message)
         elif error_pattern.search(log_content):
             process.kill()
             error_message = f"Error in mpv options: {mpv_options}"
             print(error_message)
-            simpledialog.messagebox.showerror("Error", error_message)
+            messagebox.showerror("Error", error_message)
 
 
 def check_terminal_installed(terminal):
@@ -441,29 +459,46 @@ class CustomFileDialog(tk.Toplevel):
                 pass
 
 
-class EnhancedStringDialog(simpledialog.Dialog):
+class EnhancedStringDialog(tk.Toplevel):
     def __init__(self, master, title, prompt_string, initial_value="", width=rPadChars):
-        self.prompt_string =  prompt_string + (" " * 2 * rPadChars)
+        super().__init__(master)
+        self.prompt_string = prompt_string + (" " * 2 * width)
         self.initial_value = initial_value
         self.width = width
-        super().__init__(master, title=title)
+        self.result = None
+        self.transient(master)
+        self.title(title)
+        self.grab_set()
+
+        self.body(self)
+        self.buttonbox()
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+        self.wait_window(self)
 
     def body(self, master):
         self.entry_label = tk.Label(master, text=self.prompt_string, padx=5)
-        self.entry_label.pack()
+        self.entry_label.pack(padx=5, pady=5)
         self.entry = tk.Entry(master, width=self.width)
-        self.entry.pack()
+        self.entry.pack(padx=5, pady=5)
         self.entry.insert(0, self.initial_value)
         self.entry.focus_set()
         self.entry.bind("<Button-3>", self.show_popup_menu)
 
     def buttonbox(self):
         box = tk.Frame(self)
-        w = tk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
-        w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.Button(box, text="Cancel", width=10, command=self.cancel)
-        w.pack(side=tk.LEFT, padx=5, pady=5)
+        ok_button = tk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        ok_button.pack(side=tk.LEFT, padx=5, pady=5)
+        cancel_button = tk.Button(box, text="Cancel", width=10, command=self.cancel)
+        cancel_button.pack(side=tk.LEFT, padx=5, pady=5)
         box.pack()
+
+    def ok(self, event=None):
+        self.apply()
+        self.cancel()
+
+    def cancel(self, event=None):
+        self.master.focus_set()
+        self.destroy()
 
     def apply(self):
         self.result = self.entry.get()
@@ -493,8 +528,6 @@ class EnhancedStringDialog(simpledialog.Dialog):
         clipboard_text = self.master.clipboard_get()
         if clipboard_text is not None:
             self.entry.insert(tk.INSERT, clipboard_text)
-        else:
-            pass
 
     def delete(self):
         if self.entry.selection_present():
@@ -504,8 +537,7 @@ class EnhancedStringDialog(simpledialog.Dialog):
         if text is not None:
             self.master.clipboard_clear()
             self.master.clipboard_append(text)
-        else:
-            pass
+
 
 class M3uPlaylistPlayer(tk.Frame):
     def __init__(self, parent, spec, bash_script, error_messages):
@@ -1522,7 +1554,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     else:
                         err_message= f"Warning: Video player {player_option} was not found. Please install it."
                         print(err_message)
-                        simpledialog.messagebox.showerror("Timeshift Player Not Installed", err_message)
+                        messagebox.showerror("Timeshift Player Not Installed", err_message)
 
                 # Try launching smplayer, mpv, or mplayer
                 elif self.playeronly.get() or quality == "raw":
@@ -1541,16 +1573,16 @@ class M3uPlaylistPlayer(tk.Frame):
                                 mpv_options = ""
                                 err_message = "None video player selected."
                                 print(err_message)
-                                simpledialog.messagebox.showerror("Error", err_message)
+                                messagebox.showerror("Error", err_message)
                         else:
                             mpv_options = ""
                             err_message = f"No {videoplayer} video player found."
                             print(err_message)
-                            simpledialog.messagebox.showerror("Error", err_message)
+                            messagebox.showerror("Error", err_message)
                     except Exception as e:
                         error_message = f"Error occurred while launching {videoplayer}: {str(e)}"
                         print(error_message)
-                        simpledialog.messagebox.showerror("Error", error_message)
+                        messagebox.showerror("Error", error_message)
 
             if quality == "raw":
                 videoplayer = "none"
@@ -1603,7 +1635,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     mpv_options = ""
                     err_message = f"No {videoplayer} video player found."
                     print(err_message)
-                    simpledialog.messagebox.showerror("Error", err_message)
+                    messagebox.showerror("Error", err_message)
 
                 if os.path.exists(self.bash_script):
                     try:
@@ -1637,14 +1669,14 @@ class M3uPlaylistPlayer(tk.Frame):
                         else:
                             err_message= "No compatible terminal found."
                             print(err_message)
-                            simpledialog.messagebox.showerror("Error", err_message)
+                            messagebox.showerror("Error", err_message)
                     except OSError as e:
                         print("Error executing command:", e)
-                        simpledialog.messagebox.showerror("Error", "Error executing command.")
+                        messagebox.showerror("Error", "Error executing command.")
                 else:
                     err_message="Script does not exist."
                     print(err_message)
-                    simpledialog.messagebox.showerror("Error", err_message)
+                    messagebox.showerror("Error", err_message)
 
 
     # Function to Save texts
@@ -1756,13 +1788,13 @@ class M3uPlaylistPlayer(tk.Frame):
                     deleted_files += 1
 
             if deleted_files == 0:
-                simpledialog.messagebox.showinfo("Info", "There are no files to delete, or wait at least 1 minute.")
+                messagebox.showinfo("Info", "There are no files to delete, or wait at least 1 minute.")
             else:
-                simpledialog.messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
+                messagebox.showinfo("Success", "Successfully deleted all /tmp videos and related files, except those in use.")
         except Exception as e:
             error_message = f"Unable to delete /tmp videos: {str(e)}"
             print(error_message)
-            simpledialog.messagebox.showerror("Error", error_message)
+            messagebox.showerror("Error", error_message)
 
 
     # Popup menu cut, copy, paste, delete
@@ -1831,9 +1863,9 @@ class M3uPlaylistPlayer(tk.Frame):
             self.tree.insert("", index, values=(index, name, url))
             self.update_list_numbers()
 
-            simpledialog.messagebox.showinfo("Success", "Channel added successfully. Don't forget to save the playlist.")
+            messagebox.showinfo("Success", "Channel added successfully. Don't forget to save the playlist.")
         else:
-            simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
+            messagebox.showerror("Error", "Both name and URL are required.")
 
     # Function to add a file channel
     def add_file_channel(self):
@@ -1863,9 +1895,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.tree.insert("", index, values=(index, name, file_path))
                 self.update_list_numbers()
 
-            simpledialog.messagebox.showinfo("Success", "File(s) added successfully. Don't forget to save the playlist.")
+            messagebox.showinfo("Success", "File(s) added successfully. Don't forget to save the playlist.")
         else:
-            simpledialog.messagebox.showerror("Error", "No file selected.")
+            messagebox.showerror("Error", "No file selected.")
 
 
     def get_input_sources(self):
@@ -2086,14 +2118,14 @@ class M3uPlaylistPlayer(tk.Frame):
                     # Add audio source to the list
                     self.tree.insert("", index, values=(index, name, audio_path))
                     self.update_list_numbers()
-                    simpledialog.messagebox.showinfo("Success", "Audio source added successfully. Don't forget to save the playlist.")
+                    messagebox.showinfo("Success", "Audio source added successfully. Don't forget to save the playlist.")
                     print(f"Selected sound card: {name}")
 
             else:
-                simpledialog.messagebox.showerror("Error", "No audio source selected.")
+                messagebox.showerror("Error", "No audio source selected.")
 
         else:
-            simpledialog.messagebox.showerror("Error", "No audio source selected.")
+            messagebox.showerror("Error", "No audio source selected.")
 
 
     # Function to generate subtitles
@@ -2108,11 +2140,11 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.subtitles=""
                 err_message = f"Please wait while generating subtitles for {url}"
                 print(err_message)
-                simpledialog.messagebox.showinfo("Generating Subtitles", err_message)
+                messagebox.showinfo("Generating Subtitles", err_message)
             else:
-                simpledialog.messagebox.showerror("Error", "Select a valid local file to generate subtitles.")
+                messagebox.showerror("Error", "Select a valid local file to generate subtitles.")
         else:
-            simpledialog.messagebox.showerror("Error", "Select a file to generate subtitles.")
+            messagebox.showerror("Error", "Select a file to generate subtitles.")
 
 
     # Function to delete a channel
@@ -2138,7 +2170,7 @@ class M3uPlaylistPlayer(tk.Frame):
             err_message=("Success", "Channel(s) deleted successfully. Don't forget to save the playlist.")
             self.error_messages.put(err_message)
         else:
-            simpledialog.messagebox.showerror("Error", "Select a channel to delete.")
+            messagebox.showerror("Error", "Select a channel to delete.")
 
     # Function to edit a channel
     def edit_channel(self):
@@ -2155,12 +2187,12 @@ class M3uPlaylistPlayer(tk.Frame):
             if name and url:
                 self.tree.item(item, values=(list_number, name, url))
 
-                simpledialog.messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
+                messagebox.showinfo("Success", "Channel edited successfully. Don't forget to save the playlist.")
             else:
                 # Show an error message if either name or URL is not provided
-                simpledialog.messagebox.showerror("Error", "Both name and URL are required.")
+                messagebox.showerror("Error", "Both name and URL are required.")
         else:
-            simpledialog.messagebox.showerror("Error", "Select a channel to edit.")
+            messagebox.showerror("Error", "Select a channel to edit.")
 
     # Function to move up channel
     def move_up_channel(self):
@@ -2174,9 +2206,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 err_message=("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
                 self.error_messages.put(err_message)
             else:
-                simpledialog.messagebox.showinfo("Info", "The selected channel is already at the top.")
+                messagebox.showinfo("Info", "The selected channel is already at the top.")
         else:
-            simpledialog.messagebox.showerror("Error", "Select a channel to move.")
+            messagebox.showerror("Error", "Select a channel to move.")
 
     # Function to move down channel
     def move_down_channel(self):
@@ -2192,9 +2224,9 @@ class M3uPlaylistPlayer(tk.Frame):
                 err_message=("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
                 self.error_messages.put(err_message)
             else:
-                simpledialog.messagebox.showinfo("Info", "The selected channel is already at the bottom.")
+                messagebox.showinfo("Info", "The selected channel is already at the bottom.")
         else:
-            simpledialog.messagebox.showerror("Error", "Select a channel to move.")
+            messagebox.showerror("Error", "Select a channel to move.")
 
 
     # Function to iterate over all items and update their list_number
@@ -2222,7 +2254,8 @@ class M3uPlaylistPlayer(tk.Frame):
 
     # Function to save a playlist
     def save_playlist(self):
-        filename = filedialog.asksaveasfilename(filetypes=[("Playlist Files", "*.m3u")])
+        default_filename = f'playlist_{self.spec}.m3u'
+        filename = filedialog.asksaveasfilename(filetypes=[("Playlist Files", "*.m3u")], initialfile=default_filename)
         if filename:
             with open(filename, "w") as file:
                 for item in self.tree.get_children():
@@ -2308,7 +2341,7 @@ class M3uPlaylistPlayer(tk.Frame):
             if sync_value > step_s_value - 3:
                 self.sync.set(step_s_value - 3)
         else:
-            simpledialog.messagebox.showerror("Invalid Integer", f"The value is not a valid integer.")
+            messagebox.showerror("Invalid Integer", f"The value is not a valid integer.")
 
         timeshift_options = self.sync.get() + " " + self.segments.get() + " " + self.segment_time.get()
 
@@ -2386,8 +2419,8 @@ class M3uPlaylistPlayer(tk.Frame):
     # Function About
     @staticmethod
     def show_about_window():
-        simpledialog.messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.54\n\nCopyright (C) 2023 Antonio R.\n\n"
+        messagebox.showinfo("About",
+                                         "playlist4whisper Version: 2.58\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -2399,7 +2432,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
 class MainApplication:
-    def __init__(self):
+    def __init__(self, tab_names, tab_colors):
         self.error_messages = queue.Queue()
 
         self.main_window = tk.Tk()
@@ -2436,60 +2469,26 @@ class MainApplication:
 
         tab_control = ttk.Notebook(self.main_window)
 
-        tab1 = ttk.Frame(tab_control)
-        tab2 = ttk.Frame(tab_control)
-        tab3 = ttk.Frame(tab_control)
-        tab4 = ttk.Frame(tab_control)
-        tab5 = ttk.Frame(tab_control)
+        tabs = []
+        canvases = []
+        for name, color in zip(tab_names, tab_colors):
+            tab = ttk.Frame(tab_control)
+            tab_control.add(tab, text=name, compound="left")
+            tabs.append(tab)
 
-        tab_control.add(tab1, text="IPTV", compound="left")
-        tab_control.add(tab2, text="YouTube", compound="left")
-        tab_control.add(tab3, text="Twitch", compound="left")
-        tab_control.add(tab4, text="streamlink", compound="left")
-        tab_control.add(tab5, text="yt-dlp", compound="left")
-
-        canvas1 = tk.Canvas(tab1, width=25, height=80, bg='black', highlightthickness=0)
-        canvas1.pack(side=tk.LEFT, fill=tk.Y)
-        canvas1.create_text(15, 40, text='IPTV', angle=90, fill='white', anchor='center')
-
-        canvas2 = tk.Canvas(tab2, width=25, height=80, bg='#ff0000', highlightthickness=0)
-        canvas2.pack(side=tk.LEFT, fill=tk.Y)
-        canvas2.create_text(15, 40, text='YouTube', angle=90, fill='white', anchor='center')
-
-        canvas3 = tk.Canvas(tab3, width=25, height=80, bg='#9146ff', highlightthickness=0)
-        canvas3.pack(side=tk.LEFT, fill=tk.Y)
-        canvas3.create_text(15, 40, text='Twitch', angle=90, fill='white', anchor='center')
-
-        canvas4 = tk.Canvas(tab4, width=25, height=80, bg='#2c7ef2', highlightthickness=0)
-        canvas4.pack(side=tk.LEFT, fill=tk.Y)
-        canvas4.create_text(15, 40, text='streamlink', angle=90, fill='white', anchor='center')
-
-        canvas5 = tk.Canvas(tab5, width=25, height=80, bg='#ff7e00', highlightthickness=0)
-        canvas5.pack(side=tk.LEFT, fill=tk.Y)
-        canvas5.create_text(15, 40, text='yt-dlp', angle=90, fill='white', anchor='center')
-
-        spec1 = "iptv"
-        spec2 = "youtube"
-        spec3 = "twitch"
-        spec4 = "streamlink"
-        spec5 = "yt-dlp"
+            canvas = tk.Canvas(tab, width=25, height=80, bg=color, highlightthickness=0)
+            canvas.pack(side=tk.LEFT, fill=tk.Y)
+            canvas.create_text(15, 40, text=name, angle=90, fill='white', anchor='center')
+            canvases.append(canvas)
 
         tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
-        playlist_player1 = M3uPlaylistPlayer(tab1, spec1, bash_script, self.error_messages)
-        playlist_player1.pack(fill=tk.BOTH, expand=True)
-
-        playlist_player2 = M3uPlaylistPlayer(tab2, spec2, bash_script, self.error_messages)
-        playlist_player2.pack(fill=tk.BOTH, expand=True)
-
-        playlist_player3 = M3uPlaylistPlayer(tab3, spec3, bash_script, self.error_messages)
-        playlist_player3.pack(fill=tk.BOTH, expand=True)
-
-        playlist_player4 = M3uPlaylistPlayer(tab4, spec4, bash_script, self.error_messages)
-        playlist_player4.pack(fill=tk.BOTH, expand=True)
-
-        playlist_player5 = M3uPlaylistPlayer(tab5, spec5, bash_script, self.error_messages)
-        playlist_player5.pack(fill=tk.BOTH, expand=True)
+        playlist_players = []
+        for tab, spec in zip(tabs, tab_names):
+            spec_lower = spec.lower().replace(" ", "_")
+            playlist_player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages)
+            playlist_player.pack(fill=tk.BOTH, expand=True)
+            playlist_players.append(playlist_player)
 
         self.main_window.protocol("WM_DELETE_WINDOW", self.on_close)
         check_error_thread = threading.Thread(target=self.check_error_messages)
@@ -2512,5 +2511,13 @@ class MainApplication:
 
 
 if __name__ == "__main__":
-    app = MainApplication()
+    parser = argparse.ArgumentParser(description="M3U Playlist Player")
+    parser.add_argument('--tabs', nargs='+', default=["IPTV", "YouTube", "Twitch", "streamlink", "yt-dlp"],
+                        help='List of tab names')
+    parser.add_argument('--colors', nargs='+', default=["black", "#ff0000", "#9146ff", "#2c7ef2", "#ff7e00"],
+                        help='List of tab colors')
+
+    args = parser.parse_args()
+
+    app = MainApplication(args.tabs, args.colors)
     app.main_window.mainloop()
