@@ -1,0 +1,115 @@
+.header {
+  display: flex;
+  align-items: center;
+  padding-bottom: 15px;
+  padding-left: 20px;
+  border-bottom: 2px solid darkgreen;
+}
+
+.header-title {
+  padding: 0 5px;
+}
+
+h1 {
+  font-size: 22px;
+}
+
+img {
+  height: 48px;
+  margin: 0 10px 0 0;
+}
+
+h2 {
+  font-size: 20px;
+}
+
+label {
+  font-size: 16px;
+}
+
+.inner {
+  margin-left: 40px;
+}
+
+.options-list {
+  padding: 0;
+  list-style: none;
+}
+
+.options-list li {
+  padding: 10px;
+}
+
+.time {
+  font-size: 16px;
+}
+
+.limit {
+  display: inline-block;
+  margin: 0;
+  font-size: 12px;
+}
+
+.radioChoice {
+  margin-left: 15px;
+}
+
+.button-container {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+}
+
+.button {
+  color: white;
+  background-color: darkgreen;
+  padding: 10px;
+  border: 2px solid darkgreen;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+  width: 115px;
+  border-radius: 5px;
+}
+
+.disabled {
+  color: darkgreen;
+  background-color: white;
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.button:hover:not(:disabled) {
+  color: white;
+  background-color: green;
+}
+
+#save {
+  font-size: 16px;
+  margin-left: 50px;
+}
+
+#status {
+  color: green;
+  margin-top: 8px;
+  margin-left: 50px;
+  font-size: 14px;
+}
+
+#qualityLi {
+  display: none;
+}
+
+#maxTime {
+  width: 30px;
+  text-align: center;
+}
+
+.checkbox-container {
+  padding: 10px;
+}
+
+.dropdown-container {
+  padding: 10px;
+}

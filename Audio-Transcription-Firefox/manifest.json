@@ -1,0 +1,34 @@
+{
+    "manifest_version": 2,
+    "name": "Audio Transcription",
+    "version": "1.0.2",
+    "description": "Antonio Ruiz's version of this extension that captures the audio on the current tab, sends it to a server for transcription and shows the transcription in Real-time.",
+    "permissions": [
+      "storage",
+      "activeTab",
+      "<all_urls>"
+    ],
+    "background": {
+      "scripts": ["background.js"],
+      "persistent": false
+    },
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "addon@example.com",
+        "strict_min_version": "42.0"
+      }
+    },
+    "browser_action": {
+      "default_popup": "popup.html",
+      "default_icon": "icon128.png"
+    },
+    "icons": {
+        "128":"icon128.png"
+        },
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"]
+      }
+    ]
+  }
