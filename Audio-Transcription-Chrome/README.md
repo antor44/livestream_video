@@ -4,7 +4,7 @@ Audio Transcription is a Chrome extension that allows users to capture any audio
 
 We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
 
-## Loading the Extension
+## Loading and running the extension
 - Install WhisperLive:
 ```
 pip3 install whisper-live
@@ -20,6 +20,7 @@ pip3 install whisper-live
 - Click the Load unpacked button.
 - Browse to the location where you cloned the repository files and select the ```Audio Transcription``` folder.
 - The extension should now be loaded and visible on the extensions page.
+- Play any audio or video on a webpage, then click the ```Start Capture``` button on the extension.
 
 
 ## Real time transcription with OpenAI-whisper
