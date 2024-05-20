@@ -5,6 +5,14 @@ Audio Transcription is a Firefox extension that allows users to capture any audi
 We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
 
 ## Loading the Extension
+- Install WhisperLive:
+```
+pip3 install whisper-live
+```
+- Run a local WhisperLive server:
+```
+./WhisperLive_server.sh
+```
 - Open the Mozilla Firefox browser.
 - Type ```about:debugging#/runtime/this-firefox``` in the address bar and press Enter.
 - Clone this repository
@@ -28,11 +36,13 @@ When using the Audio Transcription extension, you have the following options:
   - **Model Size**: Select the whisper model size to run the server with.
 
 ### Getting Started
-- Make sure the transcription server is running properly. To know more about how to start the server, see the [documentation here](https://github.com/collabora/whisper-live).
+- Make sure the transcription server is running properly.
 - Just click on the Firefox Extension which should show 2 options
   - **Start Capture** : Starts capturing the audio in the current tab and sends the captured audio to the server for transcription. This also creates an element to show the transcriptions recieved from the server on the current tab.
   - **Stop Capture** - Stops capturing the audio.
 
 
 ## Note
+This Firefox extension isn't signed, so you have to reinstall it every time you open your Firefox browser. This problem doesn't exist in the Chrome version.
+
 The extension relies on a properly running transcription server with multilingual support. Please follow the server documentation for setup and configuration.
