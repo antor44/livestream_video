@@ -106,7 +106,7 @@ You can run playlist4whisper.py on macOS by following these steps:
 
 ```
 brew install python3
-brew install python-tk@3.11
+brew install python-tk
 brew install make
 brew install xquartz
 brew install xterm
