@@ -46,4 +46,4 @@ When using the Audio Transcription extension, you have the following options:
 
 
 ## Note
-The extension relies on a properly running transcription server with multilingual support. Please follow the server documentation for setup and configuration.
+The extension relies on a properly running transcription server.
