@@ -105,14 +105,35 @@ You can run playlist4whisper.py on macOS by following these steps:
 2. Once Homebrew is installed, open a terminal and install the required dependencies. Run the following commands:
 
 ```
+brew install make
 brew install python3
 brew install python-tk
-brew install make
+brew install ffmpeg
 brew install xquartz
 brew install xterm
 brew install vlc
 brew install mpv
+brew install smplayer
 brew install translate-shell
+```
+Depending on how Python was installed or updated, you might have to tweak your system settings to start using a Python environment and to detect the new Python version.
+
+Due to misconfigurations, outdated libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter some issues.
+
+You could also install FFmpeg (you can find it separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources. If the executables are packed as .app files, you'll need to copy the .app file to the Applications folder. Then, when linking the path to /usr/local/bin/[executable], make sure to use the executable name in lowercase.
+```
+ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
+```
+or
+```
+ln -s /Users/[user]/[directory]/[executable] /usr/local/bin/[executable]
+```
+If the app isn't signed, you'll need to grant it permission in your system.
+
+If you encounter a xterm error saying "Failed to open input method", it might be because the "/opt/X11/bin" directory isn't in the first position in your $PATH variable, or you could try:
+```
+rm /usr/local/bin/xterm
+ln -s /opt/X11/bin/xterm /usr/local/bin/xterm
 ```
 
 3. Next, install the necessary Python packages using pip3. Run the following commands:
