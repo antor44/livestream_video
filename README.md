@@ -120,7 +120,7 @@ Depending on how Python was installed or updated, you might have to tweak your s
 
 Due to misconfigurations, outdated libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter some issues.
 
-You could also install FFmpeg (you can find it separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources. If the executables are packed as .app files, you'll need to copy the .app file to the Applications folder. Then, when linking the path to /usr/local/bin/[executable], make sure to use the executable name in lowercase.
+You could also install FFmpeg (you can find it separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources. If you trust where it came from, just copy the executable packed as a .app file to the Applications folder and then link the path to /usr/local/bin/ [ executable ]. Make sure to use the executable name in lowercase for the /usr/local/bin/ part:
 ```
 ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
 ```
