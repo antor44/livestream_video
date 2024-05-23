@@ -116,7 +116,7 @@ brew install mpv
 brew install smplayer
 brew install translate-shell
 ```
-Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version.
+*The Python application is currently not functioning properly on recent versions of MacOS, please await the next update for playlist4whisper. Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version.
 
 Due to misconfigurations, outdated libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter some issues.
 
