@@ -1,12 +1,11 @@
 """
-
 play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams,
 transcribing the audio using AI technology. The application supports a fully configurable timeshift feature,
 multi-instance and multi-user execution, allows for changing options per channel and global options,
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.58 License: GPL 3.0
+Author: Antonio R. Version: 2.60 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -25,151 +24,7 @@ Copyright (c) 2023 Antonio R.
 
 https://github.com/antor44/livestream_video
 
-
----------------------------------
-
-
-Usage:
-python3 playlist4whisper.py
-
-
-Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application.
- The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase.
-
---tabs: Accepts a list of tab names. Use lowercase letters for tab names. If a tab name contains spaces, enclose it in double quotes.
---colors: Accepts a list of tab colors. Colors can be specified as color names (e.g., "red") or hexadecimal RGB values (e.g., "#ff0000").
- If a color is specified in hexadecimal RGB format, enclose it in double quotes.
-
-Example:
-
-python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
-
-This command will create three tabs with the names "Tab1", "Tab2", "Tab3", and the colors red, green, and orange ("#ff7e00"), respectively.
-
-
-Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
-
--Support for multi-instance and multi-user execution
--Support for IPTV, YouTube, Twitch, and many others
--Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
--Quantized models support
--Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
--Generates subtitles from audio/video files.
--Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
-
-
-playlist4whisper and livestream_video.sh is based on whisper.cpp, and also supports OpenAI's Whisper.
-
-To install whisper-cpp:
-
- pip3 install pywhispercpp
-
-For macOS and linux with brew repository:
-
- brew install whisper-cpp
-
-or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions):
-
- pip3 install openai-whisper
-
-For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
-
- To ensure proper functioning of this GUI, all whisper.cpp files (from the official releases),
- as well as the script livestream_video.sh, should be copied to the same location as playlist4whisper.py.
- The main executable of whisper.cpp, which is the primary example, should be in the same directory with
- the default executable name 'main'. Additionally, the Whisper model file from OpenAI should be placed
- in the "models" subdirectory with the correct format and name, as specified in the Whisper.cpp repository.
- This can be done using terminal commands such as the following examples:
-
- make tiny.en
-
- make small
-
-Additionally, the required model files can be downloaded using playlist4whisper if they have not yet been installed after selecting the model.
-
-Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
-
-OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper-cpp model.
-
-
-The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, and playlist_twitch.m3u,
-and will store options in config_xxx.json.
-
-playlist4whisper.py depends on (smplayer or mpv) video player and (gnome-terminal or konsole or
-xfce4-terminal).
-
-For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp)
-For Twitch streamlink is required (https://streamlink.github.io)
-
-Options for script:
-
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]] [pulse:index or avfoundation:index]
-
-Example:
-./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
-
- For the script: Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
- [streamlink] option forces the url to be processed by streamlink
- [yt-dlp] option forces the url to be processed by yt-dlp
-
-Quality: Video quality options are "raw," "upper," and "lower", quality also affects when timeshift is active for IPTV.
- "Raw" is used to download another video stream without any modifications for the player. "Upper" and "lower" download
-  only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality. This is
-  intended to save downloaded data, although not all streams support it.
-
-
-"[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... or "[none]" for no player.
-
-Step: Size of the parts into which videos are divided for inference, size in seconds.
-
-Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2. large-v3
-... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
-
-Whisper languages:
-
-auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian),
-bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish),
-de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian),
-fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian),
-he (Hebrew), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian),
-is (Icelandic), it (Italian), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer),
-kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian),
-lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay),
-mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya),
-pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian),
-si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese),
-sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar),
-ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa),
-yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
-
-translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
-
-subtitles: Generate Subtitles from an Audio/Video File, with support for language selection, translation feature of Whisper IA,
- and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the
- source audio/video file.
-
-[trans + options]: Online translation and Text-to-Speech with translate-shell.
-
-trans_language: Translation language for translate-shell (https://github.com/soimort/translate-shell)
-
-output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
-
-speak: Online Text-to-Speech using translate-shell.
-
-playeronly: Play the video stream without transcriptions.
-
-timeshift: Timeshift feature, only VLC player is supported.
-
-sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3))
-
-segments: Number of segment files for timeshift (2 =< n <= 99).
-
-segment_time: Time for each segment file(1 <= minutes <= 99).
-
-pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS.
-
-Script and Whisper executable (main), and models directory with at least one archive model, must reside in the same directory.
-
+--------------------------------------------------------------------------------
 """
 
 import json
@@ -193,6 +48,17 @@ consecutive_same_messages = 0
 
 # Function to display warning messages
 def show_error_messages(error_messages):
+    """
+    Displays warning messages if there are no changes in the 'error_messages' for 3 consecutive checks.
+
+    This function tracks the 'error_messages' and displays them using a message box if the same
+    'error_messages' are detected for 3 consecutive checks. It uses global variables to keep
+    track of previous 'error_messages' and the count of consecutive identical message sets.
+
+    Args:
+        error_messages: A list of tuples containing error types and error texts.
+    """
+
     global previous_error_messages, consecutive_same_messages
 
     # Check if there are new error messages
@@ -219,6 +85,21 @@ def show_error_messages(error_messages):
 
 
 def wait_and_check_process(process, log_file, url, mpv_options):
+    """
+    Waits for a brief period and then checks the log file for errors related to a process.
+
+    This function sleeps for 5 seconds, reads the specified log file, and searches for
+    error messages indicating issues either with loading the file or with the mpv options.
+    If errors are found, it terminates the process and displays an appropriate error message.
+
+    Args:
+        process: The subprocess to monitor.
+        log_file: A file object for the log file to be checked.
+        url: The URL of the file being processed.
+        mpv_options: The options used with mpv.
+
+    """
+
     time.sleep(5)
     with open(log_file.name, "r") as log:
         log_content = log.read()
@@ -387,11 +268,22 @@ else:
 
 
 class CustomFileDialog(tk.Toplevel):
-    def __init__(self, master=None):
+    """
+    A custom file selection dialog for Tkinter that allows users to select files from a list.
+
+    This dialog displays a list of files from a specified directory, allows users to preview
+    the contents of text files (.srt and specific .txt files), and provides buttons to save
+    the selected files or cancel the selection. The dialog is modal and resizable, with a
+    minimum size constraint.
+    """
+
+    def __init__(self, master):
         super().__init__(master)
         self.title("Select Files")
-        self.geometry("800x600")
-        self.minsize(400, 300)
+        self.minsize(800, 600) # Set minimum size constraint
+
+        # Center the dialog on the screen
+        self.center_window()
 
         self.selected_files = []
 
@@ -427,7 +319,6 @@ class CustomFileDialog(tk.Toplevel):
         self.cancel_button = tk.Button(self.button_frame, text="Cancel", command=self.destroy)
         self.cancel_button.pack(side=tk.RIGHT, padx=10)
 
-
         # Populate the file list
         self.populate_file_list()
 
@@ -458,31 +349,60 @@ class CustomFileDialog(tk.Toplevel):
             except (FileNotFoundError, PermissionError):
                 pass
 
+    def center_window(self):
+        self.update_idletasks()  # Update "requested size" from geometry manager
+
+        # Get the main window's size and position
+        master_width = self.master.winfo_width()
+        master_height = self.master.winfo_height()
+        master_x = self.master.winfo_x()
+        master_y = self.master.winfo_y()
+
+        # Get the dialog's size
+        dialog_width = self.winfo_width()
+        dialog_height = self.winfo_height()
+
+        # Calculate the position to center the dialog in the main window
+        x = master_x + (master_width // 2) - (dialog_width // 2)
+        y = master_y + (master_height // 2) - (dialog_height // 2)
+
+        self.geometry(f'{dialog_width}x{dialog_height}+{x}+{y}')
+
 
 class EnhancedStringDialog(tk.Toplevel):
-    def __init__(self, master, title, prompt_string, initial_value="", width=rPadChars):
+    """
+    A custom dialog class for Tkinter that prompts the user to enter a string.
+
+    This dialog allows for an initial value to be set in the input field and provides
+    standard dialog buttons (OK and Cancel). Additionally, it includes a context menu
+    for cut, copy, paste, and delete actions within the entry widget.
+    """
+
+    def __init__(self, master, title, prompt_string, initial_value="", width=40):
         super().__init__(master)
         self.prompt_string = prompt_string + (" " * 2 * width)
         self.initial_value = initial_value
         self.width = width
         self.result = None
-        self.transient(master)
+        self.transient(master)  # Set dialog to be transient with respect to master
         self.title(title)
-        self.grab_set()
+        self.grab_set()  # Make the dialog modal
 
         self.body(self)
         self.buttonbox()
-        self.protocol("WM_DELETE_WINDOW", self.cancel)
-        self.wait_window(self)
+        self.protocol("WM_DELETE_WINDOW", self.cancel)  # Handle window close event
+
+        self.center_window(master)
+        self.wait_window(self)  # Wait until this window is closed
 
     def body(self, master):
         self.entry_label = tk.Label(master, text=self.prompt_string, padx=5)
-        self.entry_label.pack(padx=5, pady=5)
+        self.entry_label.pack(padx=5, pady=5, anchor='center')
         self.entry = tk.Entry(master, width=self.width)
-        self.entry.pack(padx=5, pady=5)
-        self.entry.insert(0, self.initial_value)
-        self.entry.focus_set()
-        self.entry.bind("<Button-3>", self.show_popup_menu)
+        self.entry.pack(padx=5, pady=5, anchor='center')
+        self.entry.insert(0, self.initial_value)  # Insert initial value into the entry
+        self.entry.focus_set()  # Set focus to the entry widget
+        self.entry.bind("<Button-3>", self.show_popup_menu)  # Bind right-click to show popup menu
 
     def buttonbox(self):
         box = tk.Frame(self)
@@ -490,18 +410,18 @@ class EnhancedStringDialog(tk.Toplevel):
         ok_button.pack(side=tk.LEFT, padx=5, pady=5)
         cancel_button = tk.Button(box, text="Cancel", width=10, command=self.cancel)
         cancel_button.pack(side=tk.LEFT, padx=5, pady=5)
-        box.pack()
+        box.pack(anchor='center')
 
     def ok(self, event=None):
-        self.apply()
-        self.cancel()
+        self.apply()  # Save the current value of the entry
+        self.cancel()  # Close the dialog
 
     def cancel(self, event=None):
-        self.master.focus_set()
-        self.destroy()
+        self.master.focus_set()  # Return focus to the master window
+        self.destroy()  # Destroy the dialog
 
     def apply(self):
-        self.result = self.entry.get()
+        self.result = self.entry.get()  # Get the value from the entry widget
 
     def show_popup_menu(self, event):
         self.popup_menu = tk.Menu(self, tearoff=0)
@@ -509,40 +429,74 @@ class EnhancedStringDialog(tk.Toplevel):
         self.popup_menu.add_command(label="Copy", command=self.copy)
         self.popup_menu.add_command(label="Paste", command=self.paste)
         self.popup_menu.add_command(label="Delete", command=self.delete)
-        self.popup_menu.tk_popup(event.x_root, event.y_root)
+        self.popup_menu.tk_popup(event.x_root, event.y_root)  # Show the popup menu at the cursor position
 
     def cut(self):
         if self.entry.selection_present():
             selected_text = self.entry.selection_get()
-            self.copy_to_clipboard(selected_text)
-            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.copy_to_clipboard(selected_text)  # Copy selected text to clipboard
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)  # Delete the selected text
 
     def copy(self):
         if self.entry.selection_present():
             selected_text = self.entry.selection_get()
-            self.copy_to_clipboard(selected_text)
+            self.copy_to_clipboard(selected_text)  # Copy selected text to clipboard
 
     def paste(self):
         if self.entry.selection_present():
-            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)  # Delete selected text
         clipboard_text = self.master.clipboard_get()
         if clipboard_text is not None:
-            self.entry.insert(tk.INSERT, clipboard_text)
+            self.entry.insert(tk.INSERT, clipboard_text)  # Insert clipboard text at cursor position
 
     def delete(self):
         if self.entry.selection_present():
-            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)  # Delete selected text
 
     def copy_to_clipboard(self, text):
         if text is not None:
-            self.master.clipboard_clear()
-            self.master.clipboard_append(text)
+            self.master.clipboard_clear()  # Clear the clipboard
+            self.master.clipboard_append(text)  # Append text to the clipboard
+
+    def center_window(self, master):
+        self.update_idletasks()  # Update "requested size" from geometry manager
+
+        # Get the main window's size and position
+        master_width = master.winfo_width()
+        master_height = master.winfo_height()
+        master_x = master.winfo_x()
+        master_y = master.winfo_y()
+
+        # Get the dialog's size
+        dialog_width = self.winfo_width()
+        dialog_height = self.winfo_height()
+
+        # Calculate the position to center the dialog in the main window
+        x = master_x + (master_width // 2) - (dialog_width // 2)
+        y = master_y + (master_height // 2) - (dialog_height // 2)
+
+        self.geometry(f'{dialog_width}x{dialog_height}+{x}+{y}')
 
 
 class M3uPlaylistPlayer(tk.Frame):
-    def __init__(self, parent, spec, bash_script, error_messages):
+    """
+    A custom Tkinter frame for playing M3U playlists.
+
+    This class represents a frame designed for playing M3U playlists. It includes functionality
+    for displaying playlist items, managing options, and handling playback events.
+
+    Attributes:
+        parent: The parent widget of the frame.
+        spec: The specification of the playlist.
+        bash_script: The bash script used for playing playlist items.
+        error_messages: A queue for storing error messages during playback.
+        main_window: The main Tkinter window.
+    """
+
+    def __init__(self, parent, spec, bash_script, error_messages, main_window):
         super().__init__(parent)
         self.root = parent
+        self.main_window = main_window  # Store main_window reference
 
         self.spec = spec
         self.bash_script = bash_script
@@ -1533,7 +1487,7 @@ class M3uPlaylistPlayer(tk.Frame):
             language_cleaned = language_text.split('(')[0].strip()
 
             if self.translate.get():
-                translate_value = " translate"
+                translate_value = " --translate"
             else:
                 translate_value = ""
 
@@ -1589,19 +1543,19 @@ class M3uPlaylistPlayer(tk.Frame):
 
             # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
             terminal = self.terminal.get()
-            bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
-                           translate_value + " " + quality
+            bash_options = "--step " + self.step_s.get() + " --model " + self.model.get() + " --language " + language_cleaned + \
+                           translate_value + " --" + quality
 
             if self.playeronly.get():
-                bash_options = bash_options + " playeronly"
+                bash_options = bash_options + " --playeronly"
             if self.timeshiftactive.get():
-                bash_options = bash_options + " timeshift sync " + self.sync.get() + " segments " + self.segments.get() + " segment_time " + self.segment_time.get()
+                bash_options = bash_options + " --timeshift --sync " + self.sync.get() + " --segments " + self.segments.get() + " --segment_time " + self.segment_time.get()
             if self.spec == "streamlink":
-                bash_options = bash_options + " streamlink"
+                bash_options = bash_options + " --streamlink"
             if self.spec == "yt-dlp":
-                bash_options = bash_options + " yt-dlp"
+                bash_options = bash_options + " --yt-dlp"
             if self.subtitles == "subtitles":
-                bash_options = bash_options + " subtitles"
+                bash_options = bash_options + " --subtitles"
 
             if self.online_translation.get():
                 if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
@@ -1613,24 +1567,22 @@ class M3uPlaylistPlayer(tk.Frame):
                     else:
                         speak_value = ""
 
-                    bash_options = bash_options + " [trans " + trans_language_cleaned + " " + self.output_text.get() + speak_value + "]"
+                    bash_options = bash_options + " --trans " + trans_language_cleaned + " " + self.output_text.get() + speak_value
                     print("Online translation active.")
                 else:
                     err_message = ("translate-shell Not Installed", f"Warning: Online translation program 'trans' was not found. Please install it.")
                     self.error_messages.put(err_message)
 
-            print("Script Options:", bash_options)
-
             if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
                 url = '"' + url + '"'
                 if self.timeshiftactive.get() or self.subtitles == "subtitles":
-                    mpv_options = f"[vlc {mpv_options}]"
+                    mpv_options = f"--player vlc {mpv_options}"
                 elif videoplayer == "smplayer" and videoplayer in player_installed:
-                    mpv_options = f"[smplayer {mpv_options}]"
+                    mpv_options = f"--player smplayer {mpv_options}"
                 elif videoplayer == "mpv" and videoplayer in player_installed:
-                    mpv_options = f"[mpv {mpv_options}]"
+                    mpv_options = f"--player mpv {mpv_options}"
                 elif videoplayer == "none":
-                    mpv_options = f"[none]"
+                    mpv_options = f"--player none"
                 else:
                     mpv_options = ""
                     err_message = f"No {videoplayer} video player found."
@@ -1638,6 +1590,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     messagebox.showerror("Error", err_message)
 
                 if os.path.exists(self.bash_script):
+                    print("Script Options:", f"{self.bash_script} {url} {bash_options} {mpv_options}")
                     try:
                         if terminal == "gnome-terminal" and subprocess.run(
                                 ["gnome-terminal", "--version"]).returncode == 0:
@@ -1700,7 +1653,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 return 'skip'  # User cancelled rename selection
 
     def select_files(self):
-        custom_file_dialog = CustomFileDialog(self)
+        custom_file_dialog = CustomFileDialog(self.main_window)
         self.wait_window(custom_file_dialog)
         if custom_file_dialog.selected_files:
             self.source_files = custom_file_dialog.selected_files
@@ -1845,9 +1798,9 @@ class M3uPlaylistPlayer(tk.Frame):
 
     # Function to add a channel
     def add_channel(self):
-        name_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel Name:")
+        name_dialog = EnhancedStringDialog(self.main_window, "Edit Channel", "Channel Name:")
         name = name_dialog.result
-        url_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel URL:")
+        url_dialog = EnhancedStringDialog(self.main_window, "Edit Channel", "Channel URL:")
         url = url_dialog.result
 
         if name and url:
@@ -2179,9 +2132,9 @@ class M3uPlaylistPlayer(tk.Frame):
             item = selection[0]
             list_number, name, url = self.tree.item(item, "values")
 
-            name_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel Name:", initial_value=self.tree.item(item, "values")[1])
+            name_dialog = EnhancedStringDialog(self.main_window, "Edit Channel", "Channel Name:", initial_value=self.tree.item(item, "values")[1])
             name = name_dialog.result
-            url_dialog = EnhancedStringDialog(None, "Edit Channel", "Channel URL:", initial_value=self.tree.item(item, "values")[2])
+            url_dialog = EnhancedStringDialog(self.main_window, "Edit Channel", "Channel URL:", initial_value=self.tree.item(item, "values")[2])
             url = url_dialog.result
 
             if name and url:
@@ -2420,7 +2373,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.58\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.60\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -2432,6 +2385,20 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
 class MainApplication:
+    """
+    The main application for managing M3U playlists.
+
+    This class represents the main application window for managing M3U playlists. It contains
+    tabs for different types of playlists, each with its own playlist player. It also handles
+    error messages during playback and provides functionality for closing the application.
+
+    Attributes:
+        tab_names: The names of the tabs.
+        tab_colors: The colors of the tabs.
+        error_messages: A queue for storing error messages.
+        main_window: The main Tkinter window.
+    """
+
     def __init__(self, tab_names, tab_colors):
         self.error_messages = queue.Queue()
 
@@ -2476,9 +2443,10 @@ class MainApplication:
             tab_control.add(tab, text=name, compound="left")
             tabs.append(tab)
 
+            text_color = self.get_text_color(color)  # Determine the appropriate text color based on the background color
             canvas = tk.Canvas(tab, width=25, height=80, bg=color, highlightthickness=0)
             canvas.pack(side=tk.LEFT, fill=tk.Y)
-            canvas.create_text(15, 40, text=name, angle=90, fill='white', anchor='center')
+            canvas.create_text(15, 40, text=name, angle=90, fill=text_color, anchor='center')
             canvases.append(canvas)
 
         tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
@@ -2486,7 +2454,7 @@ class MainApplication:
         playlist_players = []
         for tab, spec in zip(tabs, tab_names):
             spec_lower = spec.lower().replace(" ", "_")
-            playlist_player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages)
+            playlist_player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages, self.main_window)
             playlist_player.pack(fill=tk.BOTH, expand=True)
             playlist_players.append(playlist_player)
 
@@ -2509,15 +2477,157 @@ class MainApplication:
 
             time.sleep(3)
 
+    def hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB."""
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    def get_rgb(self, color):
+        """Get the RGB tuple for a color name or hex value."""
+        if color.startswith('#'):
+            return self.hex_to_rgb(color)
+        else:
+            # Use Tkinter's winfo_rgb to get RGB values for color names
+            r, g, b = self.main_window.winfo_rgb(color)
+            return (r // 256, g // 256, b // 256)  # Convert to 8-bit RGB
+
+    def get_luminance(self, color):
+        """Calculate the luminance of a given color."""
+        r, g, b = self.get_rgb(color)
+        return 0.299 * r + 0.587 * g + 0.114 * b
+
+    def get_text_color(self, bg_color):
+        """Determine text color (black or white) based on the luminance of the background color."""
+        luminance = self.get_luminance(bg_color)
+        return 'black' if luminance > 128 else 'white'
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="M3U Playlist Player")
+    parser = argparse.ArgumentParser(description="Application for managing M3U playlists to play and transcribe with Whisper AI.")
+
     parser.add_argument('--tabs', nargs='+', default=["IPTV", "YouTube", "Twitch", "streamlink", "yt-dlp"],
                         help='List of tab names')
+
     parser.add_argument('--colors', nargs='+', default=["black", "#ff0000", "#9146ff", "#2c7ef2", "#ff7e00"],
                         help='List of tab colors')
 
+    parser.add_argument('-s', '--server', action='store_true',
+                        help='Run a server of WhisperLive.')
+
+    parser.add_argument('-c', '--client', action='store_true',
+                        help='Run a client of WhisperLive.')
+
+    parser.add_argument('-u', '--url', type=str,
+                        help='URL, file or audio source to be transcribed.')
+
+    parser.add_argument('--server_ip', type=str, default='127.0.0.1',
+                        help='Server IP address, defaults to "127.0.0.1"')
+
+    parser.add_argument('--port', '-p', type=int, default=9090,
+                        help="Websocket port to run the server on.")
+
+    parser.add_argument('--backend', '-b', type=str, default='faster_whisper',
+                        help='Backends from ["tensorrt", "faster_whisper"]')
+
+    parser.add_argument('--faster_whisper_custom_model_path', '-fw', type=str, default=None,
+                        help="Custom Faster Whisper Model")
+
+    parser.add_argument('--trt_model_path', '-trt', type=str, default=None,
+                        help='Whisper TensorRT model path')
+
+    parser.add_argument('--trt_multilingual', '-m', action="store_true",
+                        help='Boolean only for TensorRT model. True if multilingual.')
+
+    parser.add_argument('--lang', type=str, default='en',
+                        help='Language for transcription, defaults to "en"')
+
+    parser.add_argument('--translate', action='store_true',
+                        help='Translate from source language to English if set')
+
+    parser.add_argument('--model', type=str, default='small',
+                        help='Model size for transcription, defaults to "small"')
+
+    parser.add_argument('--use_vad', action='store_true',
+                        help='Use VAD (Voice Activity Detection) if set')
+
+    parser.add_argument('--subtitle', action='store_true',
+                        help='Write a .srt subtitle file')
+
     args = parser.parse_args()
 
-    app = MainApplication(args.tabs, args.colors)
-    app.main_window.mainloop()
+    def only_tabs_and_colors(args):
+        # Check if only `tabs` and `colors` arguments are provided or no arguments at all
+        return (
+            not args.server and
+            not args.client and
+            not args.url and
+            args.server_ip == '127.0.0.1' and
+            args.port == 9090 and
+            args.backend == 'faster_whisper' and
+            args.faster_whisper_custom_model_path is None and
+            args.trt_model_path is None and
+            not args.trt_multilingual and
+            args.lang == 'en' and
+            not args.translate and
+            args.model == 'small' and
+            not args.use_vad and
+            not args.subtitle
+        )
+
+    if args.server:
+        from whisper_live.server import TranscriptionServer
+        if args.backend == "tensorrt":
+            if args.trt_model_path is None:
+                raise ValueError("Please provide a valid TensorRT model path")
+
+        server = TranscriptionServer()
+        server.client_manager.max_connection_time = 540000
+        server.client_manager.max_clients = 100
+
+        server.run(
+            args.server_ip,
+            port=args.port,
+            backend=args.backend,
+            faster_whisper_custom_model_path=args.faster_whisper_custom_model_path,
+            whisper_tensorrt_path=args.trt_model_path,
+            trt_multilingual=args.trt_multilingual
+        )
+    elif args.client and args.url:
+        from whisper_live.client import TranscriptionClient
+        url = args.url
+        if args.subtitle:
+            client = TranscriptionClient(
+                args.server_ip,
+                args.port,
+                lang=args.lang,
+                translate=args.translate,
+                model=args.model,
+                use_vad=args.use_vad,
+                srt_file_path=f"/tmp/{url}.srt"
+            )
+            client(url)
+        else:
+            client = TranscriptionClient(
+                args.server_ip,
+                args.port,
+                lang=args.lang,
+                translate=args.translate,
+                model=args.model,
+                use_vad=args.use_vad,
+            )
+
+            if url.startswith("pulse") or url.startswith("avfoundation"):
+                # Transcribe from microphone
+                client()
+            elif re.match(r'^/|^\./', url):
+                # Transcribe an audio file
+                client(url)
+            else:
+                # To transcribe from a HLS stream
+                client(hls_url=url)
+    elif only_tabs_and_colors(args):
+        app = MainApplication(args.tabs, args.colors)
+        app.main_window.mainloop()
+    else:
+        print("Error: Invalid combination of arguments.")
+        exit(1)
