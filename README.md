@@ -346,45 +346,45 @@ pulse:index or avfoundation:index: Live transcription from the selected device i
 
 Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
 
---streamlink    Forces the URL to be processed by Streamlink.
+--streamlink:    Forces the URL to be processed by Streamlink.
 
---yt-dlp        Forces the URL to be processed by yt-dlp.
+--yt-dlp:        Forces the URL to be processed by yt-dlp.
 
---quality       Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV.
+--quality:       Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV.
 'Raw' is used to download another video stream without any modifications for the player.
 'Upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality.
 This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded.
 
---player        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use 'none' or 'true' for no player.
+--player:        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use 'none' or 'true' for no player.
 
---step          Size of the sound parts into which videos are divided for AI inference, measured in seconds.
+--step:          Size of the sound parts into which videos are divided for AI inference, measured in seconds.
 
---model         Whisper Models:
+--model:         Whisper Models:
 
 tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3
 
 with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 
---language      Whisper Languages:
+--language:      Whisper Languages:
 
 auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian), he ([Hebrew]), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (Hebrew), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
---translate      Automatic English translation using Whisper AI (English only).
+--translate:      Automatic English translation using Whisper AI (English only).
 
---subtitles      Generate subtitles from an audio/video file, with support for language selection, Whisper AI translation, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source file.
+--subtitles:      Generate subtitles from an audio/video file, with support for language selection, Whisper AI translation, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source file.
 
- --trans          Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell). 
+ --trans:          Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell). 
     trans_language: Translation language for translate-shell. 
     output_text: Choose the output text during translation with translate-shell: original, translation, both, none. 
     speak: Online Text-to-Speech using translate-shell.
 
---timeshift      Timeshift feature, only VLC player is supported.
+--timeshift:      Timeshift feature, only VLC player is supported.
 
---sync           Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
+--sync:           Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
 
---segments       Number of segment files for timeshift (2 <= n <= 99).
+--segments:       Number of segment files for timeshift (2 <= n <= 99).
 
---segment_time   Time for each segment file (1 <= minutes <= 99).
+--segment_time:   Time for each segment file (1 <= minutes <= 99).
 
 #
 
