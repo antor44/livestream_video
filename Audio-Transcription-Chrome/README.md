@@ -8,6 +8,7 @@ Before installing WhisperLive on Ubuntu 22.04 on Windows WSL2, you need to insta
 ```
 apt-get install portaudio19-dev python-all-dev
 ```
+You can run the server in a Linux virtualized environment and use the extension in the Google Chrome Windows version. To do this, copy or download this repository or the extension directory to a Windows directory and install it in Google Chrome on Windows. Make sure to run the server script and play some audio in Chrome before activating the 'Start capture' button on the extension.
 
 ## Loading and running the extension
 - Install WhisperLive:
