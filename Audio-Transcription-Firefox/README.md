@@ -4,7 +4,10 @@ Audio Transcription is a Firefox extension that allows users to capture any audi
 
 This is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install [WhisperLive](https://github.com/collabora/WhisperLive). It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not seem to work).
 
-We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
+Before installing WhisperLive on Ubuntu 22.04 on Windows WSL2, you need to install portaudio:
+```
+apt-get install portaudio19-dev python-all-dev
+```
 
 ## Loading and running the extension
 - Install WhisperLive:
@@ -24,6 +27,8 @@ pip3 install whisper-live
 - Play any audio or video on a webpage, then click the ```Start Capture``` button on the extension.
 
 ## Real time transcription with OpenAI-whisper
+We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
+
 This Firefox extension allows you to send audio from your browser to a server for transcribing the audio in real time.
 
 ## Implementation Details
