@@ -3,7 +3,7 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 2.58 License: GPL 3.0
+Author: Antonio R. Version: 2.60 License: GPL 3.0
 
 #
 # Quick start
@@ -115,8 +115,13 @@ brew install vlc
 brew install mpv
 brew install smplayer
 brew install translate-shell
+brew install yt-dlp
+brew install streamlink
 ```
-*The Python application is currently not functioning properly on recent versions of MacOS, please await the next update for playlist4whisper. Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version.
+
+3. playlist4whisper has been tested on the MaOC Ventura Intel version and even runs on Big Sur with some tweaks.
+  
+Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version.
 
 Due to misconfigurations, outdated libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter some issues.
 
@@ -134,13 +139,6 @@ If you encounter an xterm error that says "Failed to open input method," it coul
 ```
 rm /usr/local/bin/xterm
 ln -s /opt/X11/bin/xterm /usr/local/bin/xterm
-```
-
-3. Next, install the necessary Python packages using pip3. Run the following commands:
-
-```
-pip3 install yt-dlp
-pip3 install streamlink
 ```
 
 4. Compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
@@ -321,6 +319,7 @@ livestream_video.sh is a linux script to transcribe video livestream by feeding 
 
 https://github.com/ggerganov/whisper.cpp
 
+The text-to-speech feature and translation to languages other than English are performed via the internet, thanks to the Translate-shell app, which utilizes a free Google service. However, the availability of this service is not guaranteed and the text-to-speech feature only works for short segments of a few seconds and is limited to certain languages.
 #
 
 Some notable features:
@@ -338,72 +337,56 @@ Some notable features:
 - Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
 
 #
-
-Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]] [pulse:index or avfoundation:index]
+Usage: ./livestream_video.sh stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [player player_options]
 
 Example:
 ```
-./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]
+./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak
 ```
+
+pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume and sound configuration on your operating system, and the noise around you. Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
 
 Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
 
-The text-to-speech feature and translation to languages other than English are performed via the internet, thanks to the Translate-shell app, which utilizes a free Google service. However, the availability of this service is not guaranteed and the text-to-speech feature only works for short segments of a few seconds and is limited to certain languages.
+--streamlink    Forces the URL to be processed by Streamlink.
 
-[streamlink] forces the url to be processed by streamlink.
- 
-[yt-dlp] forces the url to be processed by yt-dlp.
+--yt-dlp        Forces the URL to be processed by yt-dlp.
 
-quality: Video quality options are "raw," "upper," and "lower", quality also affects when timeshift is active for IPTV. "Raw" is used to download another video stream without any modifications for the player.
-"Upper" and "lower" download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality. This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded.
+--quality       Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV.
+'Raw' is used to download another video stream without any modifications for the player.
+'Upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality.
+This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded.
 
-[player executable + player options], valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
+--player        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use '[none]' or '[true]' for no player.
 
-step_s: Size of the sound parts into which videos are divided for AI inference, measured in seconds.
+--step          Size of the sound parts into which videos are divided for AI inference, measured in seconds.
 
-Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3
+--model         Whisper Models:
 
-... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
+tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3
 
-Whisper languages, not all fully supported (a few other languages, such as Esperanto, can only be activated through a fine-tuned model. You can also choose "auto" for automatic language detection, allowing Whisper to translate certain Esperanto phrases into English):
+with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 
-auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian),
-bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish),
-de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian),
-fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian),
-he ([Hebrew]), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian),
-is (Icelandic), it (Italian), iw (Hebrew), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer),
-kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian),
-lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay),
-mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya),
-pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian),
-si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese),
-sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar),
-ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa),
-yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
+--language      Whisper Languages:
 
+auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian), he ([Hebrew]), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (Hebrew), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
 
-translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
+--translate      Automatic English translation using Whisper AI (English only).
 
-subtitles: Generate Subtitles from an Audio/Video File, with support for language selection, translation feature of Whisper IA, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source audio/video file.
+--subtitles      Generate subtitles from an audio/video file, with support for language selection, Whisper AI translation, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source file.
 
-[trans + options]: Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
+ --trans          Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell). 
+    trans_language: Translation language for translate-shell. 
+    output_text: Choose the output text during translation with translate-shell: original, translation, both, none. 
+    speak: Online Text-to-Speech using translate-shell.
 
-trans_language: Translation language for translate-shell.
+--timeshift      Timeshift feature, only VLC player is supported.
 
-output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
+--sync           Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
 
-speak: Online Text-to-Speech using translate-shell.
+--segments       Number of segment files for timeshift (2 <= n <= 99).
 
-timeshift: Timeshift feature, only VLC player is supported.
-
-sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
-
-segments: Number of segment files for timeshift (2 =< n <= 99).
-
-segment_time: Time for each segment file(1 <= minutes <= 99).
-
-pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume and sound configuration on your operating system, and the noise around you. Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
+--segment_time   Time for each segment file (1 <= minutes <= 99).
 
 #
 
