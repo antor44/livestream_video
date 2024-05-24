@@ -119,7 +119,7 @@ brew install yt-dlp
 brew install streamlink
 ```
 
-3. playlist4whisper has been tested on the MaOC Ventura Intel version and even runs on Big Sur with some tweaks.
+3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some adjustments.
   
 Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version.
 
