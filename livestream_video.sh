@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.58 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.60 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -23,92 +23,7 @@
 #
 #   https://github.com/antor44/livestream_video
 #
-#--------------------------------------------------------------------------------------------------------
-#
-#
-# livestream_video.sh is based on whisper.cpp, and also supports OpenAI's Whisper.
-#
-# To install whisper-cpp:
-#
-# pip3 install pywhispercpp
-#
-# For macOS and linux with brew repository:
-#
-# brew install whisper-cpp
-#
-# or for OpenAI's Whisper (not fully supported except for audio/video file transcriptions):
-#
-# pip3 install openai-whisper
-#
-# For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
-#
-# The required model files must be stored in the subdirectory ./models using playlist4whisper, or follow the instructions provided at https://github.com/ggerganov/whisper.cpp
-#
-# Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
-#
-# OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper-cpp model.
-#
-#
-# Features of this bash script:
-#
-# -Support for multi-instance and multi-user execution
-# -Support for IPTV, YouTube, Twitch, and many others
-# -Language command-line option "auto" (for autodetection), "en", "es", "fr", "de", "he", "ar", etc., and "translate" for translation to English.
-# -Quantized models support
-# -Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
-# -Generates subtitles from audio/video files.
-# -Audio inputs, including loopback devices, to transcribe what you hear on the desktop. Supported for Linux, macOS, and Windows WSL2.
-#
-#  Usage: ./livestream_video.sh stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]] [pulse:index or avfoundation:index]"
-#
-# Example:"
-# ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]"
-#
-# Local audio/video file must be enclosed in double quotation marks, with full path or if the file is in the same directory preceded with './'
-#
-# [streamlink] option forces the url to be processed by streamlink
-# [yt-dlp] option forces the url to be processed by yt-dlp
-#
-# Quality: Video quality options are "raw," "upper," and "lower", quality also affects when timeshift is active for IPTV.
-# "Raw" is used to download another video stream without any modifications for the player. "Upper" and "lower" download
-#  only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality. This is
-#  intended to save downloaded data, although not all streams support it.
-#
-# "[player executable + player options]", valid players: smplayer, mpv, mplayer, vlc, etc... "[none]" or "[true]" for no player.
-#
-# Step: Size of the parts into which videos are divided for inference, size in seconds.
-#
-# Whisper models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2", large-v3
-#
-# ... with suffixes each too: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
-#
-# translate: The "translate" feature offers automatic English translation using Whisper AI (English only).
-#
-# subtitles: Generate Subtitles from an Audio/Video File, with support for language selection, translation feature of Whisper IA, and online translation to any language.
-#            A .srt file will be saved with the same filename and in the same directory as the source audio/video file.
-#
-# [trans + options]: Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)
-#
-# trans_language: Translation language for translate-shell.
-#
-# output_text: Choose the output text during translation with translate-shell: original, translation, both, none.
-#
-# speak: Online Text-to-Speech using translate-shell.
-#
-# playeronly: Play the video stream without transcriptions.
-#
-# timeshift: Timeshift feature, only VLC player is supported.
-#
-# sync: Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
-#
-# segments: Number of segment files for timeshift (2 =< n <= 99).
-#
-# segment_time: Time for each segment file(1 <= minutes <= 99).
-#
-# pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS.
-#
-# This script and whisper-cpp's executable 'main', and models directory with at least one archive model, must reside in the same directory.
-#
+#-------------------------------------------------------------------------------
 
 
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -206,34 +121,64 @@ check_requirements()
 }
 
 
-# list available languages
-function list_languages {
-    printf "\n"
-    printf "  Available languages:"
-    for language in "${languages[@]}"; do
-        printf " $language"
-    done
-    printf "\n\n"
-}
-
-usage()
-{
-    echo "Usage: $0 stream_url [step_s] [model] [language] [translate] [subtitles] [timeshift] [segments #n (2<n<99)] [segment_time m (1<minutes<99)] [[trans trans_language] [output_text] [speak]]"
+usage() {
+    echo "Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [player player_options]"
     echo ""
-    echo "  Example:"
-    echo "    ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 8 base auto raw [smplayer] timeshift segments 4 segment_time 10 [trans es both speak]"
+    echo "Example:"
+    echo "  ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak"
     echo ""
-
-    # list available models
-
-    printf "\n"
-    printf "  Available models:"
-    for modele in "${model_list[@]}"; do
-        printf " $modele"
-    done
-    printf "\n\n"
-
-    list_languages
+    echo "Help:"
+    echo ""
+    echo "  livestream_video.sh v. 2.60 - plays audio/video files or video streams, transcribing the audio using AI technology."
+    echo "  The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows"
+    echo "  for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell."
+    echo "  All of these tasks can be performed efficiently even with low-level processors. Additionally,"
+    echo "  it generates subtitles from audio/video files."
+    echo ""
+    echo "  pulse:index or avfoundation:index"
+    echo "    Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS."
+    echo "    The quality of the transcription depends on your computer's capabilities, the chosen model, volume and sound configuration, and the noise around you."
+    echo ""
+    echo "  Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'"
+    echo ""
+    echo "  The text-to-speech feature and translation to languages other than English are performed via the internet, thanks to the Translate-shell app, which utilizes a free Google service. However, the availability of this service is not guaranteed and the text-to-speech feature only works for short segments of a few seconds and is limited to certain languages."
+    echo ""
+    echo "  --streamlink    Forces the URL to be processed by Streamlink."
+    echo "  --yt-dlp        Forces the URL to be processed by yt-dlp."
+    echo ""
+    echo "  --quality       Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV."
+    echo "                  'Raw' is used to download another video stream without any modifications for the player."
+    echo "                  'Upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality."
+    echo "                  This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded."
+    echo ""
+    echo "  --player        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use '[none]' or '[true]' for no player."
+    echo ""
+    echo "  --step          Size of the sound parts into which videos are divided for AI inference, measured in seconds."
+    echo ""
+    echo "  --model         Whisper Models:"
+    echo "    tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3"
+    echo "    with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0"
+    echo ""
+    echo "  --language      Whisper Languages:"
+    echo "    auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian), he ([Hebrew]), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (Hebrew), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)"
+    echo ""
+    echo "  --translate      Automatic English translation using Whisper AI (English only)."
+    echo ""
+    echo "  --subtitles      Generate subtitles from an audio/video file, with support for language selection, Whisper AI translation, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source file."
+    echo ""
+    echo "  --trans          Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell)."
+    echo "    trans_language: Translation language for translate-shell."
+    echo "    output_text: Choose the output text during translation with translate-shell: original, translation, both, none."
+    echo "    speak: Online Text-to-Speech using translate-shell."
+    echo ""
+    echo "  --timeshift      Timeshift feature, only VLC player is supported."
+    echo ""
+    echo "  --sync           Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3))."
+    echo ""
+    echo "  --segments       Number of segment files for timeshift (2 <= n <= 99)."
+    echo ""
+    echo "  --segment_time   Time for each segment file (1 <= minutes <= 99)."
+    echo ""
 
 }
 
@@ -244,8 +189,8 @@ function vlc_check()
 
   if [[ $check_pid != *vlc* ]] && [[ $check_pid != *VLC* ]]; then # timeshift exit
     echo
-    pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
+    pkill -f "^ffmpeg.*${mypid}.*$"
+    pkill -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
     if [ -f "$temp_file" ]; then
         awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
@@ -306,104 +251,127 @@ while [[ $# -gt 0 ]]; do
                 url="$(pwd)/$url"
             fi
             ;;
-        [3-9]|[1-5][0-9]|60 ) step_s=$1;;
         pulse* | avfoundation* )
             audio_source=$1
             ;;
-        translate ) translate=$1;;
-        subtitles ) subtitles=$1;;
-        playeronly ) playeronly=$1;;
-        timeshift ) timeshift=$1;;
-        segment_time ) segment_time=$2
+        --model ) shift
+            if [[ " ${model_list[@]} " =~ " $1 " ]]; then
+                model=$1
+            else
+                echo ""; echo "*** Invalid model option: $1"; echo ""; usage; exit 1
+            fi
+            ;;
+        --language ) shift
+            if [[ " ${languages[@]} " =~ " $1 " ]]; then
+                language=$1
+            else
+                echo ""; echo "*** Invalid language option: $1"; echo ""; usage; exit 1
+            fi
+            ;;
+        --step ) shift
+            step_s=$1
+            if ! [[ "$step_s" =~ ^[0-9]+$ ]]; then
+                echo "Error: Step time must be a numeric value."
+                usage
+                exit 1
+            fi
+            if [[ "$step_s" -gt 60 ]] || [[ "$step_s" -lt 0 ]]; then
+                echo "Error: Step time value out of range."
+                usage
+                exit 1
+            fi
+            ;;
+        --translate ) translate=${1#--};;
+        --subtitles ) subtitles=${1#--};;
+        --playeronly ) playeronly=${1#--};;
+        --timeshift ) timeshift=${1#--};;
+        --segment_time ) shift
+            segment_time=$1
             if ! [[ "$segment_time" =~ ^[0-9]+$ ]]; then
                 echo "Error: Segment Time must be a numeric value."
                 usage
                 exit 1
             fi
-            shift;;
-        segments ) segments=$2
+            ;;
+        --segments ) shift
+            segments=$1
             if ! [[ "$segments" =~ ^[0-9]+$ ]]; then
                 echo "Error: Segments must be a numeric value."
                 usage
                 exit 1
             fi
-            shift;;
-        sync ) sync=$2
+            ;;
+        --sync ) shift
+            sync=$1
             if ! [[ "$sync" =~ ^[0-9]+$ ]]; then
                 echo "Error: Sync must be a numeric value."
                 usage
                 exit 1
             fi
-            shift;;
-        raw | upper | lower ) quality=$1;;
-        streamlink ) streamlink_force=$1;;
-        yt-dlp ) ytdlp_force=$1;;
-        \[trans* )
+            ;;
+        --raw | --upper | --lower ) quality=${1#--};;
+        --streamlink ) streamlink_force=${1#--};;
+        --yt-dlp ) ytdlp_force=${1#--};;
+        --trans )
             trans="trans"
             if ! command -v trans &>/dev/null; then
                 echo "translate-shell is required (https://github.com/soimort/translate-shell)"
                 exit 1
             fi
-            if [[ $1 == *\]* ]]; then
-                echo "Warning: Missing language option in the trans options. Default is ${trans_language}."
-                trans_option="${trans_language}]"
-            else
-                shift
-                while [[ $1 != *\]* ]]; do
-                    if [[ $1 == "" ]]; then
-                        echo "Error: Missing closing bracket ']' in the trans options."
-                        exit 1
-                    elif [[ " ${output_text_list[@]} " =~ " $1 " ]]; then
-                        output_text=$1
-                    elif [[ " ${languages[@]} " =~ " $1 " ]]; then
-                        trans_language=$1
-                    elif [[ " speak " == " $1 " ]]; then
-                        speak="speak"
-                    else
-                        echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1
-                    fi
-                    shift
-                done
-                trans_option=$1
-                trans_option=${trans_option%\]}
-                if [[ $trans_option == "speak" ]]; then
-                    speak="speak"
-                elif [[ " ${output_text_list[@]} " =~ " $trans_option " ]]; then
-                    output_text=$trans_option
-                elif [[ " ${languages[@]} " =~ " $trans_option " ]]; then
-                    trans_language=$trans_option
+            if [[ $# -gt 1 ]]; then
+                if [[ $2 == --* ]]; then
+                    echo "Warning: Missing language option in the trans options. Default is ${trans_language}."
                 else
-                    echo ""; echo "*** Wrong option $trans_option"; echo ""; usage; exit 1
+                    while [[ $# -gt 1 ]] && [[ $2 != --* ]]; do
+                        if [[ " ${languages[@]} " =~ " $2 " ]]; then
+                            trans_language=$2
+                        elif [[ " ${output_text_list[@]} " =~ " $2 " ]]; then
+                            output_text=$2
+                        elif [[ " speak " == " $2 " ]]; then
+                            speak="speak"
+                        else
+                            echo ""; echo "*** Wrong option $2"; echo ""; usage; exit 1
+                        fi
+                        shift
+                    done
+                    if [[ $# -gt 0 ]] && [[ $2 != --* ]]; then
+                        if [[ " ${languages[@]} " =~ " $1 " ]]; then
+                            trans_language=$1
+                        elif [[ " ${output_text_list[@]} " =~ " $1 " ]]; then
+                            output_text=$1
+                        elif [[ " speak " == " $1 " ]]; then
+                            speak="speak"
+                        else
+                            echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1
+                        fi
+                    fi
                 fi
+            else
+                echo "Warning: Missing language option in the trans options. Default is ${trans_language}."
             fi
             ;;
-        \[* )
-            mpv_options=${1#\[}
-            if [[ $mpv_options == none*\]* ]]; then
+        --player )
+            shift
+            mpv_options=$1
+            if [[ $mpv_options == none ]]; then
                 mpv_options="true"
             fi
-            if [[ $mpv_options == *\]* ]]; then
-                mpv_options=${mpv_options%\]}
-            else
-                while [[ $1 != *\]* ]]; do
-                    shift
-                    if [[ $1 == "" ]]; then
-                        echo "Error: Missing closing bracket ']' in the player parameter."
-                        exit 1
-                    fi
-                    mpv_options+=" $1"
+            if [[ $# -gt 1 ]]; then
+                while [[ $# -gt 1 ]]; do
+                    case $2 in
+                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --trans )
+                            break
+                            ;;
+                        *)
+                            shift
+                            mpv_options+=" $1"
+                            ;;
+                    esac
                 done
-                mpv_options=${mpv_options%\]}
             fi
             ;;
-        * )
-            if [[ " ${model_list[@]} " =~ " $1 " ]]; then
-                model=$1
-            elif [[ " ${languages[@]} " =~ " $1 " ]]; then
-                language=$1
-            else
-                echo ""; echo "*** Wrong option $1"; echo ""; usage; exit 1
-            fi
+        *)
+            echo ""; echo "*** Unknown option $1"; echo ""; usage; exit 1
             ;;
     esac
     shift
@@ -572,18 +540,22 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
         if [ -e "$destination" ] && [ $err -eq 0 ]; then
             echo ""
             read -p "The file '$destination' already exists. Do you want to overwrite it? (y/n): " response
+            echo ""
             if [ "$response" = "y" ]; then
                 mv /tmp/whisper-live_${mypid}.wav.srt "$destination"
                 err=$?
             elif [ "$response" = "n" ]; then
+                echo ""
                 read -p "Enter a new name with full path for the destination file [${destination}]: " new_destination
                 mv -i /tmp/whisper-live_${mypid}.wav.srt "$new_destination"
                 err=$?
                 if [ $err -ne 0 ]; then
+                    echo ""
                     echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${mypid}.wav.srt"
                     err=1
                 fi
             else
+                echo ""
                 echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${mypid}.wav.srt"
                 err=1
             fi
@@ -602,9 +574,9 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
         echo ""
         echo "An error occurred while generating subtitles."
         echo ""
-        pkill -e -f "^ffmpeg.*${mypid}.*$"
-        pkill -e -f "^${whisper_executable}.*${mypid}.*$"
-        pkill -e -f "^trans.*${mypid}.*$"
+        pkill -f "^ffmpeg.*${mypid}.*$"
+        pkill -f "^${whisper_executable}.*${mypid}.*$"
+        pkill -f "^trans.*${mypid}.*$"
         # Remove the used port from the temporary file
         if [ -f "$temp_file" ]; then
             awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
@@ -969,8 +941,8 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
     done
 
-    pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
+    pkill -f "^ffmpeg.*${mypid}.*$"
+    pkill -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
     if [ -f "$temp_file" ]; then
         awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
@@ -1176,8 +1148,8 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
         done
 
-    pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
+    pkill -f "^ffmpeg.*${mypid}.*$"
+    pkill -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
     if [ -f "$temp_file" ]; then
         awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
@@ -1541,8 +1513,8 @@ elif [[ "$playeronly" == "" ]]; then # No timeshift
 
     done
 
-    pkill -e -f "^ffmpeg.*${mypid}.*$"
-    pkill -e -f "^${whisper_executable}.*${mypid}.*$"
+    pkill -f "^ffmpeg.*${mypid}.*$"
+    pkill -f "^${whisper_executable}.*${mypid}.*$"
     # Remove the used port from the temporary file
     if [ -f "$temp_file" ]; then
         awk -v myport="$myport" '$0 !~ myport' "$temp_file" > temp_file.tmp && mv temp_file.tmp "$temp_file"
