@@ -355,7 +355,7 @@ Only for the bash script and only for local audio/video: Files must be enclosed 
 'Upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality.
 This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded.
 
---player        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use '[none]' or '[true]' for no player.
+--player        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use 'none' or 'true' for no player.
 
 --step          Size of the sound parts into which videos are divided for AI inference, measured in seconds.
 
