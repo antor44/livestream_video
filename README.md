@@ -88,7 +88,7 @@ pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-3. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+3. Finally, you can launch the app by entering the following command in the terminal:
 ```
 python3 playlist4whisper.py
 ```
@@ -119,11 +119,11 @@ brew install yt-dlp
 brew install streamlink
 ```
 
-3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some adjustments.
+3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some extra adjustments.
   
 Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version. Please follow the instructions provided in the terminal when installing Python3.
 
-Due to misconfigurations, outdated libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter issues when installing Homebrew applications. Alternatively, you can install FFmpeg (separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources. If you trust the source, just copy the executable packaged as a .app file to the Applications folder and then link the path to /usr/local/bin/[executable]. Make sure to use the executable name in lowercase for the /usr/local/bin/ part:
+Additionally, for older macOS version, like Big Sur, due to misconfigurations, outdated default libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter issues when installing Homebrew applications. Alternatively, you can install older version of applications like FFmpeg (separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources, downloading them individually. If you trust the source, just copy the executable packaged as a .app file to the Applications folder and then link the path to /usr/local/bin/[executable]. Make sure to use the executable name in lowercase for the /usr/local/bin/ part:
 ```
 ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
 ```
@@ -133,13 +133,28 @@ ln -s /Users/[user]/[directory]/[executable] /usr/local/bin/[executable]
 ```
 If the app isn't signed, you'll need to grant it permission in your system.
 
-If you encounter an xterm error that says "Failed to open input method," it could be because the xterm executable in the "/opt/X11/bin" directory isn't the first one in your $PATH variable. You can try:
+
+4. If you encounter an xterm error that says "Failed to open input method," it could be because the xterm executable in the "/opt/X11/bin" directory isn't the first one in your $PATH variable. You can try:
 ```
 rm /usr/local/bin/xterm
 ln -s /opt/X11/bin/xterm /usr/local/bin/xterm
 ```
+To display the correct local characters you can create a file named ".Xresources" in your user's home directory (/Users/[user]). Inside the file, you can define specific settings to customize the appearance of the transcription text. For example:
 
-4. Compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
+```
+.xterm*background: black
+.xterm*foreground: yellow
+.xterm*font: 10x20
+.xterm*vt100*geometry: 80x10
+.xterm*saveLines: 10000
+.xterm*locale: true 
+```
+In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+
+The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
+
+
+5. Compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
 
 From your base user directory (/Users/[user]) download the source code for whisper-cpp:
 ```
@@ -174,7 +189,8 @@ mv livestream_video/* ~/whisper.cpp
 ```
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp and its 'main' executable.
 
-10. Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+
+6. Finally, you can launch the app by entering the following command in the terminal:
 ```
 python3 playlist4whisper.py
 ```
@@ -257,7 +273,7 @@ mv livestream_video/* ~/whisper.cpp
 ```
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, whisper.cpp
 
-Finally, you can launch the app by entering the following command in the terminal. Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+Finally, you can launch the app by entering the following command in the terminal:
 ```
 python3 playlist4whisper.py
 ```
