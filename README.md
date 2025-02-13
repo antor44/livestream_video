@@ -602,7 +602,7 @@ A: The AI model is designed to transcribe audio from various situations, but cer
 
 **Q: Sometimes when I generate a subtitle, the text is ruined and gets stuck with a repeated phrase.**
 
-A: This is one of the well-known limitations of the current version of OpenAI's Whisper AI, known as hallucinations. This issue persists even with larger models and is even more problematic in the latest and more accurate larger-v3 model. You could try using a different model or attempt to divide the audio/video file into various chunks. The optional OpenAI Whisper executable could help reduce hallucinations when generating subtitles. For example, you could run different executables simultaneously, each with its own 'playlist4whisper' copied into a separate directory, along with its own playlist files. However, many parameters are shared among users, and as of yet, no one has discovered "the magic formula".
+A: This is one of the well-known limitations of the current version of OpenAI's Whisper AI, known as hallucinations. This issue persists even with larger models and is even more problematic in the latest and more accurate larger-v3 model. You could try using a different model or attempt to divide the audio/video file into various chunks. The optional OpenAI Whisper executable could help reduce hallucinations when generating subtitles, you could run different executables simultaneously, each with its own 'playlist4whisper' copied into a separate directory, along with its own playlist files. However, many parameters are shared among users, and as of yet, no one has discovered "the magic formula".
 
 **Q: The transcriptions I get are not accurate?**
 
