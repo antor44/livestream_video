@@ -442,7 +442,13 @@ A: This program is based on whisper-cpp, which is a highly optimized implementat
 
 **Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
 
-A: The absence of a precompiled and packaged distribution for "playlist4whisper" is due to the constant changes and optional optimizations in the underlying "whisper-cpp" Linux program. Providing the source code allows users to adapt to these modifications and optimize performance based on their hardware and preferences.
+A: First, this is a Linux application, and macOS and Windows are not fully supported. For Linux systems, compiling and distributing packages is the responsibility of each distribution’s maintainers, not the programmer.
+
+Linux prioritizes security, which is best ensured through precompiled packages stored in official repositories—especially in major Linux distributions, on which many others depend.
+
+'whisper.cpp' itself is not available in the repositories of major Linux distributions, despite its reputation for being significantly more efficient than OpenAI's original implementation. It can only be installed via Homebrew—a non-traditional package manager.
+
+The absence of precompiled 'playlist4whisper' packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying 'whisper.cpp' program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences.
 
 Additionally, "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
 
