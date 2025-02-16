@@ -446,7 +446,7 @@ A: First, this is a Linux application, and macOS and Windows are not fully suppo
 
 Linux prioritizes security, which is best ensured through precompiled packages stored in official repositories—especially in major Linux distributions, on which many others depend.
 
-'whisper.cpp' itself is not available in the repositories of major Linux distributions, despite its reputation for being significantly more efficient than OpenAI's original implementation. It can only be installed via Homebrew—a non-traditional package manager.
+'whisper.cpp' itself is not available in the repositories of major Linux distributions, despite its reputation for being significantly more efficient than OpenAI's original implementation. It can only be installed via PyPI—a repository for Python software—or Homebrew, a non-traditional package manager.
 
 The absence of precompiled 'playlist4whisper' packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying 'whisper.cpp' program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences.
 
