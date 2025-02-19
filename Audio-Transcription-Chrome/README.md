@@ -31,6 +31,10 @@ pip3 install whisper-live
 - The extension should now be loaded and visible on the extensions page.
 - Play any audio or video on a webpage, then click the ```Start Capture``` button on the extension.
 
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
+#
+
 
 ## Real time transcription with OpenAI-whisper
 We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
