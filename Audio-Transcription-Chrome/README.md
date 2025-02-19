@@ -4,14 +4,6 @@ Audio Transcription is a Chrome extension that allows users to capture any audio
 
 This is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install [WhisperLive](https://github.com/collabora/WhisperLive). It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not work).
 
-For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
-```
-apt-get install portaudio19-dev python-all-dev
-```  
-
-Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Google Chrome. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Google Chrome on Windows.
-
-Make sure the server script is running and that audio is playing in Chrome before activating the "Start Capture" button in the extension.
 
 ## Loading and running the extension
 - Install WhisperLive:
@@ -30,6 +22,17 @@ pip3 install whisper-live
 - Browse to the location where you cloned the repository files and select the ```Audio Transcription``` folder.
 - The extension should now be loaded and visible on the extensions page.
 - Play any audio or video on a webpage, then click the ```Start Capture``` button on the extension.
+
+
+
+For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
+```
+apt-get install portaudio19-dev python-all-dev
+```  
+
+Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Google Chrome. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Google Chrome on Windows.
+
+Make sure the server script is running and that audio is playing in Chrome before activating the "Start Capture" button in the extension.
 
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
