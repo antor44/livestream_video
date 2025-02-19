@@ -1,10 +1,6 @@
-
-
 var elem_container = null;
 var elem_text = null;
-
 var segments = [];
-var text_segments = [];
 
 function initPopupElement() {
   if (document.getElementById('popupElement')) {
@@ -28,7 +24,7 @@ function initPopupElement() {
   closePopupButton.style.backgroundColor = '#65428A';
   closePopupButton.style.color = 'white';
   closePopupButton.style.border = 'none';
-  closePopupButton.style.padding = '8px 16px'; // Add padding for better click area
+  closePopupButton.style.padding = '8px 16px';
   closePopupButton.style.cursor = 'pointer';
   closePopupButton.addEventListener('click', async () => {
     popupContainer.style.display = 'none';
@@ -40,17 +36,15 @@ function initPopupElement() {
   document.body.appendChild(popupContainer);
 }
 
-
 function showPopup(customText) {
   const popup = document.getElementById('popupElement');
   const popupText = popup.querySelector('.popupText');
 
   if (popup && popupText) {
-      popupText.textContent = customText || 'Default Text'; // Set default text if custom text is not provided
-      popup.style.display = 'block';
+    popupText.textContent = customText || 'Default Text';
+    popup.style.display = 'block';
   }
 }
-
 
 function init_element() {
     if (document.getElementById('transcription')) {
@@ -59,18 +53,7 @@ function init_element() {
 
     elem_container = document.createElement('div');
     elem_container.id = "transcription";
-    elem_container.style.cssText = 'padding-top:4px;font-size:20px;position: fixed; top: 92%; left: 38%; transform: translate(-50%, -50%);line-height:18px;width:1000px;height:110px;opacity:1;z-index:100;background:black;border-radius:10px;color:white;';
-
-    for (var i = 0; i < 6; i++) {
-        elem_text = document.createElement('span');
-        elem_text.style.cssText = 'position: absolute;padding-left:16px;padding-right:16px;';
-        elem_text.id = "t" + i;
-        elem_container.appendChild(elem_text);
-
-        if (i == 5) {
-            elem_text.style.top = "-1000px"
-        }
-    }
+    elem_container.style.cssText = 'padding-top:4px;font-size:20px;position: absolute; top: 92%; left: 38%; transform: translate(-50%, -50%);line-height:18px;width:1000px;height:110px;opacity:1;z-index: 2147483647;background:black;border-radius:10px;color:white;overflow-y: auto; resize: both;'; // Changed to position: absolute
 
     document.body.appendChild(elem_container);
 
@@ -80,34 +63,35 @@ function init_element() {
     // Query the element
     const ele = elem_container;
 
-    // Handle the mousedown event
-    // that's triggered when user drags the element
+    // --- Drag Logic (Move) ---
     const mouseDownHandler = function (e) {
-        // Get the current mouse position
+
+      // Only allow dragging from the top of the container, not the resize handle
+      if (e.offsetY < 30) { // Check if click is within the top 30px (adjust as needed)
         x = e.clientX;
         y = e.clientY;
-
-        // Attach the listeners to `document`
         document.addEventListener('mousemove', mouseMoveHandler);
         document.addEventListener('mouseup', mouseUpHandler);
+      }
+
     };
 
     const mouseMoveHandler = function (e) {
-        // How far the mouse has been moved
         const dx = e.clientX - x;
         const dy = e.clientY - y;
+          // Use offsetWidth and offsetHeight to get the actual dimensions
+        const newTop = Math.max(0, ele.offsetTop + dy); // Prevent going off-screen top
+        const newLeft = Math.max(0, ele.offsetLeft + dx); // Prevent going off-screen left
 
-        // Set the position of element
-        ele.style.top = `${ele.offsetTop + dy}px`;
-        ele.style.left = `${ele.offsetLeft + dx}px`;
+        ele.style.top = `${newTop}px`;
+        ele.style.left = `${newLeft}px`;
 
-        // Reassign the position of mouse
         x = e.clientX;
         y = e.clientY;
     };
 
+
     const mouseUpHandler = function () {
-        // Remove the handlers of `mousemove` and `mouseup`
         document.removeEventListener('mousemove', mouseMoveHandler);
         document.removeEventListener('mouseup', mouseUpHandler);
     };
@@ -115,56 +99,32 @@ function init_element() {
     ele.addEventListener('mousedown', mouseDownHandler);
 }
 
-function getStyle(el,styleProp)
-{
-    var x = document.getElementById(el);
-    if (x.currentStyle)
-        var y = x.currentStyle[styleProp];
-    else if (window.getComputedStyle)
-        var y = document.defaultView.getComputedStyle(x,null).getPropertyValue(styleProp);
-    return y;
-}
-
-function get_lines(elem, line_height) {
-    var divHeight = elem.offsetHeight;
-    var lines = divHeight / line_height;
-
-    var original_text = elem.innerHTML;
-
-    var words = original_text.split(' ');
-    var segments = [];
-    var current_lines = 1;
-    var segment = '';
-    var segment_len = 0;
-    for (var i = 0; i < words.length; i++)
-    {
-        segment += words[i] + ' ';
-        elem.innerHTML = segment;
-        divHeight = elem.offsetHeight;
-
-        if ((divHeight / line_height) > current_lines) {
-            var line_segment = segment.substring(segment_len, segment.length - 1 - words[i].length - 1);
-            segments.push(line_segment);
-            segment_len += line_segment.length + 1;
-            current_lines++;
-        }
-    }
-
-    var line_segment = segment.substring(segment_len, segment.length - 1)
-    segments.push(line_segment);
-
-    elem.innerHTML = original_text;
-
-    return segments;
-
-}
 
 function remove_element() {
     var elem = document.getElementById('transcription')
-    for (var i = 0; i < 6; i++) {
-        document.getElementById("t" + i).remove();
+    if (elem) {
+        elem.remove();
     }
-    elem.remove()
+}
+
+function displaySegments() {
+    if (!elem_container) return;
+
+    // Clear existing spans
+    while (elem_container.firstChild) {
+        elem_container.removeChild(elem_container.firstChild);
+    }
+
+    for (let i = 0; i < segments.length; i++) {
+        let elem_text = document.createElement('span');
+        elem_text.style.cssText = 'padding-left:16px;padding-right:16px;display: block;';
+        elem_text.id = "t" + i;
+        elem_text.innerHTML = segments[i].text;
+        elem_container.appendChild(elem_text);
+    }
+
+    // Scroll to the bottom after adding new segments
+    elem_container.scrollTop = elem_container.scrollHeight;
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -172,66 +132,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (type === "STOP") {
         remove_element();
-        sendResponse({data: "STOPPED"});
+        sendResponse({ data: "STOPPED" });
         return true;
-    } else if (type === "showWaitPopup"){
+    } else if (type === "showWaitPopup") {
         initPopupElement();
-
         showPopup(`Estimated wait time ~ ${Math.round(data)} minutes`);
-        sendResponse({data: "popup"});
+        sendResponse({ data: "popup" });
         return true;
     }
 
     init_element();
 
-    message = JSON.parse(data);
-    message = message["segments"];
-
-    var text = '';
-    for (var i = 0; i < message.length; i++) {
-        text += message[i].text + ' ';
-    }
-    text = text.replace(/(\r\n|\n|\r)/gm, "");
-
-    var elem = document.getElementById('t3');
-    elem.innerHTML = text;
-
-    var line_height_style = getStyle('t3', 'line-height');
-    var line_height = parseInt(line_height_style.substring(0, line_height_style.length - 2));
-    var divHeight = elem.offsetHeight;
-    var lines = divHeight / line_height;
-
-    text_segments = [];
-    text_segments = get_lines(elem, line_height);
-
-    elem.innerHTML = '';
-
-    if (text_segments.length > 4) {
-        for (var i = 0; i < 5; i++) {
-            document.getElementById('t' + i).innerHTML = text_segments[text_segments.length - 5 + i];
-        }
-    } else {
-        for (var i = 0; i < 5; i++) {
-            document.getElementById('t' + i).innerHTML = '';
-        }
-    }
-
-    if (text_segments.length <= 4) {
-        for (var i = 0; i < text_segments.length; i++) {
-            document.getElementById('t' + i).innerHTML = text_segments[i];
-        }
-    } else {
-        for (var i = 0; i < 5; i++) {
-            document.getElementById('t' + i).innerHTML = text_segments[text_segments.length - 5 + i];
-        }
-    }
-
-    for (var i = 1; i < 5; i++)
-    {
-        var parent_elem = document.getElementById('t' + (i - 1));
-        var elem = document.getElementById('t' + i);
-        elem.style.top = parent_elem.offsetHeight + parent_elem.offsetTop + 'px';
-    }
+    segments = JSON.parse(data).segments;
+    displaySegments();
 
     sendResponse({});
     return true;
