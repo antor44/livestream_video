@@ -2,7 +2,7 @@
     "manifest_version": 3,
 
     "name": "Audio Transcription",
-    "version": "1.0.4",
+    "version": "1.2.0",
     "description": "Antonio Ruiz's version of this extension that captures the audio on the current tab, sends it to a server for transcription and shows the transcription in Real-time.",
 
     "options_page": "options.html",
