@@ -4,32 +4,6 @@ var previousSegments = []; // Stores the last received window
 var historySegments = [];  // Stores the old texts that have been saved
 var windowStartTime = null; // Timestamp when the current transcription window started
 
-// Save the current window geometry (top, left, width, height) in chrome.storage
-function saveWindowGeometry() {
-  if (!containerElement) return;
-  const geometry = {
-    top: containerElement.style.top,
-    left: containerElement.style.left,
-    width: containerElement.offsetWidth + 'px',
-    height: containerElement.offsetHeight + 'px'
-  };
-  chrome.storage.local.set({ windowGeometry: geometry });
-}
-
-// Load the saved window geometry from chrome.storage and apply it
-function loadWindowGeometry() {
-  chrome.storage.local.get('windowGeometry', (data) => {
-    if (data.windowGeometry && containerElement) {
-      const geometry = data.windowGeometry;
-      containerElement.style.top = geometry.top;
-      containerElement.style.left = geometry.left;
-      containerElement.style.width = geometry.width;
-      containerElement.style.height = geometry.height;
-      containerElement.style.transform = '';
-    }
-  });
-}
-
 function initPopupElement() {
   if (document.getElementById('popupElement')) {
     return;
@@ -128,9 +102,6 @@ function init_element() {
     transcriptionHistory.style.lineHeight = lineHeight;
   });
   
-  // Load saved window geometry (position and size)
-  loadWindowGeometry();
-  
   let x = 0;
   let y = 0;
   const ele = containerElement;
@@ -162,7 +133,6 @@ function init_element() {
   const mouseUpHandler = function () {
     document.removeEventListener('mousemove', mouseMoveHandler);
     document.removeEventListener('mouseup', mouseUpHandler);
-    saveWindowGeometry();
   };
   
   ele.addEventListener('mousedown', mouseDownHandler);
@@ -181,18 +151,17 @@ function adjustFontSize(delta) {
   transcriptionCurrent.style.lineHeight = newLineHeight;
   transcriptionHistory.style.lineHeight = newLineHeight;
   chrome.storage.local.set({ fontSize: newSize });
-  saveWindowGeometry();
 }
 
 // This function compares the previous window with the new one and saves in history the lines that are no longer present.
-// It waits until either at least 3 lines have been written or 30 seconds have passed since the current window started.
+// It waits until either at least 6 lines have been written or 30 seconds have passed since the current window started.
 function updateHistory(newSegments) {
   if (!previousSegments.length) {
     previousSegments = newSegments.slice();
     windowStartTime = Date.now();
     return;
   }
-  const isStable = newSegments.length >= 3 || (Date.now() - windowStartTime) >= 30000;
+  const isStable = newSegments.length >= 6 || (Date.now() - windowStartTime) >= 30000;
   if (!isStable) {
     previousSegments = newSegments.slice();
     return;
@@ -258,9 +227,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// Global listener to save geometry on any mouseup (useful for resize events)
-document.addEventListener('mouseup', () => {
-  if (containerElement) {
-    saveWindowGeometry();
-  }
-});
