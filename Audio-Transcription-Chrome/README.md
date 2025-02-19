@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome (fork)
+# Audio Transcription for Chrome v.1.04 (fork)
 
 Audio Transcription is a Chrome extension that allows users to capture any audio playing on the current tab and transcribe it using OpenAI-whisper in real time. Users will have the option to do voice activity detection as well to not send audio to server when there is no speech.
 
