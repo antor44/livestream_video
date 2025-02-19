@@ -1,14 +1,17 @@
 # Audio Transcription for Chrome v.1.0.4 (fork)
 
-Audio Transcription is a Chrome extension that allows users to capture any audio playing on the current tab and transcribe it using OpenAI-whisper in real time. Users will have the option to do voice activity detection as well to not send audio to server when there is no speech.
+Audio Transcription is a Chrome extension that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
-This is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install [WhisperLive](https://github.com/collabora/WhisperLive). It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not seem to work).
+This is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install [WhisperLive](https://github.com/collabora/WhisperLive). It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not work).
 
-Before installing WhisperLive on Ubuntu 22.04 on Windows WSL2, you need to install portaudio:
+For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
 ```
 apt-get install portaudio19-dev python-all-dev
-```
-You can run the server in a Linux virtualized environment and use the extension in the Google Chrome Windows version. To do this, copy or download this repository or the extension directory to a Windows directory and install it in Google Chrome on Windows. Make sure to run the server script and play some audio in Chrome before activating the 'Start capture' button on the extension.
+```  
+
+Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Google Chrome. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Google Chrome on Windows.
+
+Make sure the server script is running and that audio is playing in Chrome before activating the "Start Capture" button in the extension.
 
 ## Loading and running the extension
 - Install WhisperLive:
@@ -52,6 +55,3 @@ When using the Audio Transcription extension, you have the following options:
   - **Start Capture** : Starts capturing the audio in the current tab and sends the captured audio to the server for transcription. This also creates an element to show the transcriptions recieved from the server on the current tab.
   - **Stop Capture** - Stops capturing the audio.
 
-
-## Note
-The extension relies on a properly running transcription server.
