@@ -21,14 +21,14 @@ pip3 install whisper-live
 - Click the Load unpacked button.
 - Browse to the location where you cloned the repository files and select the ```Audio Transcription``` folder.
 - The extension should now be loaded and visible on the extensions page.
-- Play any audio or video on a webpage, then click the ```Start Capture``` button on the extension.
-
+- Play any audio or video on a webpage, select a language and a model according to your computer power. There are models for English language and multilingual. Then click the 'Start Capture' button on the extension. When a model is selected for the first time, the file will be downloaded. It will only be downloaded the first time it is used.
 
 
 For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
 ```
 apt-get install portaudio19-dev python-all-dev
 ```  
+Then install WhisperLive and run ./WhisperLive_server.sh within the Linux virtual environment.
 
 Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Google Chrome. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Google Chrome on Windows.
 
