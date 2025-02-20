@@ -62,6 +62,36 @@ function init_element() {
   transcriptionHistory.id = 'transcription-history';
   transcriptionHistory.style.cssText = 'display: block;';
   
+  // Add informative text when the transcription window is initialized
+  chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
+    // Determine the language display: use selected language or "auto-detect" if null
+    const language = data.selectedLanguage ? data.selectedLanguage : 'auto-detect';
+    // Determine translation status: "translate to English" if task is "translate", else "NO translate"
+    const task = data.selectedTask === 'translate' ? 'translate to English' : 'NO translate to English';
+    // Use the selected model size, default to "unknown" if not set
+    const model = data.selectedModelSize || 'unknown';
+    // Get the current webpage title
+    const webpageTitle = document.title;
+    
+    // Create first line of informative text
+    const spanElem1 = document.createElement('span');
+    spanElem1.style.cssText = 'padding-left:16px; padding-right:16px; display: block;';
+    spanElem1.textContent = `Transcription of ${webpageTitle}`;
+    transcriptionHistory.appendChild(spanElem1);
+    
+    // Create second line of informative text
+    const spanElem2 = document.createElement('span');
+    spanElem2.style.cssText = 'padding-left:16px; padding-right:16px; display: block;';
+    spanElem2.textContent = `Transcribing stream with model ${model}, language ${language}, ${task}`;
+    transcriptionHistory.appendChild(spanElem2);
+    
+    // Create third line of informative text
+    const spanElem3 = document.createElement('span');
+    spanElem3.style.cssText = 'padding-left:16px; padding-right:16px; display: block;';
+    spanElem3.textContent = `...`;
+    transcriptionHistory.appendChild(spanElem3);
+  });
+  
   // Container for the current text window
   const transcriptionCurrent = document.createElement('div');
   transcriptionCurrent.id = 'transcription-current';
@@ -154,14 +184,14 @@ function adjustFontSize(delta) {
 }
 
 // This function compares the previous window with the new one and saves in history the lines that are no longer present.
-// It waits until either at least 6 lines have been written or 30 seconds have passed since the current window started.
+// It waits until either at least 5 lines have been written or 15 seconds have passed since the current window started.
 function updateHistory(newSegments) {
   if (!previousSegments.length) {
     previousSegments = newSegments.slice();
     windowStartTime = Date.now();
     return;
   }
-  const isStable = newSegments.length >= 6 || (Date.now() - windowStartTime) >= 30000;
+  const isStable = newSegments.length >= 5 || (Date.now() - windowStartTime) >= 15000;
   if (!isStable) {
     previousSegments = newSegments.slice();
     return;
