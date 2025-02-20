@@ -10,7 +10,7 @@ Author: Antonio R. Version: 2.60 License: GPL 3.0
 
 Chrome extension (Firefox version not fully supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
-This is an application totally independent of playlist4whisper and live_stream.sh. This browser extension is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
+This is an application totally independent of playlist4whisper and live_stream.sh. This browser extension is a forked version of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
 
 #
 # playlist4whisper Quick start
