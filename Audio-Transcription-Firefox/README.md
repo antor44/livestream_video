@@ -1,19 +1,21 @@
-# Audio Transcription for Firefox (fork)
+# Audio Transcription for Firefox
 
-Audio Transcription is a Firefox extension that allows users to capture any audio playing on the current tab and transcribe it using OpenAI-whisper in real time. Users will have the option to do voice activity detection as well to not send audio to server when there is no speech.
+Audio Transcription is a Firefox extension that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
-This is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install [WhisperLive](https://github.com/collabora/WhisperLive). It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not seem to work).
-
-Before installing WhisperLive on Ubuntu 22.04 on Windows WSL2, you need to install portaudio:
-```
-apt-get install portaudio19-dev python-all-dev
-```
-You can run the server in a Linux virtualized environment and use the extension in the Firefox Windows version. To do this, copy or download this repository or the extension directory to a Windows directory and install it in Firefox on Windows. Make sure to run the server script and play some audio in Firefox before activating the 'Start capture' button on the extension.
+This is an application totally independent of playlist4whisper and live_stream.sh, based on an implementation of OpenAI Whisper different from whisper-cpp. This browser extension is a fork of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
 
 ## Loading and running the extension
 - Install WhisperLive:
 ```
 pip3 install whisper-live
+```
+- Download this repository, you can use the following command:
+```
+git clone https://github.com/antor44/livestream_video.git
+```
+- Change to the directory Audio-Transcription-Firefox:
+```
+cd livestream_video/Audio-Transcription-Firefox
 ```
 - Run a local WhisperLive server:
 ```
@@ -21,16 +23,31 @@ pip3 install whisper-live
 ```
 - Open the Mozilla Firefox browser.
 - Type ```about:debugging#/runtime/this-firefox``` in the address bar and press Enter.
-- Clone this repository
 - Click the Load temporary Add-on.
-- Browse to the location where you cloned the repository files and select the ```Audio Transcription Firefox``` folder.
+- Browse to the location where you cloned the repository files and select the ```Audio-Transcription-Firefox``` folder.
 - The extension should now be loaded and visible on the extensions page.
-- Play any audio or video on a webpage, then click the ```Start Capture``` button on the extension.
+- Play any audio or video on a webpage, select a language and a model according to your computer power. There are models for English language and multilingual. Then click the 'Start Capture' button on the extension. When a model is selected for the first time, the file will be downloaded. It will only be downloaded the first time it is used.
+
+
+For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
+```
+apt-get install portaudio19-dev python-all-dev
+```  
+Then install WhisperLive and run ./WhisperLive_server.sh within the Linux virtual environment.
+
+Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Firefox. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Firefox on Windows.
+
+Make sure the server script is running and that audio is playing in Firefox before activating the "Start Capture" button in the extension.
+
+
+#
+
 
 ## Real time transcription with OpenAI-whisper
 We use OpenAI-whisper model to process the audio continuously and send the transcription back to the client. We apply a few optimizations on top of OpenAI's implementation to improve performance and run it faster in a real-time manner. To this end, we used [faster-whisper](https://github.com/guillaumekln/faster-whisper) which is 4x faster than OpenAI's implementation.
 
-This Firefox extension allows you to send audio from your browser to a server for transcribing the audio in real time.
+This Firefox extension allows you to send audio from your browser to a server for transcribing the audio in real time. It can also incorporate voice activity detection on the client side to detect when speech is present, and it continuously receives transcriptions of the spoken content from the server. You can select from the options menu if you want to run the speech recognition.
+
 
 ## Implementation Details
 
@@ -53,4 +70,3 @@ When using the Audio Transcription extension, you have the following options:
 ## Note
 This Firefox extension isn't signed, so you have to reinstall it every time you open your Firefox browser. This problem doesn't exist in the Chrome version.
 
-The extension relies on a properly running transcription server.
