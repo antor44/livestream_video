@@ -1,6 +1,5 @@
 import argparse
-from whisper_live.server import TranscriptionServer
-
+from whisper_live.server import TranscriptionServer, ClientManager
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', '-p',
@@ -28,8 +27,9 @@ if __name__ == "__main__":
             raise ValueError("Please Provide a valid tensorrt model path")
 
     server = TranscriptionServer()
-    server.client_manager.max_connection_time = 540000
-    server.client_manager.max_clients = 100
+    client_manager = ClientManager()
+    client_manager.max_connection_time = 540000
+    client_manager.max_clients = 100
 
     server.run(
         "127.0.0.1",
