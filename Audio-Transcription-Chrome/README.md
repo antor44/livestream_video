@@ -1,6 +1,6 @@
-# Audio Transcription for Chrome 1.2.6
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 1.2.6
 
-Audio Transcription is a Chrome extension that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
+Audio Transcription is a Chrome/Chromium/Microsoft Edge extension that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
 This is a forked version with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install [WhisperLive](https://github.com/collabora/WhisperLive). It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not work).
 
@@ -22,7 +22,7 @@ cd livestream_video/Audio-Transcription-Chrome
 ```
 ./WhisperLive_server.sh
 ```
-- Open the Google Chrome browser.
+- Open the Google Chrome/Chromium/Microsoft Edge browser.
 - Type chrome://extensions in the address bar and press Enter.
 - Enable the Developer mode toggle switch located in the top right corner.
 - Click the Load unpacked button.
