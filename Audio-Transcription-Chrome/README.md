@@ -10,6 +10,14 @@ This is a forked version with some aesthetic changes and enhancements, designed 
 ```
 pip3 install whisper-live
 ```
+- Download this repository, you can use the following command:
+```
+git clone https://github.com/antor44/livestream_video.git
+```
+- Change to the directory Audio-Transcription-Chrome:
+```
+cd livestream_video/Audio-Transcription-Chrome
+```
 - Run a local WhisperLive server:
 ```
 ./WhisperLive_server.sh
@@ -17,9 +25,8 @@ pip3 install whisper-live
 - Open the Google Chrome browser.
 - Type chrome://extensions in the address bar and press Enter.
 - Enable the Developer mode toggle switch located in the top right corner.
-- Clone this repository
 - Click the Load unpacked button.
-- Browse to the location where you cloned the repository files and select the ```Audio Transcription``` folder.
+- Browse to the location where you cloned the repository files and select the ```Audio-Transcription-Chrome``` folder.
 - The extension should now be loaded and visible on the extensions page.
 - Play any audio or video on a webpage, select a language and a model according to your computer power. There are models for English language and multilingual. Then click the 'Start Capture' button on the extension. When a model is selected for the first time, the file will be downloaded. It will only be downloaded the first time it is used.
 
