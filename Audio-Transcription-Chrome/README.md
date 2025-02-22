@@ -6,10 +6,23 @@ This is a forked version with some aesthetic changes and enhancements, designed 
 
 
 ## Loading and running the extension
-- Install WhisperLive:
+- Install WhisperLive (at least version 0.6.2):
 ```
-pip3 install whisper-live
+pip3 install whisper-live==0.6.2
 ```
+or the alternative is downloading WhisperLive GitHub repository:
+```
+git clone https://github.com/collabora/WhisperLive.git
+
+```
+```
+cd WhiperLive
+```
+```
+pip install .
+```
+For Python 3.12>, if an error occurs because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to manually update the setup.py file, change: "onnxruntime==1.17.0",
+
 - Download this repository, you can use the following command:
 ```
 git clone https://github.com/antor44/livestream_video.git
@@ -33,7 +46,7 @@ cd livestream_video/Audio-Transcription-Chrome
 
 For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
 ```
-apt-get install portaudio19-dev python-all-dev
+apt-get install portaudio19-dev python3-all-dev
 ```  
 Then install WhisperLive and run ./WhisperLive_server.sh within the Linux virtual environment.
 
