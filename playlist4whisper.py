@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.60 License: GPL 3.0
+Author: Antonio R. Version: 2.70 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -162,11 +162,10 @@ default_trans_options = "en both speak"
 default_override_option = False
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
-models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3"]
+models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"]
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 model_path = "./models/ggml-{}.bin"
 model_list = models + [model + suffix for model in models for suffix in suffixes]
-quantize_executable = "./quantize"
 
 lang_codes = {'auto': 'Autodetect', 'af': 'Afrikaans', 'am': 'Amharic', 'ar': 'Arabic', 'as': 'Assamese',
            'az': 'Azerbaijani', 'be': 'Belarusian', 'bg': 'Bulgarian', 'bn': 'Bengali', 'br': 'Breton',
@@ -206,7 +205,7 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
 
 
 # Array of executable names in priority order
-executables = ["./main", "whisper-cpp", "pwcpp", "whisper"]
+executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
 
 # Function to find and select executable
 def find_and_select_executable():
@@ -230,6 +229,19 @@ else:
     models_dir = os.path.join(current_dir, "models")
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
+
+# Determine the path to the quantize executable
+quantize_executable = None  # Initialize to None
+if whisper_executable is not None: # Proceed only if whisper was found
+    quantize_paths = ["./build/bin/quantize", "./quantize"]
+    for path in quantize_paths:
+        if os.path.exists(path):
+            quantize_executable = path
+            break  # Stop searching once found
+
+    if quantize_executable is None:
+        print("Warning: quantize executable not found.  Quantization will be skipped if attempted.")
+
 
 # Check if ffmpeg is installed
 ffmpeg_process = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -1080,17 +1092,16 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.model_option_menu.grab_release()
 
-
     def install_model(self, model_name):
         terminal = self.terminal.get()
 
-        if os.path.exists(quantize_executable):
+        if quantize_executable:  # Check if quantize_executable is not None
             try:
                 base_model, suffix = self.parse_model_name(model_name)
 
                 if terminal == "gnome-terminal" and subprocess.run(["gnome-terminal", "--version"]).returncode == 0:
                     if suffix:
-                        subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"make {base_model}; ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}; exit"])
+                        subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"make {base_model}; {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}; exit"])
                     else:
                         subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c", f"make {model_name}; exit"])
 
@@ -1098,7 +1109,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     if suffix:
                         script_content = f"""\
                                         make {base_model}
-                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
                                         """
                     else:
                         script_content = f"make {model_name}"
@@ -1106,7 +1117,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
                 elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
                     if suffix:
-                        subprocess.Popen(["lxterm", "-e", f"make {base_model}; ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}"])
+                        subprocess.Popen(["lxterm", "-e", f"make {base_model}; {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}"])
                     else:
                         subprocess.Popen(["lxterm", "-e", f"make {model_name}"])
 
@@ -1114,13 +1125,12 @@ class M3uPlaylistPlayer(tk.Frame):
                     if suffix:
                         script_content = f"""\
                                         make {base_model}
-                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
                                         """
                     else:
                         script_content = f"make {model_name}"
 
                     subprocess.Popen(["mate-terminal", "-e", f"bash -c '{script_content}'"])
-
                 elif terminal == "mlterm":
                     result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
                     mlterm_output = result.stdout
@@ -1129,7 +1139,7 @@ class M3uPlaylistPlayer(tk.Frame):
                             script_content = f"""\
                                             bash -c '
                                             make {base_model}
-                                            ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}'
+                                            {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}'
                                             """
                         else:
                             script_content = f"""\
@@ -1138,11 +1148,12 @@ class M3uPlaylistPlayer(tk.Frame):
                                             """
                         subprocess.Popen(["bash", "-c", f"mlterm -e {script_content}"])
 
+
                 elif terminal == "xfce4-terminal" and subprocess.run(["xfce4-terminal", "--version"]).returncode == 0:
                     if suffix:
                         script_content = f"""\
                                         make {base_model}
-                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
                                         """
                     else:
                         script_content = f"make {model_name}"
@@ -1153,7 +1164,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     if suffix:
                         script_content = f"""\
                                         make {base_model}
-                                        ./quantize ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
+                                        {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}
                                         """
                     else:
                         script_content = f"make {model_name}"
@@ -1195,17 +1206,20 @@ class M3uPlaylistPlayer(tk.Frame):
                 else:
                     print("No processes found to wait for.")
 
+
                 root.grab_release()
                 root.destroy()
+
 
             except OSError as e:
                 print("Error executing command:", e)
                 messagebox.showerror("Error", "Error executing command.")
-
         else:
             err_message = "Quantize executable does not exist."
             print(err_message)
             messagebox.showerror("Error", err_message)
+            content_copydownload
+
 
     def find_make_model_processes(self, base_model):
         try:
@@ -2373,7 +2387,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.60\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.70\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
