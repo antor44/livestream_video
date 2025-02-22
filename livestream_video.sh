@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.60 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.70 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -34,7 +34,7 @@ else
     set -eo pipefail
 fi
 
-url_default="https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"
+url_default="https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8"
 fmt=mp3 # the audio format
 local=0
 step_s=8
@@ -65,7 +65,7 @@ temp_file="/tmp/used_ports-livestream_video.txt"
 languages=( "auto" "af" "am" "ar" "as" "az" "ba" "be" "bg" "bn" "bo" "br" "bs" "ca" "cs" "cy" "da" "de" "el" "en" "es" "et" "eo" "eu" "fa" "fi" "fo" "fr" "ga" "gl" "gu" "ha" "haw" "he" "hi" "hr" "ht" "hu" "hy" "id" "is" "it" "ja" "jw" "ka" "kk" "km" "kn" "ko" "ku" "ky" "la" "lb" "ln" "lo" "lt" "lv" "mg" "mi" "mk" "ml" "mn" "mr" "ms" "mt" "my" "ne" "nl" "nn" "no" "oc" "or" "pa" "pl" "ps" "pt" "ro" "ru" "sa" "sd" "sh" "si" "sk" "sl" "sn" "so" "sq" "sr" "su" "sv" "sw" "ta" "te" "tg" "th" "tl" "tk" "tr" "tt" "ug" "uk" "ur" "uz" "vi" "vo" "wa" "xh" "yi" "yo" "zh" "zu")
 
 # Whisper models
-models=( "tiny.en" "tiny" "base.en" "base" "small.en" "small" "medium.en" "medium" "large-v1" "large-v2" "large-v3" )
+models=( "tiny.en" "tiny" "base.en" "base" "small.en" "small" "medium.en" "medium" "large-v1" "large-v2" "large-v3" "large-v3-turbo" )
 suffixes=( "-q2_k" "-q3_k" "-q4_0" "-q4_1" "-q4_k" "-q5_0" "-q5_1" "-q5_k" "-q6_k" "-q8_0" )
 
 model_list=()
@@ -86,7 +86,7 @@ check_requirements()
     # Find and select executable
 
     # Array of executable names in priority order
-    executables=("./main" "whisper-cpp" "pwcpp" "whisper")
+    executables=("./build/bin/whisper-cli" "./main" "whisper-cpp" "pwcpp" "whisper")
 
     # Loop through each executable name
     for exe in "${executables[@]}"; do
@@ -125,7 +125,7 @@ usage() {
     echo "Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [player player_options]"
     echo ""
     echo "Example:"
-    echo "  ./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak"
+    echo "  ./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak"
     echo ""
     echo "Help:"
     echo ""
@@ -490,7 +490,7 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
     err=$?
 
     if [ $err -eq 0 ]; then
-        if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+        if [[ "$whisper_executable" == "./build/bin/whisper-cli" ]] || [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
             "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav -osrt 2> /tmp/whisper-live_${mypid}-err.err
             err=$?
         elif [[ "$whisper_executable" == "pwcpp" ]]; then
@@ -843,7 +843,7 @@ if [[ $timeshift == "timeshift" ]] && [[ $local -eq 0 ]]; then
 
                   fi
 
-                  if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+                  if [[ "$whisper_executable" == "./build/bin/whisper-cli" ]] || [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
                       "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
                       err=$?
                   elif [[ "$whisper_executable" == "pwcpp" ]]; then
@@ -1055,7 +1055,7 @@ elif [[ $timeshift == "timeshift" ]] && [[ $local -eq 1 ]]; then # local video f
 
                         fi
 
-                        if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+                        if [[ "$whisper_executable" == "./build/bin/whisper-cli" ]] || [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
                             "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
                             err=$?
                         elif [[ "$whisper_executable" == "pwcpp" ]]; then
@@ -1426,7 +1426,7 @@ elif [[ "$playeronly" == "" ]]; then # No timeshift
             sleep 0.5
         done
 
-        if [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
+        if  [[ "$whisper_executable" == "./build/bin/whisper-cli" ]] || [[ "$whisper_executable" == "./main" ]] || [[ "$whisper_executable" == "whisper-cpp" ]]; then
             "$whisper_executable" -l ${language} ${translate} -t 4 -m ./models/ggml-${model}.bin -f /tmp/whisper-live_${mypid}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${mypid}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${mypid}.txt >/dev/null
             err=$?
         elif [[ "$whisper_executable" == "pwcpp" ]]; then
