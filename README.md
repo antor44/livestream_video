@@ -362,7 +362,7 @@ Usage: ./livestream_video.sh stream_url [or /path/media_file or pulse:index or a
 
 Example:
 ```
-./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
+./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --lower --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
 ```
 Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
 
@@ -373,9 +373,9 @@ pulse:index or avfoundation:index: Live transcription from the selected device i
 
 --yt-dlp:        Forces the URL to be processed by yt-dlp.
 
---quality:       Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV.
-'Raw' is used to download another video stream without any modifications for the player.
-'Upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality.
+--[raw, upper or lower]: Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV.
+'raw' is used to download another video stream without any modifications for the player.
+'upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality.
 This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded.
 
 --player:        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use 'none' or 'true' for no player.
