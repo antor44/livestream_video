@@ -261,7 +261,6 @@ function copyAllTextToClipboard() {
 }
 
 
-
 init_element();
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
