@@ -8,7 +8,7 @@ This is a forked version with some aesthetic changes and enhancements, designed 
 ## Loading and running the extension
 - Install WhisperLive (at least version 0.6.2):
 ```
-pip3 install whisper-live==0.6.2
+pip3 install "whisper-live>=0.6.2"
 ```
 or the alternative is downloading WhisperLive GitHub repository:
 ```
