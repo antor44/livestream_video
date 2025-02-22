@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.70 License: GPL 3.0
+Author: Antonio R. Version: 2.80 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -268,7 +268,7 @@ for play in player:
 
 if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL) == 0:
-  options_frame1_text="Only for translate-shell - Online translation and Text-to-Speech are not guaranted!!!"
+  options_frame1_text="Only for translate-shell - Online translation and Text-to-Speech"
 else:
   options_frame1_text="translate-shell Not installed for online translation and speak!!!"
 
@@ -2387,7 +2387,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.70\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 2.80\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -2525,123 +2525,7 @@ if __name__ == "__main__":
     parser.add_argument('--colors', nargs='+', default=["black", "#ff0000", "#9146ff", "#2c7ef2", "#ff7e00"],
                         help='List of tab colors')
 
-    parser.add_argument('-s', '--server', action='store_true',
-                        help='Run a server of WhisperLive.')
-
-    parser.add_argument('-c', '--client', action='store_true',
-                        help='Run a client of WhisperLive.')
-
-    parser.add_argument('-u', '--url', type=str,
-                        help='URL, file or audio source to be transcribed.')
-
-    parser.add_argument('--server_ip', type=str, default='127.0.0.1',
-                        help='Server IP address, defaults to "127.0.0.1"')
-
-    parser.add_argument('--port', '-p', type=int, default=9090,
-                        help="Websocket port to run the server on.")
-
-    parser.add_argument('--backend', '-b', type=str, default='faster_whisper',
-                        help='Backends from ["tensorrt", "faster_whisper"]')
-
-    parser.add_argument('--faster_whisper_custom_model_path', '-fw', type=str, default=None,
-                        help="Custom Faster Whisper Model")
-
-    parser.add_argument('--trt_model_path', '-trt', type=str, default=None,
-                        help='Whisper TensorRT model path')
-
-    parser.add_argument('--trt_multilingual', '-m', action="store_true",
-                        help='Boolean only for TensorRT model. True if multilingual.')
-
-    parser.add_argument('--lang', type=str, default='en',
-                        help='Language for transcription, defaults to "en"')
-
-    parser.add_argument('--translate', action='store_true',
-                        help='Translate from source language to English if set')
-
-    parser.add_argument('--model', type=str, default='small',
-                        help='Model size for transcription, defaults to "small"')
-
-    parser.add_argument('--use_vad', action='store_true',
-                        help='Use VAD (Voice Activity Detection) if set')
-
-    parser.add_argument('--subtitle', action='store_true',
-                        help='Write a .srt subtitle file')
-
     args = parser.parse_args()
 
-    def only_tabs_and_colors(args):
-        # Check if only `tabs` and `colors` arguments are provided or no arguments at all
-        return (
-            not args.server and
-            not args.client and
-            not args.url and
-            args.server_ip == '127.0.0.1' and
-            args.port == 9090 and
-            args.backend == 'faster_whisper' and
-            args.faster_whisper_custom_model_path is None and
-            args.trt_model_path is None and
-            not args.trt_multilingual and
-            args.lang == 'en' and
-            not args.translate and
-            args.model == 'small' and
-            not args.use_vad and
-            not args.subtitle
-        )
-
-    if args.server:
-        from whisper_live.server import TranscriptionServer
-        if args.backend == "tensorrt":
-            if args.trt_model_path is None:
-                raise ValueError("Please provide a valid TensorRT model path")
-
-        server = TranscriptionServer()
-        server.client_manager.max_connection_time = 540000
-        server.client_manager.max_clients = 100
-
-        server.run(
-            args.server_ip,
-            port=args.port,
-            backend=args.backend,
-            faster_whisper_custom_model_path=args.faster_whisper_custom_model_path,
-            whisper_tensorrt_path=args.trt_model_path,
-            trt_multilingual=args.trt_multilingual
-        )
-    elif args.client and args.url:
-        from whisper_live.client import TranscriptionClient
-        url = args.url
-        if args.subtitle:
-            client = TranscriptionClient(
-                args.server_ip,
-                args.port,
-                lang=args.lang,
-                translate=args.translate,
-                model=args.model,
-                use_vad=args.use_vad,
-                srt_file_path=f"/tmp/{url}.srt"
-            )
-            client(url)
-        else:
-            client = TranscriptionClient(
-                args.server_ip,
-                args.port,
-                lang=args.lang,
-                translate=args.translate,
-                model=args.model,
-                use_vad=args.use_vad,
-            )
-
-            if url.startswith("pulse") or url.startswith("avfoundation"):
-                # Transcribe from microphone
-                client()
-            elif re.match(r'^/|^\./', url):
-                # Transcribe an audio file
-                client(url)
-            else:
-                # To transcribe from a HLS stream
-                client(hls_url=url)
-    elif only_tabs_and_colors(args):
-        app = MainApplication(args.tabs, args.colors)
-        app.main_window.mainloop()
-    else:
-        print("Error: Invalid combination of arguments.")
-        exit(1)
+    app = MainApplication(args.tabs, args.colors)
+    app.main_window.mainloop()
