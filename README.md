@@ -3,7 +3,7 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 2.60 License: GPL 3.0
+Author: Antonio R. Version: 2.70 License: GPL 3.0
 
 
 # Audio Transcription
@@ -17,7 +17,7 @@ This is an application totally independent of playlist4whisper and live_stream.s
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, vlc, ffmpeg, python3-tk, python3-pip, bc, and xterm are installed.
 
-To install whisper-cpp, choose one of these options (you can install all, Whisper-cpp executables are prioritized, with ./main executable being the first choice):
+To install whisper-cpp, choose one of these options (you can install all, Whisper-cpp executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
 pip3 install pywhispercpp
 ```
@@ -194,7 +194,7 @@ Stay where you executed the command, move all to whisper.cpp directory:
 ```
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp and its 'main' executable.
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp and its subdirectory ./build/bin/ with its 'whisper-cli' executable.
 
 
 6. Finally, you can launch the app by entering the following command in the terminal:
@@ -362,7 +362,7 @@ Usage: ./livestream_video.sh stream_url [or /path/media_file or pulse:index or a
 
 Example:
 ```
-./livestream_video.sh https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak
+./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak
 ```
 Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
 
@@ -384,7 +384,7 @@ This is intended to save downloaded data, although not all streams support it. A
 
 --model:         Whisper Models:
 
-tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3
+tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3, large-v3-turbo
 
 with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 
@@ -455,9 +455,11 @@ Linux prioritizes security, which is best ensured through precompiled packages s
 
 'whisper.cpp' itself is not available in the repositories of major Linux distributions, despite its reputation for being significantly more efficient than OpenAI's original implementation. It can only be installed via PyPI—a repository for Python software—or Homebrew, a non-traditional package manager.
 
-The absence of precompiled 'playlist4whisper' packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying 'whisper.cpp' program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences.
+The absence of precompiled 'playlist4whisper' packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying 'whisper.cpp' program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences. 
 
-Additionally, "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
+Additionally, Linux distributions are very different, even Python environments, and it is not easy to support every one, especially with this project that depends on numerous other libraries and programs.
+
+Another question is that "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
 
 **Q: What's the use of the loopback ports? Could I see my videos from the internet?**
 
@@ -499,15 +501,15 @@ Some applications use a trick to achieve a near-live result during the first tra
 
 **Q: Why is the program not working?**
 
-A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the main executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper-cpp. The main executable from whisper.cpp needs to be placed in the same directory as playlist4whisper.py and the script livestream_video.sh. By default, this executable should be named 'main'. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. These tasks can be accomplished using terminal commands:
+A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the ./build/bin/whisper-cli executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper-cpp. The ./build/bin/whisper-cli executable from whisper.cpp needs to be placed in the subdirectory of the directory of playlist4whisper.py and the script livestream_video.sh. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. These tasks can be accomplished using terminal commands:
 
 First clone the repository:
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Now change directory to the whisper-ccp folder and build the main example to transcribe an audio file using the following command.
+Now change directory to the whisper-ccp folder and build the ./build/bin/whisper-cli example to transcribe an audio file using the following command.
 
-Build the 'main' example:
+Build the './build/bin/whisper-cli' example:
 ```
 make
 ```
@@ -521,7 +523,7 @@ make large-v3
 ```
 Transcribe an audio file (for model base.en):
 ```
-./main -f samples/jfk.wav
+./build/bin/whisper-cli -f samples/jfk.wav
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch streamlink is required (https://streamlink.github.io).
 
@@ -536,9 +538,9 @@ pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-**Q: When I run the script, I always encounter an error related to the "main" executable.**
+**Q: When I run the script, I always encounter an error related to the "whisper-cli" or "main" executable.**
 
-A: There could be various reasons for this error. The "main" executable is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "main" and reside in the same directory as playlist4whisper.py and the bash script livestream_video.sh. Ensure that both the main executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like "make base.en" or "make tiny.en". It's important to note that quantized models and large-v3 may not be compatible with older versions of whisper.cpp, which could lead to a "main error". After building the main example using the terminal command "make", you can test an audio file example using the command (for model base.en): ./main -f samples/jfk.wav
+A: There could be various reasons for this error. The "whisper-cli" executable, originally named "main" executable, is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "whisper-cli" and reside in the subdirectory "./build/bin/" of the directory where playlist4whisper.py and the bash script livestream_video.sh were copied. Ensure that both the whisper-cli executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like "make base.en" or "make tiny.en". It's important to note that quantized models and large-v3 may not be compatible with older versions of whisper.cpp, which could lead to a "whisper-cli error". After building the whisper-cli example using the terminal command "make", you can test an audio file example using the command (for model base.en): ./build/bin/whisper-cli -f samples/jfk.wav
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
