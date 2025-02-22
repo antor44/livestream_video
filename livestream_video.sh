@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.70 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 2.80 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -146,9 +146,9 @@ usage() {
     echo "  --streamlink    Forces the URL to be processed by Streamlink."
     echo "  --yt-dlp        Forces the URL to be processed by yt-dlp."
     echo ""
-    echo "  --quality       Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV."
-    echo "                  'Raw' is used to download another video stream without any modifications for the player."
-    echo "                  'Upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality."
+    echo "  --[raw, upper or lower]: Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV."
+    echo "                  'raw' is used to download another video stream without any modifications for the player."
+    echo "                  'upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality."
     echo "                  This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded."
     echo ""
     echo "  --player        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use '[none]' or '[true]' for no player."
