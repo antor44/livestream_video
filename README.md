@@ -25,7 +25,7 @@ For macOS and linux with brew repository:
 ```
 brew install whisper-cpp
 ```
-or for OpenAI's Whisper (not fully supported, except for generating subtitles for local audio/video files):
+or for OpenAI's Whisper (not fully supported, except for generating es for local audio/video files):
 ```
 pip3 install openai-whisper
 ```
@@ -362,7 +362,7 @@ Usage: ./livestream_video.sh stream_url [or /path/media_file or pulse:index or a
 
 Example:
 ```
-./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak
+./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
 ```
 Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
 
