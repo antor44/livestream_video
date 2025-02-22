@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 1.2.6
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 1.2.8
 
 Audio Transcription is a Chrome/Chromium/Microsoft Edge extension that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
@@ -21,7 +21,7 @@ cd WhiperLive
 ```
 pip install .
 ```
-For Python 3.12>, if an error occurs because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to manually update the setup.py file, change: "onnxruntime==1.17.0",
+If an error occurs, i.e. with Python 3.12, because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to manually update the setup.py file, changing "onnxruntime==1.17.0",
 
 - Download this repository, you can use the following command:
 ```
