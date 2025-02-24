@@ -6,12 +6,12 @@ This is a forked version with some aesthetic changes and enhancements, designed 
 
 
 ## Loading and running the extension
-- Depending on your operating system configuration, you may need to create a Python virtual environment:
+- Depending on your operating system configuration, you may need to create a Python virtual environment using either Anaconda or virtualenv (not pipx, which is not intended for libraries), and you need to activate this environment to run the WhisperLive server. For virtualenv:
 ````
 sudo apt install virtualenv
-mkdir ~/python-environments && cd ~/python-environments
-virtualenv whisper-live
-source whisper-live/bin/activate
+mkdir ~/python-environments
+virtualenv ~/python-environments/whisper-live
+source ~/python-environments/whisper-live/bin/activate
 ````
 - Install WhisperLive (at least version 0.6.2):
 ```
@@ -33,8 +33,6 @@ cd WhisperLive
 pip3 install .
 ```
 This may take several minutes.
-
-If an error occurs, i.e. with Python 3.12, because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to manually update the setup.py file, changing "onnxruntime==1.17.0",
 
 - Download this repository, you can use the following command:
 ```
