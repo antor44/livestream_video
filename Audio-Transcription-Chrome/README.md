@@ -6,21 +6,34 @@ This is a forked version with some aesthetic changes and enhancements, designed 
 
 
 ## Loading and running the extension
+- Depending on your operating system configuration, you may need to create a Python virtual environment:
+````
+sudo apt install virtualenv
+mkdir ~/python-environments && cd ~/python-environments
+virtualenv whisper-live
+source whisper-live/bin/activate
+````
 - Install WhisperLive (at least version 0.6.2):
 ```
 pip3 install "whisper-live>=0.6.2"
 ```
-or the alternative is downloading WhisperLive GitHub repository:
+If an error occurs, i.e. with Python 3.12, because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to
+try the alternative installation by downloading the WhisperLive GitHub repository:
+
+
+Clone WhisperLive repository:
 ```
 git clone https://github.com/collabora/WhisperLive.git
 
 ```
 ```
-cd WhiperLive
+cd WhisperLive
 ```
 ```
-pip install .
+pip3 install .
 ```
+This may take several minutes.
+
 If an error occurs, i.e. with Python 3.12, because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to manually update the setup.py file, changing "onnxruntime==1.17.0",
 
 - Download this repository, you can use the following command:
@@ -34,6 +47,10 @@ cd livestream_video/Audio-Transcription-Chrome
 - Run a local WhisperLive server:
 ```
 ./WhisperLive_server.sh
+```
+If a "numpy version 2" error occurs:
+```
+pip3 install "numpy<2"
 ```
 - Open the Google Chrome/Chromium/Microsoft Edge browser.
 - Type chrome://extensions in the address bar and press Enter.
