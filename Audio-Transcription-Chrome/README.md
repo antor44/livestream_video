@@ -60,13 +60,13 @@ pip3 install "numpy<2"
 - Play any audio or video on a webpage, select a language and a model according to your computer power. There are models for English language and multilingual. Then click the 'Start Capture' button on the extension. When a model is selected for the first time, the file will be downloaded. It will only be downloaded the first time it is used.
 
 
-For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
+For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 24.04 within Windows WSL2, you need to install PortAudio by running:
 ```
 sudo apt-get install portaudio19-dev python3-all-dev
 ```  
 Then install WhisperLive and run ./WhisperLive_server.sh within the Linux virtual environment.
 
-Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Google Chrome. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Google Chrome on Windows.
+Once WhisperLive is installed, you can run the server in the Linux virtualized environment while using the extension in the Windows version of Google Chrome/Chromium/Microsoft Edge. To do this, copy or download this repository (or the extension directory) to a Windows folder and install it in Google Chrome/Chromium/Microsoft Edge on Windows.
 
 Make sure the server script is running and that audio is playing in Chrome before activating the "Start Capture" button in the extension.
 
@@ -84,7 +84,7 @@ This Chrome extension allows you to send audio from your browser to a server for
 ## Implementation Details
 
 ### Capturing Audio
-To capture the audio in the current tab, we used the chrome `tabCapture` API to obtain a `MediaStream` object of the current tab.
+To capture the audio in the current tab, we used the Chrome `tabCapture` API to obtain a `MediaStream` object of the current tab.
 
 ### Options
 When using the Audio Transcription extension, you have the following options:
