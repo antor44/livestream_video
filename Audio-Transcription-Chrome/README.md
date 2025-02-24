@@ -46,7 +46,7 @@ cd livestream_video/Audio-Transcription-Chrome
 
 For Windows installations only: The local server can only be installed through Windows Subsystem for Linux (WSL2). Before installing WhisperLive on Ubuntu 22.04 within Windows WSL2, you need to install PortAudio by running:
 ```
-apt-get install portaudio19-dev python3-all-dev
+sudo apt-get install portaudio19-dev python3-all-dev
 ```  
 Then install WhisperLive and run ./WhisperLive_server.sh within the Linux virtual environment.
 
