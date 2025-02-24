@@ -229,7 +229,7 @@ sudo apt upgrade
 ```
 Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip bc gnome-terminal xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg cmake python3-tk python3-pip bc gnome-terminal xterm
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
