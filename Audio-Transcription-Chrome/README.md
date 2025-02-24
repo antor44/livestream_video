@@ -58,6 +58,7 @@ pip3 install "numpy<2"
 - Click the Load unpacked button.
 - Browse to the location where you cloned the repository files and select the ```Audio-Transcription-Chrome``` folder.
 - The extension should now be loaded and visible on the extensions page.
+- Disable the Developer mode.
 - Play any audio or video on a webpage, select a language and a model according to your computer power. There are models for English language and multilingual. Then click the 'Start Capture' button on the extension. When a model is selected for the first time, the file will be downloaded. It will only be downloaded the first time it is used.
 
 
