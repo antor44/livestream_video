@@ -80,7 +80,7 @@ playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg python3-tk python3-pip bc xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg cmake python3-tk python3-pip bc xterm
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
@@ -89,10 +89,22 @@ The easy way to install yt-dlp and streamlink:
 pip3 install yt-dlp
 pip3 install streamlink
 ```
+or to create a python virtual environment alogside with python applications install pipx and:
+```
+sudo apt-get install pipx
+pipx install yt-dlp
+pipx install streamlink
+```
+
 Or to upgrade them:
 ```
 pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
+```
+or 
+```
+pipx upgrade yt-dlp
+pipx upgrade streamlink
 ```
 
 3. Finally, you can launch the app by entering the following command in the terminal:
@@ -236,17 +248,26 @@ For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch an
 The easy way to install yt-dlp and streamlink:
 ```
 pip3 install yt-dlp
-```
-```
 pip3 install streamlink
 ```
+or to create a python virtual environment alogside with python applications install pipx and:
+```
+sudo apt-get install pipx
+pipx install yt-dlp
+pipx install streamlink
+```
+
 Or to upgrade them:
 ```
 pip3 install --upgrade yt-dlp
-```
-```
 pip3 install --upgrade streamlink
 ```
+or 
+```
+pipx upgrade yt-dlp
+pipx upgrade streamlink
+```
+
 Download the source code of whisper-cpp:
 
 ```
