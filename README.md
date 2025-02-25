@@ -151,7 +151,10 @@ or
 ```
 ln -s /Users/[user]/[directory]/[executable] /usr/local/bin/[executable]
 ```
-If the app isn't signed, you'll need to grant it permission in your system.
+For example, if you installed VLC individually, if the app isn't signed you'll need to grant it permission in your system, and to make it compatible with bash scripts or default commandline:
+```
+ln -s /Applications/VLC.app/Contents/MacOS/VLC.app /usr/local/bin/vlc
+```
 
 
 4. If you encounter an xterm error that says "Failed to open input method," it could be because the xterm executable in the "/opt/X11/bin" directory isn't the first one in your $PATH variable. You can try:
