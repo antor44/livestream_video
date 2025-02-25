@@ -7,7 +7,7 @@ This is a forked version with some aesthetic changes and enhancements, designed 
 
 ## Loading and running the extension
 - Depending on your operating system configuration, you may need to create a Python virtual environment using either Anaconda or virtualenv (not pipx, which is not intended for libraries), and you need to activate this environment to run the WhisperLive server. For virtualenv:
-````
+```
 sudo apt install virtualenv
 ```
 Or for macOS:
@@ -19,7 +19,7 @@ Then:
 mkdir ~/python-environments
 virtualenv ~/python-environments/whisper-live
 source ~/python-environments/whisper-live/bin/activate
-````
+```
 - Install WhisperLive (at least version 0.6.2):
 ```
 pip3 install "whisper-live>=0.6.2"
