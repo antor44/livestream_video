@@ -125,6 +125,7 @@ You can run playlist4whisper.py on macOS by following these steps:
 
 ```
 brew install make
+brew install cmake
 brew install python3
 brew install python-tk
 brew install ffmpeg
