@@ -53,6 +53,10 @@ cd livestream_video/Audio-Transcription-Chrome
 ```
 ./WhisperLive_server.sh
 ```
+or:
+```
+source ~/python-environments/whisper-live/bin/activate && ./WhisperLive_server.sh
+```
 If a "numpy version 2" error occurs:
 ```
 pip3 install "numpy<2"
