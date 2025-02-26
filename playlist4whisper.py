@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 2.80 License: GPL 3.0
+Author: Antonio R. Version: 3.02 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -150,6 +150,7 @@ def check_player_installed(player):
 
 # Default options
 rPadChars = 75
+default_executable_option = "./build/bin/whisper-cli"
 default_terminal_option = "xterm"
 default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
@@ -205,11 +206,11 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
 
 
 # Array of executable names in priority order
-executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
+whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
 
 # Function to find and select executable
 def find_and_select_executable():
-    for exe in executables:
+    for exe in whisper_executables:
         # Check if the executable exists in the PATH
         full_path = shutil.which(exe)
         if full_path is not None:
@@ -218,13 +219,13 @@ def find_and_select_executable():
     return None
 
 # Call function to find and select executable
-whisper_executable = find_and_select_executable()
+default_executable = find_and_select_executable()
 
-if whisper_executable is None:
+if default_executable is None:
     print("Whisper executable is required.")
     exit(1)
 else:
-    print("Found whisper executable:", whisper_executable, "(", shutil.which(whisper_executable), ")")
+    print("Found whisper executable:", default_executable, "(", shutil.which(default_executable), ")")
     current_dir = os.getcwd()
     models_dir = os.path.join(current_dir, "models")
     if not os.path.exists(models_dir):
@@ -232,7 +233,7 @@ else:
 
 # Determine the path to the quantize executable
 quantize_executable = None  # Initialize to None
-if whisper_executable is not None: # Proceed only if whisper was found
+if default_executable is not None: # Proceed only if whisper was found
     quantize_paths = ["./build/bin/quantize", "./quantize"]
     for path in quantize_paths:
         if os.path.exists(path):
@@ -524,6 +525,27 @@ class M3uPlaylistPlayer(tk.Frame):
 
     def create_widgets(self):
 
+        # Search box frame
+        self.search_frame = tk.Frame(self)
+        self.search_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+
+        self.search_label = tk.Label(self.search_frame, text="Search:")
+        self.search_label.pack(side=tk.LEFT, padx=5)
+
+        self.search_entry = tk.Entry(self.search_frame)
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.search_entry.bind("<KeyRelease>", self.filter_playlist)
+
+        self.clear_button = tk.Button(self.search_frame, text="Clear", command=self.clear_search)
+        self.clear_button.pack(side=tk.LEFT, padx=2)
+
+        self.next_button = tk.Button(self.search_frame, text="Next", command=self.next_match)
+        self.next_button.pack(side=tk.LEFT, padx=2)
+
+        self.prev_button = tk.Button(self.search_frame, text="Prev", command=self.prev_match)
+        self.prev_button.pack(side=tk.LEFT, padx=2)
+
+        # Treeview for playlist
         self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
         self.tree.heading("list_number", text="#")
         self.tree.heading("name", text="Channel")
@@ -578,6 +600,37 @@ class M3uPlaylistPlayer(tk.Frame):
                                               command=update_terminal_button, state="disabled")
 
         self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: update_terminal_button())
+
+        # Executable selector
+        self.executable_label = tk.Label(self.options_frame0, text="Executable", padx=10)
+        self.executable_label.pack(side=tk.LEFT)
+
+        self.executable_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
+        self.executable_frame.pack(side=tk.LEFT)
+
+        self.executable = tk.StringVar(value=default_executable)
+
+        def update_executable_button():
+            selected_option = self.executable.get()
+            self.executable_option_menu.configure(text=selected_option)
+            self.save_options()
+
+        self.executable_option_menu = tk.Menubutton(self.executable_frame, textvariable=self.executable, indicatoron=True,
+                                                  relief="raised")
+        self.executable_option_menu.pack(side=tk.LEFT)
+
+        executable_menu = tk.Menu(self.executable_option_menu, tearoff=0)
+        self.executable_option_menu.configure(menu=executable_menu)
+
+        for exe in whisper_executables:
+            if shutil.which(exe) is not None:
+                executable_menu.add_radiobutton(label=exe, value=exe, variable=self.executable,
+                                              command=update_executable_button)
+            else:
+                executable_menu.add_radiobutton(label=exe, value=exe, variable=self.executable,
+                                              command=update_executable_button, state="disabled")
+
+        self.executable_option_menu.bind("<<MenuSelect>>", lambda e: update_executable_button())
 
         # Step_s
         self.step_s_label = tk.Label(self.options_frame0, text="Step(sec)", padx=4)
@@ -662,18 +715,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.translate_checkbox = tk.Checkbutton(self.translate_frame, variable=self.translate, onvalue=True,
                                                  offvalue=False, command=self.save_options)
         self.translate_checkbox.pack(side=tk.LEFT)
-
-        # Override global options
-        self.space_label = tk.Label(self.options_frame0, text="", padx=6)
-        self.space_label.pack(side=tk.LEFT)
-
-        self.override_label = tk.Label(self.options_frame0, text="Global options")
-        self.override_label.pack(side=tk.LEFT)
-
-        self.override_options = tk.BooleanVar()
-        self.override_checkbox = tk.Checkbutton(self.options_frame0, variable=self.override_options,
-                                                command=self.change_override)
-        self.override_checkbox.pack(side=tk.LEFT)
 
         # Second Down Frame
 
@@ -934,14 +975,28 @@ class M3uPlaylistPlayer(tk.Frame):
 
         # Buttons
 
-        self.options_frame4 = tk.Frame(self.container_frame)
-        self.options_frame4.pack(side=tk.LEFT, expand=True, padx=2, pady=2)
+        # Bottom options frame with Global Options and Playlist buttons
+        self.bottom_frame = tk.Frame(self.container_frame)
+        self.bottom_frame.pack(side=tk.LEFT, expand=True, padx=1, pady=10)
+
+        # Global options frame on left side of bottom
+        self.global_options_frame = tk.Frame(self.bottom_frame)
+        self.global_options_frame.pack(side=tk.LEFT, padx=10)
+
+        self.override_label = tk.Label(self.global_options_frame, text="Global options")
+        self.override_label.pack(side=tk.TOP)
+
+        self.override_options = tk.BooleanVar()
+        self.override_checkbox = tk.Checkbutton(self.global_options_frame, variable=self.override_options,
+                                            command=self.change_override)
+        self.override_checkbox.pack(side=tk.TOP)
+
+        # Playlist buttons on right side of bottom
+        self.options_frame4 = tk.Frame(self.bottom_frame)
+        self.options_frame4.pack(side=tk.LEFT, expand=True, padx=1)
 
         self.playlist_label = tk.Label(self.options_frame4, text="Playlist")
         self.playlist_label.pack(side=tk.TOP)
-
-        self.load_label = tk.Label(self.options_frame4, text="", padx=2)
-        self.load_label.pack(side=tk.LEFT)
 
         self.load_button = tk.Button(self.options_frame4, text="Load", command=self.load_playlist, padx=4)
         self.load_button.pack(side=tk.LEFT)
@@ -1040,7 +1095,7 @@ class M3uPlaylistPlayer(tk.Frame):
     def update_installed_models(self):
         self.models_installed = []
 
-        if whisper_executable == "whisper":
+        if self.executable == "whisper":
             self.models_installed = models
         else:
             for model in models:
@@ -1306,6 +1361,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
     def widgets_updates(self):
+        executable_option = self.current_options["executable_option"]
         terminal_option = self.current_options["terminal_option"]
         bash_options = self.current_options["bash_options"]
         playeronly_option = self.current_options["playeronly_option"]
@@ -1316,6 +1372,7 @@ class M3uPlaylistPlayer(tk.Frame):
         online_translation_option = self.current_options["online_translation_option"]
         trans_options = self.current_options["trans_options"]
 
+        self.executable_frame.config(highlightthickness=1, highlightbackground="black")
         self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
         self.step_frame.config(highlightthickness=1, highlightbackground="black")
         self.model_frame.config(highlightthickness=1, highlightbackground="black")
@@ -1340,6 +1397,7 @@ class M3uPlaylistPlayer(tk.Frame):
             if selection:
                 url = self.tree.item(selection, "values")[2]
                 if url in self.current_options:
+                    executable_option = self.current_options[url].get("executable_option", "")
                     terminal_option = self.current_options[url].get("terminal_option", "")
                     bash_options = self.current_options[url].get("bash_options", "")
                     playeronly_option = self.current_options[url].get("playeronly_option", "")
@@ -1350,6 +1408,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     online_translation_option = self.current_options[url].get("online_translation_option", "")
                     trans_options = self.current_options[url].get("trans_options", "")
 
+                    self.executable_frame.config(highlightthickness=1, highlightbackground="red")
                     self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
                     self.step_frame.config(highlightthickness=1, highlightbackground="red")
                     self.model_frame.config(highlightthickness=1, highlightbackground="red")
@@ -1377,6 +1436,16 @@ class M3uPlaylistPlayer(tk.Frame):
         if not terminal_option in terminal_installed:
             err_message = ("Terminal Not Installed", f"Warning: Terminal {terminal_option} was not found. Please install it" \
                           f" or choose other terminal.")
+            self.error_messages.put(err_message)
+
+        # Set executable with error checking
+        self.executable_option_menu.unbind("<<MenuSelect>>")
+        self.executable.set(executable_option)
+        self.executable_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+
+        if shutil.which(executable_option) is None:
+            err_message = ("Whisper executable Not Installed", f"Warning: Whisper executable {executable_option} was not found. Please install it" \
+                          f" or choose other.")
             self.error_messages.put(err_message)
 
         self.translate.set(False)
@@ -1589,6 +1658,14 @@ class M3uPlaylistPlayer(tk.Frame):
 
             if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
                 url = '"' + url + '"'
+
+                executable = self.executable.get()
+                if shutil.which(executable) is None:
+                    err_message = ("Whisper executable Not Installed", f"Warning: Whisper executable {executable} was not found. Please install it" \
+                                        f" or choose other.")
+                    self.error_messages.put(err_message)
+                executable_option = f"--executable {executable}"
+
                 if self.timeshiftactive.get() or self.subtitles == "subtitles":
                     mpv_options = f"--player vlc {mpv_options}"
                 elif videoplayer == "smplayer" and videoplayer in player_installed:
@@ -1604,35 +1681,35 @@ class M3uPlaylistPlayer(tk.Frame):
                     messagebox.showerror("Error", err_message)
 
                 if os.path.exists(self.bash_script):
-                    print("Script Options:", f"{self.bash_script} {url} {bash_options} {mpv_options}")
+                    print("Script Options:", f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}")
                     try:
                         if terminal == "gnome-terminal" and subprocess.run(
                                 ["gnome-terminal", "--version"]).returncode == 0:
                             subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c",
-                                              f"{self.bash_script} {url} {bash_options} {mpv_options}; exec /bin/bash -i"])
+                                              f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}; exec /bin/bash -i"])
                         elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
                             subprocess.Popen(["konsole", "--noclose", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                            f"{mpv_options}"])
+                                                                            f"{executable_option} {mpv_options}"])
                         elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
                             subprocess.Popen(["lxterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                       f"{mpv_options}"])
+                                                                       f"{executable_option} {mpv_options}"])
                         elif terminal == "mate-terminal" and subprocess.run(
                                 ["mate-terminal", "--version"]).returncode == 0:
                             subprocess.Popen(["mate-terminal", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                     f"{mpv_options}"])
+                                                                     f"{executable_option} {mpv_options}"])
                         elif terminal == "mlterm":
                             result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
                             mlterm_output = result.stdout
                             if "mlterm" in mlterm_output:
                                 subprocess.Popen(["bash", "-c", f"mlterm -e {self.bash_script} {url} {bash_options} "
-                                                                f"{mpv_options} & sleep 2 ; disown"])
+                                                                f"{executable_option} {mpv_options} & sleep 2 ; disown"])
                         elif terminal == "xfce4-terminal" and subprocess.run(
                                 ["xfce4-terminal", "--version"]).returncode == 0:
                             subprocess.Popen(["xfce4-terminal", "--hold", "-e", f"{self.bash_script} {url} "
-                                                                                f"{bash_options} {mpv_options}"])
+                                                                                f"{bash_options} {executable_option} {mpv_options}"])
                         elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["xterm", "-e", f"{self.bash_script} {url} {bash_options}"
-                                                                      f" {mpv_options}"])
+                            subprocess.Popen(["xterm", "-e", f"{self.bash_script} {url} {bash_options} "
+                                                                      f"{executable_option} {mpv_options}"])
                         else:
                             err_message= "No compatible terminal found."
                             print(err_message)
@@ -2229,6 +2306,110 @@ class M3uPlaylistPlayer(tk.Frame):
                     list_number, name, url = self.tree.item(item, "values")
                     file.write(f"#EXTINF:-1,{name}\n{url}\n")
 
+    # Function to filter playlist based on search text
+    def filter_playlist(self, event=None):
+        search_text = self.search_entry.get().lower()
+
+        # Reset tags and current match index
+        self.match_items = []
+        self.current_match_index = -1
+
+        if not search_text:
+            # If search is empty, restore all items
+            for item in self.tree.get_children():
+                self.tree.item(item, tags=())
+            return
+
+        # Filter items based on search text
+        for item in self.tree.get_children():
+            values = self.tree.item(item, "values")
+            name = values[1].lower()
+            url = values[2].lower()
+
+            if search_text in name or search_text in url:
+                # Highlight matching items
+                self.tree.item(item, tags=("match",))
+                self.match_items.append(item)
+            else:
+                # Make non-matching items gray
+                self.tree.item(item, tags=("nomatch",))
+
+        # Configure tag appearance
+        self.tree.tag_configure("match", background="#e6f3ff")
+        self.tree.tag_configure("nomatch", foreground="gray")
+        self.tree.tag_configure("current_match", background="#c2e0ff")  # Current match gets darker highlight
+
+        # Select the first match if available
+        if self.match_items:
+            self.current_match_index = 0
+            first_match = self.match_items[0]
+
+            # Remove selection from all items
+            self.tree.selection_remove(*self.tree.selection())
+
+            # Select and see the first match
+            self.tree.selection_set(first_match)
+            self.tree.see(first_match)
+
+            # Apply current match tag
+            self.tree.item(first_match, tags=("current_match",))
+
+            # Load options for the selected item
+            self.load_options()
+
+    # Function to move to next match
+    def next_match(self):
+        if not hasattr(self, 'match_items') or not self.match_items:
+            return
+
+        # Clear current match highlight
+        if self.current_match_index >= 0:
+            current_item = self.match_items[self.current_match_index]
+            self.tree.item(current_item, tags=("match",))
+
+        # Move to next match, or wrap around to the beginning
+        self.current_match_index = (self.current_match_index + 1) % len(self.match_items)
+        next_item = self.match_items[self.current_match_index]
+
+        # Highlight and select the next match
+        self.tree.item(next_item, tags=("current_match",))
+        self.tree.selection_remove(*self.tree.selection())
+        self.tree.selection_set(next_item)
+        self.tree.see(next_item)
+        self.load_options()
+
+    # Function to move to previous match
+    def prev_match(self):
+        if not hasattr(self, 'match_items') or not self.match_items:
+            return
+
+        # Clear current match highlight
+        if self.current_match_index >= 0:
+            current_item = self.match_items[self.current_match_index]
+            self.tree.item(current_item, tags=("match",))
+
+        # Move to previous match, or wrap around to the end
+        self.current_match_index = (self.current_match_index - 1) % len(self.match_items)
+        prev_item = self.match_items[self.current_match_index]
+
+        # Highlight and select the previous match
+        self.tree.item(prev_item, tags=("current_match",))
+        self.tree.selection_remove(*self.tree.selection())
+        self.tree.selection_set(prev_item)
+        self.tree.see(prev_item)
+        self.load_options()
+
+    # Function to clear search
+    def clear_search(self):
+        self.search_entry.delete(0, tk.END)
+        # Reset all items to default appearance
+        for item in self.tree.get_children():
+            self.tree.item(item, tags=())
+
+        # Reset match tracking
+        self.match_items = []
+        self.current_match_index = -1
+
     # Functions to load and save config.json
     def load_options(self, event=None):
         self.load_config()
@@ -2240,6 +2421,7 @@ class M3uPlaylistPlayer(tk.Frame):
     def load_config(self):
         try:
             config_file = f'config_{self.spec}.json'
+            self.current_options["executable_option"] = default_executable_option
             self.current_options["terminal_option"] = default_terminal_option
             self.current_options["bash_options"] = default_bash_options
             self.current_options["playeronly_option"] = default_playeronly_option
@@ -2265,6 +2447,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_options_id = self.after(1000, self.save_options)
 
     def save_options(self, event=None):
+        self.executable_frame.config(highlightthickness=1, highlightbackground="black")
         self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
         self.step_frame.config(highlightthickness=1, highlightbackground="black")
         self.model_frame.config(highlightthickness=1, highlightbackground="black")
@@ -2283,6 +2466,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.output_text_frame.config(highlightthickness=1, highlightbackground="black")
         self.speak_frame.config(highlightthickness=1, highlightbackground="black")
 
+        executable_option = self.executable.get()
         terminal_option = self.terminal.get()
 
         language_text = self.language.get()
@@ -2324,6 +2508,7 @@ class M3uPlaylistPlayer(tk.Frame):
         trans_options = trans_language_cleaned + " " + self.output_text.get() + speak_value
 
         if self.override_options.get():
+            self.current_options["executable_option"] = executable_option
             self.current_options["terminal_option"] = terminal_option
             self.current_options["bash_options"] = bash_options
             self.current_options["playeronly_option"] = playeronly_option
@@ -2337,6 +2522,7 @@ class M3uPlaylistPlayer(tk.Frame):
         else:
             selection = self.tree.focus()
             if selection:
+                self.executable_frame.config(highlightthickness=1, highlightbackground="red")
                 self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
                 self.step_frame.config(highlightthickness=1, highlightbackground="red")
                 self.model_frame.config(highlightthickness=1, highlightbackground="red")
@@ -2357,6 +2543,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
                 url = self.tree.item(selection, "values")[2]
                 self.current_options[url] = {}
+                self.current_options[url]["executable_option"] = executable_option
                 self.current_options[url]["terminal_option"] = terminal_option
                 self.current_options[url]["bash_options"] = bash_options
                 self.current_options[url]["playeronly_option"] = playeronly_option
@@ -2387,7 +2574,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 2.80\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.02\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -2418,7 +2605,7 @@ class MainApplication:
 
         self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
-        self.main_window.geometry("844x800")
+        self.main_window.geometry("900x800")
 
         icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
                 "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
