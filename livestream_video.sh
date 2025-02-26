@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 2.80 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 3.02 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -56,6 +56,7 @@ trans_language="en"
 subtitles=""
 audio_source=""
 audio_index="0"
+executable=""
 
 # Temporary file to store used port numbers
 temp_file="/tmp/used_ports-livestream_video.txt"
@@ -83,20 +84,32 @@ output_text_list=( "original" "translation" "both" "none" )
 
 check_requirements()
 {
-    # Find and select executable
+    # Use specified executable or find and select one
 
-    # Array of executable names in priority order
-    executables=("./build/bin/whisper-cli" "./main" "whisper-cpp" "pwcpp" "whisper")
+    if [[ -n "$executable" ]]; then
+        # Use the specified executable
+        whisper_executable="$executable"
 
-    # Loop through each executable name
-    for exe in "${executables[@]}"; do
         # Check if the executable exists in the current directory or in the PATH
-        if [[ -x "$(command -v "$exe")" ]]; then
-            # Save the first executable found and exit loop
-            whisper_executable="$exe"
-            break
+        if [[ ! -x "$(command -v "$whisper_executable")" ]]; then
+            echo "Specified whisper executable '$whisper_executable' not found."
+            exit 1
         fi
-    done
+    else
+        # Array of executable names in priority order
+        executables=("./build/bin/whisper-cli" "./main" "whisper-cpp" "pwcpp" "whisper")
+
+        # Loop through each executable name
+        for exe in "${executables[@]}"; do
+            # Check if the executable exists in the current directory or in the PATH
+            if [[ -x "$(command -v "$exe")" ]]; then
+                # Save the first executable found and exit loop
+                whisper_executable="$exe"
+                break
+            fi
+        done
+    fi
+
     echo
     if [[ -z "$whisper_executable" ]]; then
         echo "Whisper executable is required."
@@ -122,14 +135,14 @@ check_requirements()
 
 
 usage() {
-    echo "Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [player player_options]"
+    echo "Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [player player_options]"
     echo ""
     echo "Example:"
-    echo "  ./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --subtitles --timeshift --segments 4 --segment_time 10 --trans es both speak"
+    echo "  ./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak"
     echo ""
     echo "Help:"
     echo ""
-    echo "  livestream_video.sh v. 2.60 - plays audio/video files or video streams, transcribing the audio using AI technology."
+    echo "  livestream_video.sh v. 3.02 - plays audio/video files or video streams, transcribing the audio using AI technology."
     echo "  The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows"
     echo "  for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell."
     echo "  All of these tasks can be performed efficiently even with low-level processors. Additionally,"
@@ -158,6 +171,8 @@ usage() {
     echo "  --model         Whisper Models:"
     echo "    tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3"
     echo "    with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0"
+    echo ""
+    echo "  --executable    Specify the whisper executable to use (full path or command name)"
     echo ""
     echo "  --language      Whisper Languages:"
     echo "    auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian), he ([Hebrew]), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (Hebrew), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)"
@@ -237,7 +252,6 @@ get_unique_port() {
 
 
 # main
-check_requirements
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -309,6 +323,9 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        --executable ) shift
+            executable=$1
+            ;;
         --raw | --upper | --lower ) quality=${1#--};;
         --streamlink ) streamlink_force=${1#--};;
         --yt-dlp ) ytdlp_force=${1#--};;
@@ -377,6 +394,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+check_requirements
 
 if [ "$timeshift" = "timeshift" ]; then
     if [ "$segments" -lt 2 ] || [ "$segments" -gt 99 ]; then
