@@ -73,16 +73,16 @@ label {
   border-radius: 5px;
 }
 
+.button:hover:not(.disabled) {
+  color: white;
+  background-color: green;
+}
+
 .disabled {
   color: darkgreen;
   background-color: white;
   opacity: 0.3;
   cursor: not-allowed;
-}
-
-.button:hover:not(:disabled) {
-  color: white;
-  background-color: green;
 }
 
 #save {
@@ -106,8 +106,34 @@ label {
   text-align: center;
 }
 
+/* Mejor alineación de checkbox y etiquetas */
 .checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   padding: 10px;
+}
+
+/* Mejora la alineación de inputs y botones */
+.input-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.input-container label {
+  font-weight: bold;
+}
+
+.input-container input {
+  flex: 1; /* Hace que los inputs ocupen el espacio disponible */
+  padding: 5px;
+}
+
+.input-container button {
+  padding: 5px 10px;
+  min-width: 80px; /* Asegura un tamaño uniforme */
 }
 
 .dropdown-container {

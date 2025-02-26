@@ -204,27 +204,6 @@ async function startRecord(option) {
         isServerReady = true;
         return;
       }
-      
-      if (language === null) {
-        language = data["language"];
-        
-        // send message to popup.js to update dropdown
-        try {
-          chrome.runtime.sendMessage({
-            action: "updateSelectedLanguage",
-            detectedLanguage: language,
-          }, (response) => {
-            // Ignore response, just check for errors
-            if (chrome.runtime.lastError) {
-              console.log("Error updating language:", chrome.runtime.lastError.message);
-            }
-          });
-        } catch (e) {
-          console.log("Error sending updateSelectedLanguage message:", e);
-        }
-
-        return;
-      }
 
       if (data["message"] === "DISCONNECT"){
         try {

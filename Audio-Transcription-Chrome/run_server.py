@@ -50,7 +50,7 @@ def main():
     server.client_manager = ClientManager(args.max_clients, args.max_connection_time)
     
     # Log de la configuración
-    logger.info(f"Server configured with max_clients={args.max_clients}, max_connection_time={args.max_connection_time} seconds")
+    logger.info(f"Server configured with host={args.host}, port={args.port}, max_clients={args.max_clients}, and max_connection_time={args.max_connection_time} seconds")
 
     # Registrar el manejador de señales para cierre correcto
     signal.signal(signal.SIGINT, signal_handler)

@@ -195,8 +195,8 @@ function startCapture(options) {
           type: "start_capture",
           data: { 
             currentTabId: currentTab.id, 
-            host: options.host, 
-            port: options.port, 
+            host: options.host || "localhost", // Default to localhost if not provided
+            port: options.port || "9090",     // Default to 9090 if not provided
             multilingual: options.useMultilingual,
             language: options.language,
             task: options.task,

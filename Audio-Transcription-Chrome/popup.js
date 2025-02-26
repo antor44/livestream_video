@@ -7,13 +7,23 @@ document.addEventListener("DOMContentLoaded", function () {
   const languageDropdown = document.getElementById('languageDropdown');
   const taskDropdown = document.getElementById('taskDropdown');
   const modelSizeDropdown = document.getElementById('modelSizeDropdown');
+  const ipAddressInput = document.getElementById('ipAddress');
+  const portInput = document.getElementById('port');
+  const defaultIpButton = document.getElementById('defaultIpButton');
+  const defaultPortButton = document.getElementById('defaultPortButton');
+
+  
   let selectedLanguage = null;
   let selectedTask = taskDropdown.value;
   let selectedModelSize = modelSizeDropdown.value;
+  let ipAddress = ipAddressInput.value;
+  let port = portInput.value;
 
   // Add click event listeners to the buttons
   startButton.addEventListener("click", startCapture);
   stopButton.addEventListener("click", stopCapture);
+  defaultIpButton.addEventListener("click", setDefaultIp);
+  defaultPortButton.addEventListener("click", setDefaultPort);
 
   // Retrieve capturing state from storage on popup open
   chrome.storage.local.get("capturingState", ({ capturingState }) => {
@@ -32,9 +42,25 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   chrome.storage.local.get("selectedLanguage", ({ selectedLanguage: storedLanguage }) => {
-    if (storedLanguage !== undefined) {
+    if (storedLanguage !== undefined && storedLanguage !== null) {
       languageDropdown.value = storedLanguage;
       selectedLanguage = storedLanguage;
+    } else {
+      languageDropdown.value = "";
+    }      
+  });
+
+  chrome.storage.local.get("ipAddress", ({ ipAddress: storedIpAddress }) => {
+    if (storedIpAddress !== undefined) {
+      ipAddressInput.value = storedIpAddress;
+      ipAddress = storedIpAddress;
+    }
+  });
+
+  chrome.storage.local.get("port", ({ port: storedPort }) => {
+    if (storedPort !== undefined) {
+      portInput.value = storedPort;
+      port = storedPort;
     }
   });
 
@@ -73,8 +99,8 @@ document.addEventListener("DOMContentLoaded", function () {
     chrome.runtime.sendMessage({
       action: "startCapture",
       tabId: currentTab.id,
-      host: "localhost",
-      port: "9090",
+      host: ipAddress,
+      port: port,
       language: selectedLanguage,
       task: selectedTask,
       modelSize: selectedModelSize,
@@ -113,9 +139,13 @@ document.addEventListener("DOMContentLoaded", function () {
     useVadCheckbox.disabled = isCapturing;
     modelSizeDropdown.disabled = isCapturing;
     languageDropdown.disabled = isCapturing;
+    ipAddressInput.disabled = isCapturing;
+    portInput.disabled = isCapturing;
     taskDropdown.disabled = isCapturing;
     startButton.classList.toggle("disabled", isCapturing);
     stopButton.classList.toggle("disabled", !isCapturing);
+    ipAddressInput.classList.toggle("disabled", isCapturing);
+    portInput.classList.toggle("disabled", isCapturing);
   }
 
   // Save the checkbox state when it's toggled
@@ -143,19 +173,41 @@ document.addEventListener("DOMContentLoaded", function () {
     chrome.storage.local.set({ selectedModelSize });
   });
 
+  defaultIpButton.addEventListener('click', function() {
+    setDefaultIp();
+  });
+
+  defaultPortButton.addEventListener('click', function() {
+    setDefaultPort();
+  });
+
+  function setDefaultIp() {
+    ipAddressInput.value = "localhost";
+    ipAddress = ipAddressInput.value;
+    chrome.storage.local.set({ ipAddress: "localhost" });
+  }
+
+  function setDefaultPort() {
+    portInput.value = "9090";
+    port = portInput.value;
+    chrome.storage.local.set({ port: "9090" });
+  }
+
+  ipAddressInput.addEventListener('change', function() {
+    ipAddress = ipAddressInput.value;
+    chrome.storage.local.set({ ipAddress });
+  });
+
+  portInput.addEventListener('change', function() {
+    port = portInput.value;
+    chrome.storage.local.set({ port });
+  });
+
   // Single listener for all message types
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     try {
       // Handle different action types
-      if (request.action === "updateSelectedLanguage") {
-        const detectedLanguage = request.detectedLanguage;
-        if (detectedLanguage) {
-          languageDropdown.value = detectedLanguage;
-          chrome.storage.local.set({ selectedLanguage: detectedLanguage });
-        }
-        sendResponse({ success: true });
-      } 
-      else if (request.action === "toggleCaptureButtons") {
+      if (request.action === "toggleCaptureButtons") {
         console.log("Received toggleCaptureButtons message");
         toggleCaptureButtons(false);
         chrome.storage.local.set({ capturingState: { isCapturing: false } });

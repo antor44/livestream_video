@@ -15,6 +15,18 @@
     <input type="checkbox" id="useVadCheckbox">
     <label for="useVadCheckbox">Use Voice Activity Detection</label>
   </div>
+
+  <div class="input-container">
+    <label for="ipAddress">Server IP:</label>
+    <input type="text" id="ipAddress" value="localhost" class="config-input">
+    <button type="button" id="defaultIpButton">Default</button>
+  </div>
+
+  <div class="input-container">
+    <label for="port">Port:</label>
+    <input type="number" id="port" value="9090" class="config-input">
+    <button type="button" id="defaultPortButton">Default</button>
+  </div>
   <div class="dropdown-container">
     <label for="languageDropdown">Select Language:</label>
     <select id="languageDropdown">
@@ -123,7 +135,6 @@
   <div class="dropdown-container">
     <label for="taskDropdown">Select task:</label>
     <select id="taskDropdown" >
-      <option value="">Select Task</option>
       <option value="transcribe" selected>Transcribe</option>
       <option value="translate">Translate</option>
     </select>
@@ -131,7 +142,6 @@
   <div class="dropdown-container">
     <label for="modelSizeDropdown">Select Model Size:</label>
     <select id="modelSizeDropdown">
-      <option value="">Select model</option>
       <option value="tiny">Tiny </option>
       <option value="tiny.en">Tiny (English-only)</option>
       <option value="base">Base</option>
