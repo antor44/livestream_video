@@ -61,28 +61,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Get the current active tab
     const currentTab = await getCurrentTab();
+    if (!currentTab) {
+      return;
+    }
 
+    // First toggle the button state
+    toggleCaptureButtons(true);
+    chrome.storage.local.set({ capturingState: { isCapturing: true } });
+    
     // Send a message to the background script to start capturing
-    let host = "localhost";
-    let port = "9090";
-
-    chrome.runtime.sendMessage(
-      {
-        action: "startCapture",
-        tabId: currentTab.id,
-        host: host,
-        port: port,
-        language: selectedLanguage,
-        task: selectedTask,
-        modelSize: selectedModelSize,
-        useVad: useVadCheckbox.checked,
-      }, () => {
-        // Update capturing state in storage and toggle the buttons
-        chrome.storage.local.set({ capturingState: { isCapturing: true } }, () => {
-          toggleCaptureButtons(true);
-        });
-      }
-    );
+    chrome.runtime.sendMessage({
+      action: "startCapture",
+      tabId: currentTab.id,
+      host: "localhost",
+      port: "9090",
+      language: selectedLanguage,
+      task: selectedTask,
+      modelSize: selectedModelSize,
+      useVad: useVadCheckbox.checked,
+    });
   }
 
   // Function to handle the stop capture button click event
@@ -92,13 +89,12 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    // Update capturing state and toggle buttons
+    chrome.storage.local.set({ capturingState: { isCapturing: false } });
+    toggleCaptureButtons(false);
+    
     // Send a message to the background script to stop capturing
-    chrome.runtime.sendMessage({ action: "stopCapture" }, () => {
-      // Update capturing state in storage and toggle the buttons
-      chrome.storage.local.set({ capturingState: { isCapturing: false } }, () => {
-        toggleCaptureButtons(false);
-      });
-    });
+    chrome.runtime.sendMessage({ action: "stopCapture" });
   }
 
   // Function to get the current active tab
@@ -147,22 +143,35 @@ document.addEventListener("DOMContentLoaded", function () {
     chrome.storage.local.set({ selectedModelSize });
   });
 
-  chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-    if (request.action === "updateSelectedLanguage") {
-      const detectedLanguage = request.detectedLanguage;
-
-      if (detectedLanguage) {
-        languageDropdown.value = detectedLanguage;
-        chrome.storage.local.set({ selectedLanguage: detectedLanguage });
+  // Single listener for all message types
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    try {
+      // Handle different action types
+      if (request.action === "updateSelectedLanguage") {
+        const detectedLanguage = request.detectedLanguage;
+        if (detectedLanguage) {
+          languageDropdown.value = detectedLanguage;
+          chrome.storage.local.set({ selectedLanguage: detectedLanguage });
+        }
+        sendResponse({ success: true });
+      } 
+      else if (request.action === "toggleCaptureButtons") {
+        console.log("Received toggleCaptureButtons message");
+        toggleCaptureButtons(false);
+        chrome.storage.local.set({ capturingState: { isCapturing: false } });
+        sendResponse({ success: true });
       }
+      else {
+        // Unknown action type
+        sendResponse({ success: false, error: "Unknown action type" });
+      }
+    } catch (error) {
+      console.error("Error processing message:", error);
+      sendResponse({ success: false, error: error.message });
     }
-  });
-
-  chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-    if (request.action === "toggleCaptureButtons") {
-      toggleCaptureButtons(false);
-      chrome.storage.local.set({ capturingState: { isCapturing: false } })
-    }
+    
+    // Return true to indicate we want to send a response asynchronously
+    return true;
   });
 
 });

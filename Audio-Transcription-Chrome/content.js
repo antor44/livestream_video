@@ -263,20 +263,48 @@ function copyAllTextToClipboard() {
 
 init_element();
 
+// Listen for page unload to notify the background script
+window.addEventListener('beforeunload', () => {
+  // Attempt to notify background script that the page is being unloaded
+  try {
+    // Use a single message to reduce chance of errors
+    chrome.runtime.sendMessage({ 
+      action: "pageUnloading", 
+      stopCapture: true, 
+      toggleButtons: true 
+    }).catch(() => {
+      // Silently ignore any promise rejection
+    });
+    remove_element();
+  } catch (e) {
+    // Silently ignore any errors - extension context may be invalidated
+    console.log("Ignoring error during page unload");
+  }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const { type, data } = request;
+  
   if (type === 'STOP') {
     remove_element();
     sendResponse({ data: 'STOPPED' });
     return true;
-  } else if (type === 'showWaitPopup') {
+  } 
+  
+  else if (type === 'showWaitPopup') {
     initPopupElement();
     showPopup(`Estimated wait time ~ ${Math.round(data)} minutes`);
     sendResponse({ data: 'popup' });
     return true;
+  } 
+  
+  else if (type === 'transcript') {
+    segments = JSON.parse(data).segments;
+    displaySegments();
+    sendResponse({});
+    return true;
   }
-  segments = JSON.parse(data).segments;
-  displaySegments();
+  
   sendResponse({});
   return true;
 });

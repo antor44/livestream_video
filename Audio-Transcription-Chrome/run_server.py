@@ -1,10 +1,8 @@
 import argparse
-import functools
 import logging
 import signal
 import sys
-from websockets.sync.server import serve
-from whisper_live.server import TranscriptionServer, BackendType, ClientManager
+from whisper_live.server import TranscriptionServer, ClientManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -54,22 +52,19 @@ def main():
     # Log de la configuración
     logger.info(f"Server configured with max_clients={args.max_clients}, max_connection_time={args.max_connection_time} seconds")
 
-    # Preparar la función parcial para el servidor WebSocket
-    recv_audio_partial = functools.partial(
-        server.recv_audio,
-        backend=BackendType(args.backend),
+    # Registrar el manejador de señales para cierre correcto
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    # Iniciar servidor usando el método run() que ya contiene la lógica de WebSocket
+    server.run(
+        host=args.host,
+        port=args.port,
+        backend=args.backend,
         faster_whisper_custom_model_path=args.faster_whisper_custom_model_path,
         whisper_tensorrt_path=args.trt_model_path,
         trt_multilingual=args.trt_multilingual
     )
 
-    # Registrar el manejador de señales para cierre correcto
-    signal.signal(signal.SIGINT, signal_handler)
-    
-    # Iniciar servidor WebSocket
-    websocket_server = serve(recv_audio_partial, args.host, args.port)
-    logger.info(f"Server started on ws://{args.host}:{args.port}")
-    websocket_server.serve_forever()
-
 if __name__ == "__main__":
     main()
+
