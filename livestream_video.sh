@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 3.02 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 3.04 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -142,7 +142,7 @@ usage() {
     echo ""
     echo "Help:"
     echo ""
-    echo "  livestream_video.sh v. 3.02 - plays audio/video files or video streams, transcribing the audio using AI technology."
+    echo "  livestream_video.sh v. 3.04 - plays audio/video files or video streams, transcribing the audio using AI technology."
     echo "  The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows"
     echo "  for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell."
     echo "  All of these tasks can be performed efficiently even with low-level processors. Additionally,"
