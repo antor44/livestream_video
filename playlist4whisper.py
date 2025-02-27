@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.02 License: GPL 3.0
+Author: Antonio R. Version: 3.04 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -535,15 +535,17 @@ class M3uPlaylistPlayer(tk.Frame):
         self.search_entry = tk.Entry(self.search_frame)
         self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         self.search_entry.bind("<KeyRelease>", self.filter_playlist)
+        self.search_entry.bind("<Button-3>", self.show_popup_menu)
 
         self.clear_button = tk.Button(self.search_frame, text="Clear", command=self.clear_search)
         self.clear_button.pack(side=tk.LEFT, padx=2)
 
+        self.prev_button = tk.Button(self.search_frame, text="Prev", command=self.prev_match)
+        self.prev_button.pack(side=tk.LEFT, padx=2)
+
         self.next_button = tk.Button(self.search_frame, text="Next", command=self.next_match)
         self.next_button.pack(side=tk.LEFT, padx=2)
 
-        self.prev_button = tk.Button(self.search_frame, text="Prev", command=self.prev_match)
-        self.prev_button.pack(side=tk.LEFT, padx=2)
 
         # Treeview for playlist
         self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
@@ -1841,13 +1843,19 @@ class M3uPlaylistPlayer(tk.Frame):
             messagebox.showerror("Error", error_message)
 
 
-    # Popup menu cut, copy, paste, delete
+    # Popup menu for cut, copy, paste, delete that works for any entry
     def show_popup_menu(self, event):
+        # Create the popup menu with tearoff disabled
         self.popup_menu = tk.Menu(self, tearoff=0)
-        self.popup_menu.add_command(label="Cut", command=lambda: self.cut(self.mpv_options_entry))
-        self.popup_menu.add_command(label="Copy", command=lambda: self.copy(self.mpv_options_entry))
-        self.popup_menu.add_command(label="Paste", command=lambda: self.paste(self.mpv_options_entry))
-        self.popup_menu.add_command(label="Delete", command=lambda: self.delete(self.mpv_options_entry))
+
+        # Use the widget that triggered the event
+        widget = event.widget
+
+        # Add menu commands using the triggering widget
+        self.popup_menu.add_command(label="Cut", command=lambda: self.cut(widget))
+        self.popup_menu.add_command(label="Copy", command=lambda: self.copy(widget))
+        self.popup_menu.add_command(label="Paste", command=lambda: self.paste(widget))
+        self.popup_menu.add_command(label="Delete", command=lambda: self.delete(widget))
 
         # Display the popup menu at the right-click position
         self.popup_menu.tk_popup(event.x_root, event.y_root)
@@ -2350,6 +2358,8 @@ class M3uPlaylistPlayer(tk.Frame):
             # Select and see the first match
             self.tree.selection_set(first_match)
             self.tree.see(first_match)
+            # Adjust view based on the item's position (scroll if needed)
+            self.adjust_view(first_match)
 
             # Apply current match tag
             self.tree.item(first_match, tags=("current_match",))
@@ -2357,17 +2367,34 @@ class M3uPlaylistPlayer(tk.Frame):
             # Load options for the selected item
             self.load_options()
 
-    # Function to move to next match
+    # Helper function to adjust the view so that the item is fully visible
+    def adjust_view(self, item):
+        # Force widget update to ensure current layout info
+        self.tree.update_idletasks()
+        # Get the bounding box of the item (returns x, y, width, height)
+        bbox = self.tree.bbox(item)
+        if bbox:
+            x, y, width, height = bbox
+            visible_height = self.tree.winfo_height()
+            # If the top of the item is above the visible area, scroll up
+            if y < 0:
+                self.tree.yview_scroll(-1, "units")
+            # If the bottom of the item is below the visible area, scroll down
+            elif y + height > visible_height:
+                self.tree.yview_scroll(1, "units")
+
+    # Function to move to the next matching item
     def next_match(self):
+        # Check if there are matching items
         if not hasattr(self, 'match_items') or not self.match_items:
             return
 
-        # Clear current match highlight
+        # Clear current match highlight, if any
         if self.current_match_index >= 0:
             current_item = self.match_items[self.current_match_index]
             self.tree.item(current_item, tags=("match",))
 
-        # Move to next match, or wrap around to the beginning
+        # Move to the next match, wrapping around to the beginning if necessary
         self.current_match_index = (self.current_match_index + 1) % len(self.match_items)
         next_item = self.match_items[self.current_match_index]
 
@@ -2375,20 +2402,25 @@ class M3uPlaylistPlayer(tk.Frame):
         self.tree.item(next_item, tags=("current_match",))
         self.tree.selection_remove(*self.tree.selection())
         self.tree.selection_set(next_item)
-        self.tree.see(next_item)
+        self.tree.focus(next_item)      # Ensure the widget's focus is updated
+        self.tree.see(next_item)        # Ensure the item is visible
+        self.adjust_view(next_item)     # Adjust view if needed
+
+        # Load options for the newly selected item
         self.load_options()
 
-    # Function to move to previous match
+    # Function to move to the previous matching item
     def prev_match(self):
+        # Check if there are matching items
         if not hasattr(self, 'match_items') or not self.match_items:
             return
 
-        # Clear current match highlight
+        # Clear current match highlight, if any
         if self.current_match_index >= 0:
             current_item = self.match_items[self.current_match_index]
             self.tree.item(current_item, tags=("match",))
 
-        # Move to previous match, or wrap around to the end
+        # Move to the previous match, wrapping around to the end if necessary
         self.current_match_index = (self.current_match_index - 1) % len(self.match_items)
         prev_item = self.match_items[self.current_match_index]
 
@@ -2396,7 +2428,11 @@ class M3uPlaylistPlayer(tk.Frame):
         self.tree.item(prev_item, tags=("current_match",))
         self.tree.selection_remove(*self.tree.selection())
         self.tree.selection_set(prev_item)
-        self.tree.see(prev_item)
+        self.tree.focus(prev_item)      # Ensure the widget's focus is updated
+        self.tree.see(prev_item)        # Ensure the item is visible
+        self.adjust_view(prev_item)     # Adjust view if needed
+
+        # Load options for the newly selected item
         self.load_options()
 
     # Function to clear search
@@ -2417,6 +2453,36 @@ class M3uPlaylistPlayer(tk.Frame):
         self.override_options.set(override_option)
 
         self.widgets_updates()
+
+        selected_items = self.tree.selection()
+        if not selected_items:
+            return
+
+        # Use the first selected item
+        selected_item = selected_items[0]
+
+        # Check if the selected item is among the filtered matches
+        if hasattr(self, 'match_items') and selected_item in self.match_items:
+            # If there's a current match already, clear its 'current_match' tag
+            if self.current_match_index >= 0:
+                previous_item = self.match_items[self.current_match_index]
+                # Revert its tag back to "match"
+                self.tree.item(previous_item, tags=("match",))
+
+            # Update current_match_index to the index of the selected item within match_items
+            self.current_match_index = self.match_items.index(selected_item)
+
+            # Set the selected item's tag to "current_match" for highlighting
+            self.tree.item(selected_item, tags=("current_match",))
+
+            # Optionally, adjust the view to ensure the item is fully visible
+            self.tree.see(selected_item)
+            self.adjust_view(selected_item)
+
+        else:
+            # If the selected item is not in the filtered matches, do nothing,
+            # leaving the filter colors and active element unchanged.
+            pass
 
     def load_config(self):
         try:
@@ -2574,7 +2640,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.02\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.04\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -2605,7 +2671,7 @@ class MainApplication:
 
         self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
-        self.main_window.geometry("900x800")
+        self.main_window.geometry("1000x800")
 
         icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
                 "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
