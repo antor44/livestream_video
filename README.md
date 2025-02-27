@@ -19,7 +19,7 @@ Also in this release, we've added enhanced server configuration options that let
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, vlc, ffmpeg, python3-tk, python3-pip, bc, and xterm are installed.
 
-To install whisper-cpp, choose one of these options (you can install all, Whisper-cpp executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
+To install whisper-cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
 pip3 install pywhispercpp
 ```
@@ -91,14 +91,14 @@ The easy way to install yt-dlp and streamlink:
 pip3 install yt-dlp
 pip3 install streamlink
 ```
-or to create a python virtual environment alogside with python applications install pipx and:
+or to create a Python virtual environment alongside Python applications, install pipx:
 ```
 sudo apt-get install pipx
 pipx install yt-dlp
 pipx install streamlink
 ```
 
-Or to upgrade them:
+And to upgrade them:
 ```
 pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
@@ -256,14 +256,14 @@ The easy way to install yt-dlp and streamlink:
 pip3 install yt-dlp
 pip3 install streamlink
 ```
-or to create a python virtual environment alogside with python applications install pipx and:
+or to create a Python virtual environment alongside Python applications, install pipx:
 ```
 sudo apt-get install pipx
 pipx install yt-dlp
 pipx install streamlink
 ```
 
-Or to upgrade them:
+And to upgrade them:
 ```
 pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
@@ -416,7 +416,7 @@ tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, larg
 
 with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
 
---executable:     Specify the whisper executable to use (full path or command name).
+--executable:    Specify the whisper executable to use (full path or command name).
 
 --language:      Whisper Languages:
 
