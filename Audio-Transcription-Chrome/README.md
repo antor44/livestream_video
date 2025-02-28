@@ -169,7 +169,7 @@ A: A localhost server is one running on your own PC, using loopback ports. The C
 
 **Q: Are connections with the server secure? Is it safe to use the extension from the internet to connect to my server?**
 
-A: The WhisperLive server uses websockets without secure connections, so both the audio chunks and the transcribed texts are transmitted without encryption. This is not a concern on a localhost or LAN. If security is required, you can connect clients to the server through SSH tunnels, which provide sufficient security.
+A: The WhisperLive server uses WebSockets without secure connections, so both the audio chunks and the transcribed texts are transmitted without encryption. This is not a concern on a localhost server or when used in a LAN. If security is required, you can connect clients to the server through SSH tunnels, which provide sufficient security.
 
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
