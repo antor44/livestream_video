@@ -35,13 +35,11 @@ virtualenv ~/python-environments/whisper-live
 source ~/python-environments/whisper-live/bin/activate
 ```
 
-- Install WhisperLive (at least version 0.6.2):
+- Install WhisperLive (at least version 0.6.3):
 ```
-pip3 install "whisper-live>=0.6.2"
+pip3 install "whisper-live>=0.6.3"
 ```
-If an error occurs, i.e. with Python 3.12, because "Could not find a version that satisfies the requirement onnxruntime==1.16.0 (from whisper-live)", then you have to
-try the alternative installation by downloading the WhisperLive GitHub repository:
-
+Or the alternative installation by downloading the WhisperLive GitHub repository:
 
 Clone WhisperLive repository:
 ```
@@ -163,7 +161,29 @@ The extension captures audio from the current tab using Chrome’s `tabCapture` 
 
 ---
 
+## FAQ
 
-## Summary
+**Q: What is a localhost server? Could I use the extension from the internet to connect to my server?**
 
-This extension simplifies real-time audio transcription by combining advanced transcription technology with flexible server configuration. Whether you stick with the default settings or customize the server IP and port, Audio Transcription is designed to provide a seamless, real-time experience for transcribing audio directly in your browser.
+A: A localhost server is one running on your own PC, using loopback ports. The Chrome extension uses one port to communicate with this server, which transcribes the audio played on a webpage. Alternatively, the server can transcribe multiple audio streams from different web browsers running on your PC simultaneously. The loopback interface is a virtual network interface per user that, by default, is not accessible from outside your computer. However, you can configure the server and the extension to connect from different PCs on your LAN. It is also possible to connect the server with the Chrome extension over the internet, although this requires additional network and router configuration.
+
+**Q: Are connections with the server secure? Is it safe to use the extension from the internet to connect to my server?**
+
+A: The WhisperLive server uses websockets without secure connections, so both the audio chunks and the transcribed texts are transmitted without encryption. This is not a concern on a localhost or LAN. If security is required, you can connect clients to the server through SSH tunnels, which provide sufficient security.
+
+**Q: What quality of transcription can I expect when using only a low-level processor?**
+
+A: This Chrome extension program is based on WhisperLive, which is based on faster-whisper, a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English, you can expect very good transcriptions of video or audio streams even on low-end or older PCs, including those that are at least 10 years old. You can easily configure the application with models such as small.en or base.en, which offer excellent transcriptions for English. Even the tiny.en model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
+
+**Q: Some transcribed texts are difficult to read when words keep changing, and some phrases appear to be cut off. Why is that?**
+
+A: The extension relies on the output texts from the WhisperLive server, which uses a special technique to achieve real-time transcriptions. It first rapidly transcribes the most recent chunks of audio, and then re-transcribes them with better context. This causes frequent changes in the transcribed words. This is inherent to Whisper AI, which is not designed for real-time transcriptions. Processing online videos is very challenging due to the somewhat random nature of this transcription algorithm. Moreover, the output format and length of the transcribed texts from the WhisperLive server are even more unpredictable.
+
+Currently, the extension uses a very simple algorithm to handle the phrases that are being displayed and stored. In the near future, we plan to address these instability issues in the transcriptions. The solutions include:
+
+- **Managing the Dynamics of Transcriptions to Reduce Instability:**  
+  A sliding window or buffer with a look-ahead time of 1–2 seconds can be used before considering a phrase as final, allowing additional context to refine the transcription. This introduces some latency, but it may be acceptable depending on the user's needs.  
+  Alternatively, a system of "interim and final results" can be implemented, where only the final results are shown to the user after they have stabilized.
+
+- **Improving the Text Format:**  
+  The current solution in the WhisperLive own extension version joins all the phrases together with only spaces between words, resulting in text that is difficult to read. Simple formatting rules could be applied: inserting line breaks and adding basic punctuation based on common patterns. A post-processing step can be implemented using algorithms or lightweight correction models to correct common errors. Heuristic rules could be used to predict the most likely sequence of words, although this must be efficient for real-time processing. For example, correcting repeated or incoherent words using local context.
