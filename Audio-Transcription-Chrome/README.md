@@ -165,11 +165,13 @@ The extension captures audio from the current tab using Chrome’s `tabCapture` 
 
 **Q: What is a localhost server? Could I use the extension from the internet to connect to my server?**
 
-A: A localhost server is one running on your own PC, using loopback ports. The Chrome extension uses one port to communicate with this server, which transcribes the audio played on a webpage. Alternatively, the server can transcribe multiple audio streams from different web browsers running on your PC simultaneously. The loopback interface is a virtual network interface per user that, by default, is not accessible from outside your computer. However, you can configure the server and the extension to connect from different PCs on your LAN. It is also possible to connect the server with the Chrome extension over the internet, although this requires additional network and router configuration.
+A: A localhost server is one running on your own PC, using loopback ports. The Chrome extension uses one port to communicate with this server, which transcribes the audio played on a webpage. Alternatively, the server can transcribe multiple audio streams from different web browsers running on your PC simultaneously.
 
-**Q: Are connections with the server secure? Is it safe to use the extension from the internet to connect to my server?**
+The loopback interface is a virtual network interface for each user that, by default, is not accessible from outside your computer. However, you can configure the server and the extension to connect from different PCs on your LAN. It is also possible to connect the Chrome extension to the server via the Internet, although this requires additional network settings for your operating system and router.
 
-A: The WhisperLive server uses WebSockets without secure connections, so both the audio chunks and the transcribed texts are transmitted without encryption. This is not a concern on a localhost server or when used in a LAN. If security is required, you can connect clients to the server through SSH tunnels, which provide sufficient security.
+**Q: Are connections to the server secure? Is it safe to use the extension from the Internet to connect to my server?**
+
+A: The WhisperLive server uses WebSockets without secure connections, so both audio clips and transcribed texts are transmitted unencrypted. This is not a problem on a local server or when used on a LAN. If security is required, you can connect clients to the server via SSH tunnels, which provide sufficient security.
 
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
@@ -177,13 +179,13 @@ A: This Chrome extension program is based on WhisperLive, which is based on fast
 
 **Q: Some transcribed texts are difficult to read when words keep changing, and some phrases appear to be cut off. Why is that?**
 
-A: The extension relies on the output texts from the WhisperLive server, which uses a special technique to achieve real-time transcriptions. It first rapidly transcribes the most recent chunks of audio, and then re-transcribes them with better context. This causes frequent changes in the transcribed words. This is inherent to Whisper AI, which is not designed for real-time transcriptions. Processing online videos is very challenging due to the somewhat random nature of this transcription algorithm. Moreover, the output format and length of the transcribed texts from the WhisperLive server are even more unpredictable.
+A: The extension relies on the output texts from the WhisperLive server, which uses a special technique to achieve real-time transcriptions. It first rapidly transcribes the most recent chunk of audio, and then re-transcribes them with better context. This causes frequent changes in the transcribed words. This is inherent to Whisper AI, which is not designed for real-time transcriptions. Processing online videos is very challenging due to the somewhat random nature of this transcription algorithm. Moreover, the output format and length of the transcribed texts from the WhisperLive server are even more unpredictable.
 
-Currently, the extension uses a very simple algorithm to handle the phrases that are being displayed and stored. In the near future, we plan to address these instability issues in the transcriptions. The solutions include:
+Currently, the extension uses a very simple algorithm to handle the phrases that are being displayed and stored. In the near future, we plan to address these instability issues in the visualization of the transcriptions. The solutions include:
 
 - **Managing the Dynamics of Transcriptions to Reduce Instability:**  
   A sliding window or buffer with a look-ahead time of 1–2 seconds can be used before considering a phrase as final, allowing additional context to refine the transcription. This introduces some latency, but it may be acceptable depending on the user's needs.  
   Alternatively, a system of "interim and final results" can be implemented, where only the final results are shown to the user after they have stabilized.
 
 - **Improving the Text Format:**  
-  The current solution in the WhisperLive's own extension version joins all the phrases together with only spaces between words, resulting in text that is difficult to read. Simple formatting rules could be applied: inserting line breaks and adding basic punctuation based on common patterns. A post-processing step can be implemented using algorithms or lightweight correction models to correct common errors. Heuristic rules could be used to predict the most likely sequence of words, although this must be efficient for real-time processing. For example, correcting repeated or incoherent words using local context.
+  The current solution in WhisperLive's own extension version is to join all sentences with only spaces between words, resulting in difficult-to-read texts. Simple formatting rules could be applied: inserting line breaks and adding basic punctuation based on common patterns. A post-processing step can be implemented using algorithms or lightweight correction models to correct common errors. Heuristic rules could be used to predict the most likely sequence of words, although this must be efficient for real-time processing. For example, correcting repeated or incoherent words using local context.
