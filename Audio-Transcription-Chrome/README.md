@@ -173,6 +173,10 @@ The loopback interface is a virtual network interface for each user that, by def
 
 A: The WhisperLive server uses WebSockets without secure connections, so both audio clips and transcribed texts are transmitted unencrypted. This is not a problem on a local server or when used on a LAN. If security is required, you can connect clients to the server via SSH tunnels, which provide sufficient security.
 
+**Q: Can the server run with GPU acceleration?**
+
+A: WhisperLive Server supports faster‑whisper backends with GPU acceleration, and it also supports the TensorRT backend for Nvidia graphics cards. See the WhisperLive documentation for detailed configuration instructions.
+
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
 A: This Chrome extension program is based on WhisperLive, which is based on faster-whisper, a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English, you can expect very good transcriptions of video or audio streams even on low-end or older PCs, including those that are at least 10 years old. You can easily configure the application with models such as small.en or base.en, which offer excellent transcriptions for English. Even the tiny.en model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
