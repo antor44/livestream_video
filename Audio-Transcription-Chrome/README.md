@@ -175,7 +175,11 @@ A: The WhisperLive server uses WebSockets without secure connections, so both au
 
 **Q: Can the server run with GPU acceleration?**
 
-A: WhisperLive Server supports faster‑whisper backends with GPU acceleration, and it also supports the TensorRT backend for Nvidia graphics cards. See the WhisperLive documentation for detailed configuration instructions.
+A: WhisperLive Server supports the faster‑whisper backend accelerated by a GPU, which should be automatically detected as long as the system has a compatible version of the Nvidia CUDA libraries installed. It also supports the TensorRT backend for Nvidia graphics cards, which is generally more efficient than faster‑whisper. See the WhisperLive documentation for detailed configuration instructions.
+
+Keep in mind that although WhisperLive supports multiple concurrent clients on a single GPU, there are limitations due to the limited amount of available VRAM and compute capacity. Primarily, the ability to handle multiple clients depends on the available VRAM. Notably, the server can be configured in single‑model mode to optimize VRAM usage, but in that case all clients must use the same model size.
+
+Additionally, WhisperLive does not include a built-in load balancing system; there are no mechanisms to distribute the load among multiple server instances, so an external load balancing solution must be implemented.
 
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
