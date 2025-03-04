@@ -15,7 +15,6 @@ Also in this release, we've added enhanced server configuration options that let
   - **Default Buttons:** Two handy buttons allow you to quickly reset the values:
     - **Default IP:** Resets the server IP to `localhost`.
     - **Default Port:** Resets the port to `9090`.
-
 ---
 
 ## Installing the WhisperLive Server
@@ -165,7 +164,7 @@ The extension captures audio from the current tab using Chrome’s `tabCapture` 
 
 **Q: What is a localhost server? Could I use the extension from the internet to connect to my server?**
 
-A: A localhost server is one running on your own PC, using loopback ports. The Chrome extension uses one port to communicate with this server, which transcribes the audio played on a webpage. Alternatively, the server can transcribe multiple audio streams from different web browsers running on your PC simultaneously.
+A: A localhost server is one running on your own PC. The Chrome extension uses one port to communicate with this server, which transcribes the audio played on a webpage. Alternatively, the server can transcribe multiple audio streams from different web browsers running on your PC simultaneously.
 
 The loopback interface is a virtual network interface for each user that, by default, is not accessible from outside your computer. However, you can configure the server and the extension to connect from different PCs on your LAN. It is also possible to connect the Chrome extension to the server via the Internet, although this requires additional network settings for your operating system and router.
 
