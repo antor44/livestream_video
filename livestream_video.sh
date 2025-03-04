@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# livestream_video.sh v. 3.04 - plays audio/video files or video streams, transcribing the audio using AI technology.
+# livestream_video.sh v. 3.06 - plays audio/video files or video streams, transcribing the audio using AI technology.
 # The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows
 # for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell.
 # All of these tasks can be performed efficiently even with low-level processors. Additionally,
@@ -142,7 +142,7 @@ usage() {
     echo ""
     echo "Help:"
     echo ""
-    echo "  livestream_video.sh v. 3.04 - plays audio/video files or video streams, transcribing the audio using AI technology."
+    echo "  livestream_video.sh v. 3.06 - plays audio/video files or video streams, transcribing the audio using AI technology."
     echo "  The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows"
     echo "  for changing options per channel and global options, online translation, and Text-to-Speech with translate-shell."
     echo "  All of these tasks can be performed efficiently even with low-level processors. Additionally,"
@@ -542,7 +542,10 @@ if [[ $subtitles == "subtitles" ]] && [[ $local -eq 1 ]]; then
 
         url_no_ext="${url%.*}"
         if [[ $trans == "trans" ]] && [ $err -eq 0 ]; then
-            trans -b :${trans_language} -i /tmp/whisper-live_${mypid}.wav.srt -o /tmp/whisper-live_${mypid}.wav.${trans_language}.srt
+            echo ""
+            echo "Starting Online Translation..."
+            echo ""
+            trans -b :${trans_language} -i /tmp/whisper-live_${mypid}.wav.srt | tee /tmp/whisper-live_${mypid}.wav.${trans_language}.srt
             err=$?
             destination="${url_no_ext}.${trans_language}.srt"
             mv /tmp/whisper-live_${mypid}.wav.${trans_language}.srt /tmp/whisper-live_${mypid}.wav.srt
