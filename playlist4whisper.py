@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.04 License: GPL 3.0
+Author: Antonio R. Version: 3.06 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -47,7 +47,7 @@ previous_error_messages = set()
 consecutive_same_messages = 0
 
 # Function to display warning messages
-def show_error_messages(error_messages):
+def show_error_messages(error_messages, remove_labels_callback=None):
     """
     Displays warning messages if there are no changes in the 'error_messages' for 3 consecutive checks.
 
@@ -57,6 +57,8 @@ def show_error_messages(error_messages):
 
     Args:
         error_messages: A list of tuples containing error types and error texts.
+        remove_labels_callback (callable, optional): A callback function to remove drag labels.
+            This function is called just before printing and showing an error message.
     """
 
     global previous_error_messages, consecutive_same_messages
@@ -78,6 +80,8 @@ def show_error_messages(error_messages):
         for error_type, error_text in unique_error_messages:
             err_message = f"{error_type}: {error_text}"
             print(err_message)
+            if remove_labels_callback:
+                remove_labels_callback()  # remove labels only when message is displayed
             messagebox.showinfo("Warning", err_message)
 
         previous_error_messages.clear()
@@ -519,6 +523,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.playlist = []
         self.subtitles = ""
         self.selected_model_old = ""
+        self._dragging_item = None  # new attribute for drag-and-drop
         self.create_widgets()
         self.populate_playlist()
         self.load_options()
@@ -556,6 +561,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.tree.column("name", width=200, stretch=True, minwidth=50)
         self.tree.column("url", width=400, stretch=True, minwidth=50)
         self.tree.bind('<Double-Button-1>', self.play_channel)
+        # Bind mouse dragging events for drag-and-drop
+        self.tree.bind('<ButtonPress-1>', self.on_treeview_button_press)
+        self.tree.bind('<B1-Motion>', self.on_treeview_motion)
+        self.tree.bind('<ButtonRelease-1>', self.on_treeview_button_release)
         self.tree.pack(fill=tk.BOTH, expand=True)
 
         yscrollbar = ttk.Scrollbar(self.tree, orient="vertical", command=self.tree.yview)
@@ -2287,6 +2296,41 @@ class M3uPlaylistPlayer(tk.Frame):
             self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
 
 
+    # New method to record the item being dragged on mouse press
+    def on_treeview_button_press(self, event):
+        self._dragging_item = self.tree.identify_row(event.y)
+        if self._dragging_item:
+            item_text = self.tree.item(self._dragging_item, "values")[1]
+            self.drag_label = tk.Label(self.tree, text=item_text, bg="white", relief="solid", bd=1)
+            self.drag_label.place(x=event.x, y=event.y)
+
+    # New method to update potential drop target on mouse movement
+    def on_treeview_motion(self, event):
+        if not self._dragging_item:
+            return
+        if hasattr(self, "drag_label"):
+            self.drag_label.place(x=event.x, y=event.y)
+
+    def remove_drag_label(self):
+        if hasattr(self, "drag_label"):
+            self.drag_label.destroy()
+            del self.drag_label
+
+    # New method to perform the item move on mouse release
+    def on_treeview_button_release(self, event):
+        if self._dragging_item:
+            self.remove_drag_label()  # Ensure drag label is always removed
+            # Identify the drop target at the y-coordinate of the release event
+            drop_item = self.tree.identify_row(event.y)
+            # Only move the item if a valid drop_item is found; otherwise do nothing
+            if drop_item:
+                drop_index = self.tree.index(drop_item)
+                if drop_item != self._dragging_item:
+                    err_message = ("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
+                    self.error_messages.put(err_message)
+                    self.tree.move(self._dragging_item, '', drop_index)
+                    self.update_list_numbers()
+            self._dragging_item = None
 
     # Function to load a playlist
     def load_playlist(self):
@@ -2640,7 +2684,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.04\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.06\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -2724,6 +2768,7 @@ class MainApplication:
             playlist_player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages, self.main_window)
             playlist_player.pack(fill=tk.BOTH, expand=True)
             playlist_players.append(playlist_player)
+        self.playlist_players = playlist_players  # store playlist players
 
         self.main_window.protocol("WM_DELETE_WINDOW", self.on_close)
         check_error_thread = threading.Thread(target=self.check_error_messages)
@@ -2733,15 +2778,18 @@ class MainApplication:
     def on_close(self):
         self.main_window.destroy()
 
+    def remove_all_drag_labels(self):
+        for player in self.playlist_players:
+            player.remove_drag_label()
+
     def check_error_messages(self):
         while True:
             error_messages = set()
             while not self.error_messages.empty():
                 error_message = self.error_messages.get(block=False)
                 error_messages.add(error_message)
-
-            show_error_messages(error_messages)
-
+            # Call show_error_messages with the callback to remove labels
+            show_error_messages(error_messages, self.remove_all_drag_labels)
             time.sleep(3)
 
     def hex_to_rgb(self, hex_color):
