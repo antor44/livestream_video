@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.06 License: GPL 3.0
+Author: Antonio R. Version: 3.08 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -1284,7 +1284,6 @@ class M3uPlaylistPlayer(tk.Frame):
             err_message = "Quantize executable does not exist."
             print(err_message)
             messagebox.showerror("Error", err_message)
-            content_copydownload
 
 
     def find_make_model_processes(self, base_model):
@@ -1600,7 +1599,7 @@ class M3uPlaylistPlayer(tk.Frame):
                                                          stderr=subprocess.DEVNULL) == 0:
                         print("Timeshift active.")
                     else:
-                        err_message= f"Warning: Video player {player_option} was not found. Please install it."
+                        err_message= f"Warning: Video player VLC was not found. Please install it."
                         print(err_message)
                         messagebox.showerror("Timeshift Player Not Installed", err_message)
 
@@ -2684,7 +2683,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.06\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.08\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
