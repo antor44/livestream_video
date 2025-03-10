@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Audio Capture</title>
-  <script src="popup.js"></script>
+  <!-- IMPORTANT: Include popup.js at the END of the body -->
   <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body>
@@ -155,5 +155,15 @@
       <option value="large-v3">Large-v3</option>
     </select>
   </div>
+  <!-- New dropdown for text formatting -->
+  <div class="dropdown-container">
+    <label for="textFormattingDropdown">Text Formatting:</label>
+    <select id="textFormattingDropdown">
+      <option value="none">None (default)</option>
+      <option value="join">Join All Words</option>
+      <option value="advanced" selected>Advanced Formatting</option>
+    </select>
+  </div>
+  <script src="popup.js"></script> <!--- Moved to the end -->
 </body>
 </html>

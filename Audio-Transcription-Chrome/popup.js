@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const modelSizeDropdown = document.getElementById('modelSizeDropdown');
   const ipAddressInput = document.getElementById('ipAddress');
   const portInput = document.getElementById('port');
+  const textFormattingDropdown = document.getElementById("textFormattingDropdown");
   const defaultIpButton = document.getElementById('defaultIpButton');
   const defaultPortButton = document.getElementById('defaultPortButton');
 
@@ -77,6 +78,30 @@ document.addEventListener("DOMContentLoaded", function () {
       selectedModelSize = storedModelSize;
     }
   });
+
+  // Load text formatting option and update dropdown (default to "advanced")
+  chrome.storage.local.get("textFormatting", ({ textFormatting }) => {
+    textFormattingDropdown.value = textFormatting || "advanced";
+  });
+
+  // Common function to restart capture if active
+  function restartCaptureIfActive() {
+    chrome.storage.local.get("capturingState", ({ capturingState }) => {
+      if (capturingState && capturingState.isCapturing) {
+        stopCapture();
+        setTimeout(() => startCapture(), 500);
+      }
+    });
+  }
+
+  // Function to request resetting transcription window in the current tab
+  function resetSession() {
+    getCurrentTab().then((tab) => {
+      if (tab) {
+        chrome.tabs.sendMessage(tab.id, { type: "resetSession" });
+      }
+    });
+  }
 
   // Function to handle the start capture button click event
   async function startCapture() {
@@ -155,30 +180,34 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   languageDropdown.addEventListener('change', function() {
-    if (languageDropdown.value === "") {
-      selectedLanguage = null;
-    } else {
-      selectedLanguage = languageDropdown.value;
-    }
+    const selectedLanguage = languageDropdown.value || null;
     chrome.storage.local.set({ selectedLanguage });
+    restartCaptureIfActive();
+    resetSession();
   });
 
   taskDropdown.addEventListener('change', function() {
-    selectedTask = taskDropdown.value;
+    const selectedTask = taskDropdown.value;
     chrome.storage.local.set({ selectedTask });
+    restartCaptureIfActive();
+    resetSession();
   });
 
   modelSizeDropdown.addEventListener('change', function() {
-    selectedModelSize = modelSizeDropdown.value;
+    const selectedModelSize = modelSizeDropdown.value;
     chrome.storage.local.set({ selectedModelSize });
+    restartCaptureIfActive();
+    resetSession();
   });
 
   defaultIpButton.addEventListener('click', function() {
     setDefaultIp();
+    restartCaptureIfActive();
   });
 
   defaultPortButton.addEventListener('click', function() {
     setDefaultPort();
+    restartCaptureIfActive();
   });
 
   function setDefaultIp() {
@@ -194,13 +223,22 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   ipAddressInput.addEventListener('change', function() {
-    ipAddress = ipAddressInput.value;
+    const ipAddress = ipAddressInput.value;
     chrome.storage.local.set({ ipAddress });
+    restartCaptureIfActive();
+    resetSession();
   });
 
   portInput.addEventListener('change', function() {
-    port = portInput.value;
+    const port = portInput.value;
     chrome.storage.local.set({ port });
+    restartCaptureIfActive();
+    resetSession();
+  });
+
+  textFormattingDropdown.addEventListener("change", function() {
+    chrome.storage.local.set({ textFormatting: textFormattingDropdown.value });
+    resetSession();
   });
 
   // Single listener for all message types
