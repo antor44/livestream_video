@@ -12,7 +12,8 @@ Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that al
 
 This is an application totally independent of playlist4whisper and live_stream.sh, based on an implementation of OpenAI Whisper different from whisper-cpp. This browser extension is a fork of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
 
-Also in this release, we've added enhanced server configuration options that let you customize the server IP and port.
+In this release, we have added various options for text output manipulation and improved the server configuration options that allow you to customize the server IP address and port.
+
 
 #
 # playlist4whisper Quick start
