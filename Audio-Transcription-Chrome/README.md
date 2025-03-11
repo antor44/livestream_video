@@ -140,6 +140,8 @@ Click the extension icon to open the options popup.
   - Click **Default IP** to revert to localhost.
   - Click **Default Port** to revert to 9090.
 
+*You must refresh the page if you make configuration changes after starting the capture within the same tab.
+
 ### Start Transcription:
 
 Click **Start Capture** to begin capturing audio and sending it to the server. The first time a model is selected, necessary files will be downloaded automatically.
