@@ -1,7 +1,7 @@
 (function(){
   // Prevent duplicate loading.
-  if (window.__contentJS_loaded) return;
-  window.__contentJS_loaded = true;
+  // if (window.__contentJS_loaded) return;
+  // window.__contentJS_loaded = true;
 
   // If there are no multimedia elements on the page (video/audio), remove the overlay.
   if (!document.querySelector('video, audio')) {
@@ -290,8 +290,8 @@
       windowStartTime = Date.now();
       return;
     }
-    // Consider the window stable if there are at least 5 segments or 10 seconds have passed.
-    const isStable = newSegments.length >= 5 || (Date.now() - windowStartTime) >= 10000;
+    // Consider the window stable if there are at least 3 segments or 8 seconds have passed.
+    const isStable = newSegments.length >= 3 || (Date.now() - windowStartTime) >= 8000;
     if (!isStable) {
       previousSegments = newSegments.slice();
       return;
@@ -300,16 +300,79 @@
     if (index === -1) {
       index = previousSegments.length;
     }
+    
+    // Process stable segments for addition to history
     for (let i = 0; i < index; i++) {
       const text = previousSegments[i].text;
-      if (!historySegments.includes(text)) {
+      
+      // Skip empty segments
+      if (!text || text.trim().length === 0) {
+        continue;
+      }
+      
+      // Skip hallucination check for very short texts
+      if (text.split(/\s+/).length <= 3) {
+        if (!historySegments.includes(text)) {
+          historySegments.push(text);
+        }
+        continue;
+      }
+      
+      // Check similarity with existing history segments to detect hallucinations
+      let isHallucination = false;
+      
+      // If history is empty, add the segment
+      if (historySegments.length === 0) {
+        historySegments.push(text);
+        continue;
+      }
+      
+      // Compare with the last few history segments to detect hallucinations
+      const similarityThreshold = 0.9; // 90% similarity threshold
+      const lastSegmentsToCheck = Math.min(2, historySegments.length);
+      
+      for (let j = 1; j <= lastSegmentsToCheck; j++) {
+        const prevHistorySegment = historySegments[historySegments.length - j];
+        const similarity = calculateTextSimilarity(text, prevHistorySegment);
+        
+        // If too similar to existing content, consider it a hallucination or duplicate
+        if (similarity > similarityThreshold) {
+          isHallucination = true;
+          break;
+        }
+      }
+      
+      if (!isHallucination && !historySegments.includes(text)) {
         historySegments.push(text);
       }
     }
+    
     windowStartTime = Date.now();
     previousSegments = newSegments.slice();
   }
 
+  // -------------------- Text Similarity Function -------------------- //
+  // Calculate similarity between two texts using word comparison
+  function calculateTextSimilarity(text1, text2) {
+    if (!text1 || !text2) return 0;
+    
+    // Convert texts to word arrays and filter out empty strings
+    const words1 = text1.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    const words2 = text2.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    
+    // If either text has very few words, similarity is less relevant
+    if (words1.length <= 3 || words2.length <= 3) {
+      return words1.length > 0 && words2.length > 0 ? 0.9 : 0; // Consider short non-empty texts as similar
+    }
+    
+    // Count matching words
+    const wordSet = new Set(words1);
+    const matchingWords = words2.filter(word => wordSet.has(word)).length;
+    
+    // Calculate similarity as percentage of matching words relative to the longer text
+    return matchingWords / Math.max(words1.length, words2.length);
+  }
+  
   // Advanced formatting function.
   // This simplified approach inserts a newline after a punctuation mark
   // (period, exclamation, question mark, or ellipsis) if it is followed by at least one space.
@@ -543,4 +606,3 @@
 
   init_element();
 })();
-
