@@ -43,19 +43,19 @@ def main():
     if args.backend == "tensorrt" and args.trt_model_path is None:
         raise ValueError("A valid TensorRT model path must be provided when using the tensorrt backend.")
 
-    # Crear el servidor de transcripción
+    # Create the transcription server
     server = TranscriptionServer()
     
-    # Configurar max_clients y max_connection_time según los argumentos proporcionados
+    # Configure max_clients and max_connection_time according to the provided arguments
     server.client_manager = ClientManager(args.max_clients, args.max_connection_time)
     
-    # Log de la configuración
+    # Log the configuration
     logger.info(f"Server configured with host={args.host}, port={args.port}, max_clients={args.max_clients}, and max_connection_time={args.max_connection_time} seconds")
 
-    # Registrar el manejador de señales para cierre correcto
+    # Register the signal handler for proper shutdown
     signal.signal(signal.SIGINT, signal_handler)
     
-    # Iniciar servidor usando el método run() que ya contiene la lógica de WebSocket
+    # Start the server using the run() method, which already contains the WebSocket logic
     server.run(
         host=args.host,
         port=args.port,
@@ -67,4 +67,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

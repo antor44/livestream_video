@@ -42,15 +42,17 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // Retrieve selected language from storage on popup open, or default to ""
   chrome.storage.local.get("selectedLanguage", ({ selectedLanguage: storedLanguage }) => {
     if (storedLanguage !== undefined && storedLanguage !== null) {
       languageDropdown.value = storedLanguage;
       selectedLanguage = storedLanguage;
     } else {
-      languageDropdown.value = "";
+      languageDropdown.value = ""; // Set to empty string for "Automatically detect"
     }      
   });
 
+  // Retrieve IP address from storage on popup open
   chrome.storage.local.get("ipAddress", ({ ipAddress: storedIpAddress }) => {
     if (storedIpAddress !== undefined) {
       ipAddressInput.value = storedIpAddress;
@@ -58,6 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // Retrieve port from storage on popup open
   chrome.storage.local.get("port", ({ port: storedPort }) => {
     if (storedPort !== undefined) {
       portInput.value = storedPort;
@@ -65,6 +68,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // Retrieve selected task from storage on popup open
   chrome.storage.local.get("selectedTask", ({ selectedTask: storedTask }) => {
     if (storedTask !== undefined) {
       taskDropdown.value = storedTask;
@@ -72,6 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+    // Retrieve selected model size from storage on popup open
   chrome.storage.local.get("selectedModelSize", ({ selectedModelSize: storedModelSize }) => {
     if (storedModelSize !== undefined) {
       modelSizeDropdown.value = storedModelSize;
@@ -179,13 +184,15 @@ document.addEventListener("DOMContentLoaded", function () {
     chrome.storage.local.set({ useVadState });
   });
 
+  // Event listener for language dropdown change
   languageDropdown.addEventListener('change', function() {
-    const selectedLanguage = languageDropdown.value || null;
+    const selectedLanguage = languageDropdown.value || null; // Store null for "Automatically detect"
     chrome.storage.local.set({ selectedLanguage });
     restartCaptureIfActive();
     resetSession();
   });
 
+  // Event listener for task dropdown change
   taskDropdown.addEventListener('change', function() {
     const selectedTask = taskDropdown.value;
     chrome.storage.local.set({ selectedTask });
@@ -193,6 +200,7 @@ document.addEventListener("DOMContentLoaded", function () {
     resetSession();
   });
 
+  // Event listener for model size dropdown change
   modelSizeDropdown.addEventListener('change', function() {
     const selectedModelSize = modelSizeDropdown.value;
     chrome.storage.local.set({ selectedModelSize });
@@ -200,28 +208,33 @@ document.addEventListener("DOMContentLoaded", function () {
     resetSession();
   });
 
+  // Event listener for default IP button click
   defaultIpButton.addEventListener('click', function() {
     setDefaultIp();
     restartCaptureIfActive();
   });
 
+  // Event listener for default Port button click
   defaultPortButton.addEventListener('click', function() {
     setDefaultPort();
     restartCaptureIfActive();
   });
 
+  // Function to set the IP address to the default value (localhost)
   function setDefaultIp() {
     ipAddressInput.value = "localhost";
     ipAddress = ipAddressInput.value;
     chrome.storage.local.set({ ipAddress: "localhost" });
   }
 
+  // Function to set the port to the default value (9090)
   function setDefaultPort() {
     portInput.value = "9090";
     port = portInput.value;
     chrome.storage.local.set({ port: "9090" });
   }
 
+  // Event listener for IP address input change
   ipAddressInput.addEventListener('change', function() {
     const ipAddress = ipAddressInput.value;
     chrome.storage.local.set({ ipAddress });
@@ -229,6 +242,7 @@ document.addEventListener("DOMContentLoaded", function () {
     resetSession();
   });
 
+  // Event listener for port input change
   portInput.addEventListener('change', function() {
     const port = portInput.value;
     chrome.storage.local.set({ port });
@@ -236,6 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
     resetSession();
   });
 
+  // Event listener for text formatting dropdown change
   textFormattingDropdown.addEventListener("change", function() {
     chrome.storage.local.set({ textFormatting: textFormattingDropdown.value });
     resetSession();

@@ -106,7 +106,7 @@ label {
   text-align: center;
 }
 
-/* Mejor alineación de checkbox y etiquetas */
+/* Better alignment of checkbox and labels */
 .checkbox-container {
   display: flex;
   align-items: center;
@@ -114,7 +114,7 @@ label {
   padding: 10px;
 }
 
-/* Mejora la alineación de inputs y botones */
+/* Improves the alignment of inputs and buttons */
 .input-container {
   display: flex;
   align-items: center;
@@ -127,13 +127,13 @@ label {
 }
 
 .input-container input {
-  flex: 1; /* Hace que los inputs ocupen el espacio disponible */
+  flex: 1; /* Makes the inputs take up the available space */
   padding: 5px;
 }
 
 .input-container button {
   padding: 5px 10px;
-  min-width: 80px; /* Asegura un tamaño uniforme */
+  min-width: 80px; /* Ensures a uniform size */
 }
 
 .dropdown-container {

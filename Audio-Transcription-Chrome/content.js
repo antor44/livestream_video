@@ -29,6 +29,7 @@
   let historySegments = [];  // Stored historical segments (raw, unformatted).
   let windowStartTime = null; // Timestamp when the current transcription window started.
   let currentUrl = window.location.href;  // Track current URL for navigation changes.
+  let currentConfig = {}; // Store current configuration to detect changes
 
   // -------------------- Helper Functions for Storage -------------------- //
   // Retrieves a setting from Chrome's local storage.
@@ -142,20 +143,7 @@
     transcriptionHistoryEl.style.cssText = 'display:block;';
 
     // Add header information (this will not be overwritten later).
-    chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
-      const language = data.selectedLanguage || 'auto-detect';
-      const task = data.selectedTask === 'translate' ? 'translate to English' : 'NO translate to English';
-      const model = data.selectedModelSize || 'unknown';
-      const webpageTitle = document.title;
-      const spanElem1 = document.createElement('span');
-      spanElem1.style.cssText = TITLE_SPAN_STYLE;
-      spanElem1.textContent = `Transcription of ${webpageTitle}`;
-      transcriptionHeaderEl.appendChild(spanElem1);
-      const spanElem2 = document.createElement('span');
-      spanElem2.style.cssText = TITLE_SPAN_STYLE;
-      spanElem2.textContent = `Transcribing stream with model ${model}, language ${language}, ${task}`;
-      transcriptionHeaderEl.appendChild(spanElem2);
-    });
+    updateConfigAndHeader();
 
     // Create current transcription container.
     transcriptionCurrentEl = document.createElement('div');
@@ -433,6 +421,57 @@
       if (content) content.scrollTop = content.scrollHeight;
     });
   }
+  
+  // Add a proper reset function that clears all data
+  function resetTranscription() {
+    segments = [];
+    previousSegments = [];
+    historySegments = [];
+    windowStartTime = Date.now();
+    
+    if (transcriptionCurrentEl) transcriptionCurrentEl.innerHTML = "";
+    if (transcriptionHistoryEl) transcriptionHistoryEl.innerHTML = "";
+    
+    // Update the header with current settings
+    updateTranscriptionHeader();
+  }
+  
+  // Function to update the configuration and refresh the header
+  function updateConfigAndHeader() {
+    chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
+      // Store the current configuration to detect changes
+      currentConfig = {
+        language: data.selectedLanguage || 'auto-detect',
+        task: data.selectedTask || 'transcribe',
+        model: data.selectedModelSize || 'unknown'
+      };
+      
+      // Update the header with the current configuration
+      updateTranscriptionHeader();
+    });
+  }
+    
+  // Add a function to update the header with current settings
+  function updateTranscriptionHeader() {
+    if (!transcriptionHeaderEl) return;
+    
+    transcriptionHeaderEl.innerHTML = ""; // Clear existing content
+    
+    const language = currentConfig.language || 'auto-detect';
+    const task = currentConfig.task === 'translate' ? 'translate to English' : 'NO translate to English';
+    const model = currentConfig.model || 'unknown';
+    const webpageTitle = document.title;
+    
+    const spanElem1 = document.createElement('span');
+    spanElem1.style.cssText = TITLE_SPAN_STYLE;
+    spanElem1.textContent = `Transcription of ${webpageTitle}`;
+    transcriptionHeaderEl.appendChild(spanElem1);
+    
+    const spanElem2 = document.createElement('span');
+    spanElem2.style.cssText = TITLE_SPAN_STYLE;
+    spanElem2.textContent = `Transcribing stream with model ${model}, language ${language}, ${task}`;
+    transcriptionHeaderEl.appendChild(spanElem2);
+  }
 
   // Removes the transcription element from the DOM.
   function remove_element() {
@@ -440,6 +479,17 @@
     if (elem) {
       elem.remove();
     }
+    // Reset state so the next initialization will get fresh settings
+    containerElement = null;
+    transcriptionCurrentEl = null;
+    transcriptionHistoryEl = null;
+    transcriptionHeaderEl = null;
+    segments = [];
+    previousSegments = [];
+    historySegments = [];
+    windowStartTime = null;
+    currentConfig = {};
+    
     chrome.storage.local.set({ capturingState: { isCapturing: false } });
     chrome.runtime.sendMessage({ action: "toggleCaptureButtons" });
     window.__contentJS_loaded = false;
@@ -481,6 +531,10 @@
 
   // Stub function for adding an initialization header.
   function addInitializationHeader() {
+    if (transcriptionHeaderEl) {
+      // Update configuration and header with the current values
+      updateConfigAndHeader();
+    }
     return true;
   }
 
@@ -540,6 +594,10 @@
   // -------------------- Initialize and Setup Listeners -------------------- //
   function init_element() {
     if (document.getElementById('transcription')) return;
+    
+    // Get the current configuration before initializing
+    updateConfigAndHeader();
+    
     createContainer();
     createContentArea();
     configureControls();
@@ -575,19 +633,35 @@
       console.error("Ignoring error during page unload:", e);
     }
   });
+  
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (changes.selectedLanguage || changes.selectedTask || changes.selectedModelSize) {
+      // Update the header with the new configuration
+      updateConfigAndHeader();
+      // If necessary, restart or reset the transcription
+      // resetTranscription();
+      // init_element();
+    }
+  });
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const { type, data } = request;
     if (type === 'resetSession') {
-      if (transcriptionHistoryEl) {
-        addInitializationHeader();
-      }
-      sendResponse({ success: true });
-      return true;
-    }
-    if (type === 'STOP') {
+        resetTranscription();
+        sendResponse({ success: true });
+        return true;
+    } else if (type === 'STOP') {
       remove_element();
       sendResponse({ data: 'STOPPED' });
+      return true;
+    } else if (type === 'START') {
+      // Completely restart the transcription (clear segments and recreate the container)
+      resetTranscription();
+      init_element();
+      updateConfigAndHeader();
+      // Send a message to restart the transcription (see point 2)
+      chrome.runtime.sendMessage({ action: "startTranscription", config: currentConfig });
+      sendResponse({ data: 'STARTED' });
       return true;
     } else if (type === 'showWaitPopup') {
       initPopupElement();

@@ -102,6 +102,11 @@ function resampleTo16kHZ(audioData, origSampleRate = 44100) {
   return resampledData;
 }
 
+/**
+ * Generates a universally unique identifier (UUID).
+ *
+ * @returns {string} The generated UUID.
+ */
 function generateUUID() {
   let dt = new Date().getTime();
   const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -115,7 +120,7 @@ function generateUUID() {
 
 /**
  * Starts recording audio from the captured tab.
- * @param {Object} option - The options object containing the currentTabId.
+ * @param {Object} option - The options object containing the currentTabId, host, port, language, task, modelSize, and useVad.
  */
 async function startRecord(option) {
   const stream = await captureTabAudio();
@@ -331,7 +336,7 @@ function cleanupAndClose() {
 /**
  * Listener for incoming messages from the extension's background script.
  * @param {Object} request - The message request object.
- * @param {Object} sender - The sender object containing information about the message sender.
+ * @param {Object} sender - The sender object containing information about the message sender.  (Unused in this implementation, but kept for completeness)
  * @param {Function} sendResponse - The function to send a response back to the message sender.
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
