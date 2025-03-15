@@ -197,9 +197,9 @@ function startCapture(options) {
 
         // Read the updated settings from chrome.storage
         chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
-          const language = data.selectedLanguage || "auto-detect";
+          const language = data.selectedLanguage || null;
           const task = data.selectedTask || "transcribe";
-          const modelSize = data.selectedModelSize || "unknown";
+          const modelSize = data.selectedModelSize || "small";
 
           // Send a message to start the capture with the updated settings
           sendMessageToTab(optionTab.id, {

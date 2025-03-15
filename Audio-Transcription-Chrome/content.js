@@ -441,9 +441,9 @@
     chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
       // Store the current configuration to detect changes
       currentConfig = {
-        language: data.selectedLanguage || 'auto-detect',
+        language: data.selectedLanguage || null,
         task: data.selectedTask || 'transcribe',
-        model: data.selectedModelSize || 'unknown'
+        model: data.selectedModelSize || 'small'
       };
       
       // Update the header with the current configuration
@@ -457,9 +457,9 @@
     
     transcriptionHeaderEl.innerHTML = ""; // Clear existing content
     
-    const language = currentConfig.language || 'auto-detect';
+    const language = currentConfig.language || null;
     const task = currentConfig.task === 'translate' ? 'translate to English' : 'NO translate to English';
-    const model = currentConfig.model || 'unknown';
+    const model = currentConfig.model || 'small';
     const webpageTitle = document.title;
     
     const spanElem1 = document.createElement('span');
