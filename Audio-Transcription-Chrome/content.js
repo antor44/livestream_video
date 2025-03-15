@@ -29,7 +29,6 @@
   let historySegments = [];  // Stored historical segments (raw, unformatted).
   let windowStartTime = null; // Timestamp when the current transcription window started.
   let currentUrl = window.location.href;  // Track current URL for navigation changes.
-  let currentConfig = {}; // Store current configuration to detect changes
 
   // -------------------- Helper Functions for Storage -------------------- //
   // Retrieves a setting from Chrome's local storage.
@@ -143,7 +142,20 @@
     transcriptionHistoryEl.style.cssText = 'display:block;';
 
     // Add header information (this will not be overwritten later).
-    updateConfigAndHeader();
+    chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
+      const language = data.selectedLanguage || 'auto-detect';
+      const task = data.selectedTask === 'translate' ? 'translate to English' : 'NO translate to English';
+      const model = data.selectedModelSize || 'unknown';
+      const webpageTitle = document.title;
+      const spanElem1 = document.createElement('span');
+      spanElem1.style.cssText = TITLE_SPAN_STYLE;
+      spanElem1.textContent = `Transcription of ${webpageTitle}`;
+      transcriptionHeaderEl.appendChild(spanElem1);
+      const spanElem2 = document.createElement('span');
+      spanElem2.style.cssText = TITLE_SPAN_STYLE;
+      spanElem2.textContent = `Transcribing stream with model ${model}, language ${language}, ${task}`;
+      transcriptionHeaderEl.appendChild(spanElem2);
+    });
 
     // Create current transcription container.
     transcriptionCurrentEl = document.createElement('div');
@@ -371,106 +383,110 @@
 
   // Displays the current transcription segments and updates the history display.
   function displaySegments() {
+    // Basic validation
     if (!transcriptionCurrentEl) return;
-    // Update history with current raw segments.
-    updateHistory(segments);
-    chrome.storage.local.get("textFormatting", function(result) {
-      const formatType = result.textFormatting || "none";
-      transcriptionCurrentEl.innerHTML = "";
-      if (formatType === "none") {
-        // In "none" mode, render each history segment and current segment individually.
-        historySegments.forEach((text) => {
-          const spanElem = document.createElement('span');
-          spanElem.style.cssText = TEXT_SPAN_STYLE;
-          spanElem.innerText = text;
-          transcriptionCurrentEl.appendChild(spanElem);
-        });
-        segments.forEach((seg, i) => {
-          const elemText = document.createElement('span');
-          elemText.style.cssText = TEXT_SPAN_STYLE;
-          elemText.id = 't' + i;
-          elemText.innerHTML = seg.text;
-          transcriptionCurrentEl.appendChild(elemText);
-        });
-      } else {
-        // In "join" and "advanced" modes, join history and current segments.
-        let historyText = historySegments.map(text => text.trim()).join(" ");
-        let currentText = segments.map(seg => seg.text.trim()).join(" ");
-        let fullText = (historyText + " " + currentText).trim();
-        if (formatType === "advanced") {
-          fullText = advancedFormat(fullText);
-          let lines = fullText.split('\n');
-          let mergedLines = [];
-          for (let i = 0; i < lines.length; i++) {
-            let currentLine = lines[i];
-            while (i + 1 < lines.length && currentLine.trim().length < 8) {
-              currentLine += " " + lines[i + 1].trim();
-              i++;
-            }
-            mergedLines.push(currentLine);
-          }
-          fullText = mergedLines.join('\n');
-        }
-        const elemText = document.createElement('span');
-        elemText.style.cssText = TEXT_SPAN_STYLE;
-        elemText.innerText = fullText;
-        transcriptionCurrentEl.appendChild(elemText);
-      }
-      // Scroll to the bottom of the content area.
-      const content = document.getElementById('transcription-content');
-      if (content) content.scrollTop = content.scrollHeight;
-    });
-  }
-  
-  // Add a proper reset function that clears all data
-  function resetTranscription() {
-    segments = [];
-    previousSegments = [];
-    historySegments = [];
-    windowStartTime = Date.now();
     
-    if (transcriptionCurrentEl) transcriptionCurrentEl.innerHTML = "";
-    if (transcriptionHistoryEl) transcriptionHistoryEl.innerHTML = "";
+    // Create backup of current content in case rendering fails
+    const currentContent = transcriptionCurrentEl.innerHTML;
     
-    // Update the header with current settings
-    updateTranscriptionHeader();
-  }
-  
-  // Function to update the configuration and refresh the header
-  function updateConfigAndHeader() {
-    chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
-      // Store the current configuration to detect changes
-      currentConfig = {
-        language: data.selectedLanguage || null,
-        task: data.selectedTask || 'transcribe',
-        model: data.selectedModelSize || 'small'
-      };
+    try {
+      // Update history with current raw segments
+      updateHistory(segments);
       
-      // Update the header with the current configuration
-      updateTranscriptionHeader();
-    });
-  }
-    
-  // Add a function to update the header with current settings
-  function updateTranscriptionHeader() {
-    if (!transcriptionHeaderEl) return;
-    
-    transcriptionHeaderEl.innerHTML = ""; // Clear existing content
-    
-    const language = currentConfig.language || null;
-    const task = currentConfig.task === 'translate' ? 'translate to English' : 'NO translate to English';
-    const model = currentConfig.model || 'small';
-    const webpageTitle = document.title;
-    
-    const spanElem1 = document.createElement('span');
-    spanElem1.style.cssText = TITLE_SPAN_STYLE;
-    spanElem1.textContent = `Transcription of ${webpageTitle}`;
-    transcriptionHeaderEl.appendChild(spanElem1);
-    
-    const spanElem2 = document.createElement('span');
-    spanElem2.style.cssText = TITLE_SPAN_STYLE;
-    spanElem2.textContent = `Transcribing stream with model ${model}, language ${language}, ${task}`;
-    transcriptionHeaderEl.appendChild(spanElem2);
+      // Validate segments arrays
+      const validHistorySegments = Array.isArray(historySegments) ? historySegments : [];
+      const validSegments = Array.isArray(segments) ? segments : [];
+      
+      // Use a promise to ensure we don't have race conditions with settings retrieval
+      new Promise((resolve) => {
+        chrome.storage.local.get("textFormatting", resolve);
+      })
+      .then((result) => {
+        const formatType = result.textFormatting || "none";
+        
+        // Don't clear content until we're ready to actually add new content
+        let newContent = document.createDocumentFragment();
+        
+        if (formatType === "none") {
+          // In "none" mode, render each history segment and current segment individually.
+          validHistorySegments.forEach((text) => {
+            if (text && text.trim()) { // Skip empty segments
+              const spanElem = document.createElement('span');
+              spanElem.style.cssText = TEXT_SPAN_STYLE;
+              spanElem.innerText = text;
+              newContent.appendChild(spanElem);
+            }
+          });
+          
+          validSegments.forEach((seg, i) => {
+            if (seg && seg.text && seg.text.trim()) { // Skip empty segments
+              const elemText = document.createElement('span');
+              elemText.style.cssText = TEXT_SPAN_STYLE;
+              elemText.id = 't' + i;
+              elemText.innerText = seg.text; // Use innerText instead of innerHTML for security
+              newContent.appendChild(elemText);
+            }
+          });
+        } else {
+          // In "join" and "advanced" modes, join history and current segments.
+          const historyText = validHistorySegments.filter(text => text && text.trim()).map(text => text.trim()).join(" ");
+          const currentText = validSegments.filter(seg => seg && seg.text && seg.text.trim()).map(seg => seg.text.trim()).join(" ");
+          let fullText = (historyText + " " + currentText).trim();
+          
+          if (formatType === "advanced") {
+            fullText = advancedFormat(fullText);
+            const lines = fullText.split('\n');
+            const mergedLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+              let currentLine = lines[i];
+              while (i + 1 < lines.length && currentLine.trim().length < 8) {
+                currentLine += " " + lines[i + 1].trim();
+                i++;
+              }
+              if (currentLine.trim()) { // Skip empty lines
+                mergedLines.push(currentLine);
+              }
+            }
+            
+            fullText = mergedLines.join('\n');
+          }
+          
+          if (fullText.trim()) { // Only create element if there's actual text
+            const elemText = document.createElement('span');
+            elemText.style.cssText = TEXT_SPAN_STYLE;
+            elemText.innerText = fullText;
+            newContent.appendChild(elemText);
+          }
+        }
+        
+        // Only replace content if we successfully generated new content
+        if (newContent.childNodes.length > 0) {
+          transcriptionCurrentEl.innerHTML = '';
+          transcriptionCurrentEl.appendChild(newContent);
+        } else if (currentContent) {
+          // If no new content but we had previous content, restore it
+          transcriptionCurrentEl.innerHTML = currentContent;
+        }
+        
+        // Scroll to the bottom of the content area
+        const content = document.getElementById('transcription-content');
+        if (content) content.scrollTop = content.scrollHeight;
+      })
+      .catch((error) => {
+        console.error("Error displaying segments:", error);
+        // Restore previous content if rendering fails
+        if (currentContent) {
+          transcriptionCurrentEl.innerHTML = currentContent;
+        }
+      });
+    } catch (error) {
+      console.error("Error in displaySegments:", error);
+      // Restore previous content if processing fails
+      if (currentContent) {
+        transcriptionCurrentEl.innerHTML = currentContent;
+      }
+    }
   }
 
   // Removes the transcription element from the DOM.
@@ -479,17 +495,6 @@
     if (elem) {
       elem.remove();
     }
-    // Reset state so the next initialization will get fresh settings
-    containerElement = null;
-    transcriptionCurrentEl = null;
-    transcriptionHistoryEl = null;
-    transcriptionHeaderEl = null;
-    segments = [];
-    previousSegments = [];
-    historySegments = [];
-    windowStartTime = null;
-    currentConfig = {};
-    
     chrome.storage.local.set({ capturingState: { isCapturing: false } });
     chrome.runtime.sendMessage({ action: "toggleCaptureButtons" });
     window.__contentJS_loaded = false;
@@ -531,10 +536,6 @@
 
   // Stub function for adding an initialization header.
   function addInitializationHeader() {
-    if (transcriptionHeaderEl) {
-      // Update configuration and header with the current values
-      updateConfigAndHeader();
-    }
     return true;
   }
 
@@ -594,10 +595,6 @@
   // -------------------- Initialize and Setup Listeners -------------------- //
   function init_element() {
     if (document.getElementById('transcription')) return;
-    
-    // Get the current configuration before initializing
-    updateConfigAndHeader();
-    
     createContainer();
     createContentArea();
     configureControls();
@@ -633,35 +630,19 @@
       console.error("Ignoring error during page unload:", e);
     }
   });
-  
-  chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (changes.selectedLanguage || changes.selectedTask || changes.selectedModelSize) {
-      // Update the header with the new configuration
-      updateConfigAndHeader();
-      // If necessary, restart or reset the transcription
-      // resetTranscription();
-      // init_element();
-    }
-  });
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const { type, data } = request;
     if (type === 'resetSession') {
-        resetTranscription();
-        sendResponse({ success: true });
-        return true;
-    } else if (type === 'STOP') {
+      if (transcriptionHistoryEl) {
+        addInitializationHeader();
+      }
+      sendResponse({ success: true });
+      return true;
+    }
+    if (type === 'STOP') {
       remove_element();
       sendResponse({ data: 'STOPPED' });
-      return true;
-    } else if (type === 'START') {
-      // Completely restart the transcription (clear segments and recreate the container)
-      resetTranscription();
-      init_element();
-      updateConfigAndHeader();
-      // Send a message to restart the transcription (see point 2)
-      chrome.runtime.sendMessage({ action: "startTranscription", config: currentConfig });
-      sendResponse({ data: 'STARTED' });
       return true;
     } else if (type === 'showWaitPopup') {
       initPopupElement();
