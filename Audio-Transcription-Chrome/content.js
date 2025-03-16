@@ -290,8 +290,8 @@
       windowStartTime = Date.now();
       return;
     }
-    // Consider the window stable if there are at least 3 segments or 8 seconds have passed.
-    const isStable = newSegments.length >= 3 || (Date.now() - windowStartTime) >= 8000;
+    // Consider the window stable if there are at least 5 segments or 8 seconds have passed.
+    const isStable = newSegments.length >= 5 || (Date.now() - windowStartTime) >= 8000;
     if (!isStable) {
       previousSegments = newSegments.slice();
       return;
@@ -437,18 +437,16 @@
             fullText = advancedFormat(fullText);
             const lines = fullText.split('\n');
             const mergedLines = [];
-            
-            for (let i = 0; i < lines.length; i++) {
-              let currentLine = lines[i];
-              while (i + 1 < lines.length && currentLine.trim().length < 8) {
-                currentLine += " " + lines[i + 1].trim();
-                i++;
-              }
-              if (currentLine.trim()) { // Skip empty lines
-                mergedLines.push(currentLine);
+            let currentLine = '';
+            for (let line of lines) {
+              if (currentLine.length + line.length + 1 < 12) {
+                currentLine += (currentLine ? ' ' : '') + line.trim();
+              } else {
+                if (currentLine) mergedLines.push(currentLine);
+                currentLine = line.trim();
               }
             }
-            
+            if (currentLine) mergedLines.push(currentLine);
             fullText = mergedLines.join('\n');
           }
           
