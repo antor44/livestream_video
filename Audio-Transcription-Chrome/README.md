@@ -196,7 +196,7 @@ A: This Chrome extension program is based on WhisperLive, which is based on fast
 
 A: The extension relies on the output texts from the WhisperLive server, which uses a special technique to achieve real-time transcriptions. It first rapidly transcribes the most recent chunk of audio, and then re-transcribes them with better context. This causes frequent changes in the transcribed words. This is inherent to Whisper AI, which is not designed for real-time transcriptions. Processing online videos is very challenging due to the somewhat random nature of this transcription algorithm. Moreover, the output format and length of the transcribed texts from the WhisperLive server are even more unpredictable.
 
-Currently, the extension uses a very simple algorithm to handle the phrases that are being displayed and stored. In the near future, we plan to address these instability issues in the visualization of the transcriptions. The solutions include:
+Currently, the extension uses a very simple algorithm to handle the phrases that are being displayed and stored. In the near future, we plan to address these stability issues in the visualization of transcriptions. However, it needs to be a solution that does not consume too many resources in order to maintain the philosophy of this application being able to run on as many computers as possible. The solutions include:
 
 - **Managing the Dynamics of Transcriptions to Reduce Instability:**  
   A sliding window or buffer with a look-ahead time of 1–2 seconds can be used before considering a phrase as final, allowing additional context to refine the transcription. This introduces some latency, but it may be acceptable depending on the user's needs.  
