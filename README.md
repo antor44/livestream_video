@@ -10,7 +10,7 @@ Author: Antonio R. Version: 3.06 License: GPL 3.0
 
 Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
-This is an application totally independent of playlist4whisper and live_stream.sh, based on an implementation of OpenAI Whisper different from whisper-cpp. This browser extension is a fork of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
+This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhiperLive, an implementation of OpenAI Whisper different from whisper-cpp. This browser extension is a fork of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
 
 In this release, we have added various options for text output manipulation and improved the server configuration options that allow you to customize the server IP address and port.
 
@@ -465,10 +465,11 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 #
 # To-Do List
 
-- Voice activity detection (VAD) for splitting audio into chunks
-- Advanced GUI as a standalone application
-- Support for different AI engines
-- Sound filters
+- Advanced audio chunk processing to avoid transcriptions out of context.
+- Voice activity detection (VAD) for splitting audio into chunks.
+- Advanced GUI as a standalone application.
+- Support for different AI engines.
+- Sound filters.
 - ...
 
 #
@@ -633,6 +634,10 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 **Q: Why does the beginning and end of the transcription often get lost?**
 
 A: Most of the time, this occurs because the application lacks a voice activity detection (VAD) system to split the audio during silent intervals. The current versions of the bash script segment sound files into chunks based on user-selected durations, which may result in the truncation or deletion of words at the beginning and end of each chunk. Additionally, sometimes, there may be cut-offs of a few words at the start or end, either caused by the difficulty in obtaining precise data on video synchronization or timestamps, or this issue could be caused by gaps in the Whisper AI's neural network.
+
+We are working on an advanced audio chunk processing to avoid transcriptions out of context and resolve most issues related to truncation or deletion of words. However, this is a bit complicated and requires the utilization of some processing power, which we have to minimize to maintain the philosophy of this application, which is to run on as many computers as possible. The optional Chrome extension is based on WhisperLive, which is in turn based on faster-whisper, a highly optimized implementation of OpenAI's Whisper AI. The extension relies on the output texts from the WhisperLive server, which uses a special technique to achieve real-time transcriptions. It first rapidly transcribes the most recent chunk of audio and then re-transcribes it with better context. This solution is very efficient; however, for playlist4whisper and livestream_video.sh apps, it has some disadvantages due to stabilization issues. It will add a lot of delay until the text could be shown once it is sufficiently stabilized.
+
+Another solution is to implement a sliding window algorithm, a well-known algorithm used in digital data transmissions. We could use it in this case as well, with a low processor penalty. For example, with a chunk size of the seconds chosen by the user and a 3-window length, the middle window is transcribed while the other two windows serve as context to avoid the current transcription issues with truncation or deletion of words.
 
 Regarding the low-level development of the IA utilized by `playlist4whisper.py` or `livestream_video.sh`, OpenAI states: "The Whisper architecture is a simple end-to-end approach, implemented as an encoder-decoder Transformer. Input audio is split into 30-second chunks, converted into a log-Mel spectrogram, and then passed into an encoder. A decoder is trained to predict the corresponding text caption, intermixed with special tokens that direct the single model to perform tasks such as language identification, phrase-level timestamps, multilingual speech transcription, and English speech translation".
 
