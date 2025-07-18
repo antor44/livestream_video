@@ -113,6 +113,11 @@ This program depends on other Linux programs and their libraries, such as Python
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc xterm
 ```
+You need to install some libraries via pip:
+```
+pip3 install imageio imageio-ffmpeg Pillow
+```
+
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
@@ -169,6 +174,10 @@ brew install smplayer
 brew install translate-shell
 brew install yt-dlp
 brew install streamlink
+```
+You need to install some libraries via pip:
+```
+pip3 install imageio imageio-ffmpeg Pillow
 ```
 
 3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some extra adjustments.
@@ -278,6 +287,10 @@ sudo apt upgrade
 Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc gnome-terminal xterm
+```
+You need to install some libraries via pip:
+```
+pip3 install imageio imageio-ffmpeg Pillow
 ```
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
