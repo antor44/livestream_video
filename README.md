@@ -3,7 +3,35 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 3.06 License: GPL 3.0
+Author: Antonio R. Version: 3.10 License: GPL 3.0
+
+# Specialized functions for journalists, content creators, and researchers:
+
+This application includes many options, and while it is commonly used to view, transcribe, and translate online video streams, it is especially valuable for journalists, content creators, researchers, etc., who need a solution to categorize many video and audio files by topic with integrated subtitle transcriptions and translations.
+
+Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application. The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase:
+
+--tabs: Accepts a list of tab names. If a tab name contains spaces, enclose it in double quotes.
+
+--colors: Accepts a list of tab colors. Colors can be specified as color names (e.g., "red") or hexadecimal RGB values (e.g., "#ff0000").
+
+If a color is specified in hexadecimal RGB format, enclose it in double quotes.
+
+Example:
+```
+python playlist4whisper.py --tabs "My live recordings" "Online downloads" "TV recordings" --colors red green "#ff7e00"
+```
+
+This command will create three tabs with the names "My live recordings", "Online downloads", "TV recordings", and the colors red, green, and orange ("#ff7e00"), respectively.
+
+
+You can also run different "playlist4whisper" copies in separate directories, each with its own playlist and configuration files.
+
+Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
+
+The video and audio file types supported by playlist4whisper include all those supported by the version of ffmpeg installed on your operating system. You can play audio files with subtitles using players like VLC or MPV. For VLC, you need to configure it to display something while playing audio files, such as a spectrometer. For MPV, you can either configure its configuration file or add the MPV option '--force-window' in playlist4whisper (without single quotes) and play the file with 'Player Only' mode to show a window with subtitles for audio files.
+
+*Check out the section on livestream_video.sh for help with the available options.
 
 
 # Audio Transcription
@@ -18,8 +46,12 @@ In this release, we have added various options for text output manipulation and 
 #
 # playlist4whisper Quick start
 
-playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, vlc, ffmpeg, python3-tk, python3-pip, bc, and xterm are installed.
+playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-vlc, python3-tk, python3-pip, bc, and xterm are installed. 
 
+You may need to install python-vlc via pip:
+```
+pip3 install python-vlc
+```
 To install whisper-cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
 pip3 install pywhispercpp
@@ -83,8 +115,13 @@ playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-vlc python3-tk python3-pip bc xterm
 ```
+You may need to install python-vlc via pip:
+```
+pip3 install python-vlc
+```
+
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
 The easy way to install yt-dlp and streamlink:
@@ -134,12 +171,16 @@ brew install python-tk
 brew install ffmpeg
 brew install xquartz
 brew install xterm
-brew install vlc
+brew cask install vlc
 brew install mpv
 brew install smplayer
 brew install translate-shell
 brew install yt-dlp
 brew install streamlink
+```
+Install python-vlc with pip:
+```
+pip3 install python-vlc
 ```
 
 3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some extra adjustments.
@@ -248,7 +289,11 @@ sudo apt upgrade
 ```
 Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc gnome-terminal xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-vlc python3-tk python3-pip bc gnome-terminal xterm
+```
+You may need to install python-vlc via pip:
+```
+pip3 install python-vlc
 ```
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
@@ -670,10 +715,6 @@ A: This is one of the well-known limitations of the current version of OpenAI's 
 **Q: The transcriptions I get are not accurate?**
 
 A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models for other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or translate for simultaneous translation to English, it may also significantly increase processor consumption.
-
-**Q: What audio file types are supported? How could I play sound files with subtitles generated by playlist4whisper?**
-
-A: The audio file types supported by playlist4whisper are all those supported by the version of ffmpeg installed in your operating system. You can play audio files with subtitles using players like VLC or MPV. For VLC, you need to configure it to display something while playing sound files, such as a Spectrometer. For MPV, you can either configure its configuration file or add the MPV option '--force-window' in playlist4whisper (without single quotes) and play the file with 'Player Only' set to show a window with the subtitles for audio files.
 
 **Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
 
