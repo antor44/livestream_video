@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.08 License: GPL 3.0
+Author: Antonio R. Version: 3.10 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -33,6 +33,7 @@ import os
 import platform
 import shutil
 import glob
+from pathlib import Path
 import time
 import argparse
 import queue
@@ -41,6 +42,8 @@ import subprocess
 import tempfile
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, PhotoImage, scrolledtext
+import imageio
+from PIL import Image, ImageTk
 
 
 previous_error_messages = set()
@@ -386,6 +389,354 @@ class CustomFileDialog(tk.Toplevel):
         self.geometry(f'{dialog_width}x{dialog_height}+{x}+{y}')
 
 
+class VideoSaverDialog(tk.Toplevel):
+    """
+    Optimized version of the real-time clock sync player.
+    Reduces update frequency to improve responsiveness while maintaining sync.
+    Includes all necessary methods and window layering fixes.
+    """
+    def __init__(self, master):
+        super().__init__(master)
+        self.title("Manage and Save Temporary Videos")
+        self.geometry("900x700")
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.transient(master)
+
+        # Player state variables
+        self.video_reader = None
+        self.is_playing = False
+        self.duration_seconds = 0
+        self.fps = 1.0
+        self.total_frames = 0
+        self.current_frame_number = 0
+        self.playback_job = None
+        self.path_map = {}
+        self.is_loading = False
+
+        # Real-time clock sync variables
+        self.playback_start_time = 0
+        self.playback_start_frame = 0
+
+        self.center_window()
+        self.create_widgets()
+
+        self.after(100, self.populate_file_list)
+
+    def create_widgets(self):
+        main_frame = tk.Frame(self)
+        main_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        list_frame = tk.Frame(main_frame)
+        list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=(0, 10))
+        self.file_list = tk.Listbox(list_frame, width=50, selectmode=tk.EXTENDED)
+        self.file_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.file_list.bind("<<ListboxSelect>>", self.on_file_select)
+        list_scrollbar = tk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.file_list.yview)
+        list_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.file_list.config(yscrollcommand=list_scrollbar.set)
+
+        player_container = tk.Frame(main_frame)
+        player_container.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        self.video_label = tk.Label(player_container, bg="black", fg="white", text="Select a video to preview")
+        self.video_label.pack(fill=tk.BOTH, expand=True)
+
+        controls_frame = tk.Frame(player_container)
+        controls_frame.pack(fill=tk.X, pady=5)
+        self.play_pause_button = tk.Button(controls_frame, text="Play", width=10, command=self.toggle_play_pause, state=tk.DISABLED)
+        self.play_pause_button.pack(side=tk.LEFT, padx=5)
+        self.time_slider = ttk.Scale(controls_frame, from_=0, to=1, orient=tk.HORIZONTAL, value=0, state=tk.DISABLED)
+        self.time_slider.bind("<ButtonPress-1>", self._on_slider_press)
+        self.time_slider.bind("<ButtonRelease-1>", self._on_slider_release)
+        self.time_slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.time_label = tk.Label(controls_frame, text="--:-- / --:--", width=12)
+        self.time_label.pack(side=tk.LEFT, padx=5)
+
+        button_frame = tk.Frame(self)
+        button_frame.pack(pady=10, padx=10, fill=tk.X)
+        self.merge_button = tk.Button(button_frame, text="Merge Selected", command=self.merge_selected_videos)
+        self.merge_button.pack(side=tk.LEFT, padx=5)
+        self.save_button = tk.Button(button_frame, text="Save Selected", command=self.save_selected)
+        self.save_button.pack(side=tk.LEFT, padx=5)
+        self.cancel_button = tk.Button(button_frame, text="Close", command=self._on_closing)
+        self.cancel_button.pack(side=tk.RIGHT, padx=5)
+
+    def on_file_select(self, event=None):
+        if self.is_loading: return
+        selection_indices = self.file_list.curselection()
+        if not selection_indices: return
+        selected_filename = self.file_list.get(selection_indices[0])
+        if selected_filename and "No temporary" not in selected_filename:
+            full_path = self.path_map.get(selected_filename)
+            if full_path and os.path.exists(full_path):
+                self.video_label.config(image=None, text="Loading video...")
+                self.is_loading = True
+                self.update_idletasks()
+                self.after(50, lambda: self.load_video(full_path))
+
+    def load_video(self, file_path):
+        self.stop_playback()
+        try:
+            self.video_reader = imageio.get_reader(file_path)
+            metadata = self.video_reader.get_meta_data()
+            self.duration_seconds = metadata.get('duration', 0)
+            self.fps = metadata.get('fps', 30)
+            if self.fps <= 0: self.fps = 30
+            self.total_frames = int(self.duration_seconds * self.fps)
+
+            self.play_pause_button.config(state=tk.NORMAL)
+            self.time_slider.config(state=tk.NORMAL, to=self.duration_seconds, value=0)
+            self.current_frame_number = 0
+            self.is_playing = False
+            self.play_pause_button.config(text="Play")
+
+            self.display_frame(0)
+            self.update_ui()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not read the video file.\n\nError: {e}", parent=self)
+            self.video_reader = None
+        finally:
+            self.is_loading = False
+
+    def display_frame(self, frame_number):
+        if not self.video_reader: return
+        try:
+            frame = self.video_reader.get_data(frame_number)
+            self.update_idletasks()
+            label_w, label_h = self.video_label.winfo_width(), self.video_label.winfo_height()
+            if label_w <= 1 or label_h <= 1: return
+
+            img = Image.fromarray(frame)
+            img.thumbnail((label_w, label_h), Image.Resampling.LANCZOS)
+            photo_img = ImageTk.PhotoImage(image=img)
+            self.video_label.config(image=photo_img, text="")
+            self.video_label.image = photo_img
+        except IndexError:
+             self.stop_playback()
+        except Exception as e:
+            print(f"Error displaying frame {frame_number}: {e}")
+
+    def toggle_play_pause(self):
+        if not self.video_reader or self.is_loading: return
+        self.is_playing = not self.is_playing
+        if self.is_playing:
+            self.play_pause_button.config(text="Pause")
+            self.start_playback()
+        else:
+            self.play_pause_button.config(text="Play")
+            self.stop_playback()
+
+    def start_playback(self):
+        if not self.is_playing: return
+        self.playback_start_time = time.time()
+        self.playback_start_frame = self.current_frame_number
+        self._playback_loop()
+
+    def _playback_loop(self):
+        if not self.is_playing: return
+
+        target_preview_fps = 20
+        delay_ms = int(1000 / target_preview_fps)
+
+        elapsed_time = time.time() - self.playback_start_time
+        target_frame = self.playback_start_frame + int(elapsed_time * self.fps)
+
+        if target_frame >= self.total_frames:
+            self.stop_playback()
+            self.current_frame_number = self.total_frames - 1 if self.total_frames > 0 else 0
+            self.display_frame(self.current_frame_number)
+            self.update_ui()
+            return
+
+        if target_frame > self.current_frame_number:
+            self.current_frame_number = target_frame
+            self.display_frame(self.current_frame_number)
+
+        self.update_ui()
+        self.playback_job = self.after(delay_ms, self._playback_loop)
+
+    def stop_playback(self):
+        self.is_playing = False
+        if self.playback_job:
+            self.after_cancel(self.playback_job)
+            self.playback_job = None
+        if self.video_reader and self.play_pause_button.winfo_exists():
+            self.play_pause_button.config(text="Play")
+
+    def update_ui(self):
+        if self.video_reader:
+            current_seconds = self.current_frame_number / self.fps if self.fps > 0 else 0
+            if current_seconds > self.duration_seconds:
+                current_seconds = self.duration_seconds
+            self.time_slider.set(current_seconds)
+
+            duration_str = time.strftime('%M:%S', time.gmtime(self.duration_seconds))
+            current_time_str = time.strftime('%M:%S', time.gmtime(current_seconds))
+            self.time_label.config(text=f"{current_time_str} / {duration_str}")
+
+    def _on_slider_press(self, event):
+        if self.is_playing:
+            self.was_playing = True
+            self.stop_playback()
+        else:
+            self.was_playing = False
+
+    def _on_slider_release(self, event):
+        if self.video_reader:
+            seek_seconds = self.time_slider.get()
+            self.current_frame_number = int(seek_seconds * self.fps)
+            if self.current_frame_number >= self.total_frames:
+                self.current_frame_number = self.total_frames - 1 if self.total_frames > 0 else 0
+
+            self.display_frame(self.current_frame_number)
+            self.update_ui()
+
+            if self.was_playing:
+                self.is_playing = True
+                self.play_pause_button.config(text="Pause")
+                self.start_playback()
+
+    def merge_selected_videos(self):
+        self.stop_playback()
+        selected_indices = self.file_list.curselection()
+        if len(selected_indices) < 2:
+            messagebox.showwarning("Selection Error", "Please select at least two files to merge.", parent=self)
+            return
+        selected_filenames = [self.file_list.get(i) for i in selected_indices]
+        pids = set()
+        pid_to_use = None
+        for name in selected_filenames:
+            match = re.search(r'whisper-live_(\d+)_', name)
+            if match:
+                pid_to_use = match.group(1)
+                pids.add(pid_to_use)
+        if len(pids) > 1:
+            messagebox.showerror("Merge Error", "Cannot merge videos from different recording sources (PIDs).", parent=self)
+            return
+        if not pids:
+            messagebox.showerror("Merge Error", "Could not identify the source of the selected files.", parent=self)
+            return
+        min_idx, max_idx = min(selected_indices), max(selected_indices)
+        if len(selected_indices) != (max_idx - min_idx + 1):
+            messagebox.showerror("Merge Error", "The selection must be a continuous block.", parent=self)
+            return
+
+        file_paths_to_merge = [self.path_map.get(name) for name in selected_filenames]
+        final_file_list, temp_copies = [], []
+        try:
+            for path in file_paths_to_merge:
+                if "_buf" in path:
+                    copy_path = os.path.join(tempfile.gettempdir(), f"merge_copy_{os.path.basename(path)}")
+                    shutil.copy(path, copy_path)
+                    final_file_list.append(copy_path)
+                    temp_copies.append(copy_path)
+                else:
+                    final_file_list.append(path)
+            
+            default_name = f"merged_timeshift-{pid_to_use}.avi"
+
+            output_file = filedialog.asksaveasfilename(title="Save Merged Video As...", initialfile=default_name, filetypes=[("AVI video", "*.avi"), ("All files", "*.*")], parent=self)
+            if not output_file: return
+
+            with tempfile.NamedTemporaryFile('w', delete=False, suffix='.txt', encoding='utf-8') as f:
+                for p in final_file_list: f.write(f"file '{p}'\n")
+                list_file_path = f.name
+
+            ffmpeg_cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_file]
+            subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
+            messagebox.showinfo("Success", f"Videos merged successfully into:\n{output_file}", parent=self)
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("FFmpeg Error", f"Failed to merge videos.\n\n{e.stderr.decode('utf-8', 'ignore')}", parent=self)
+        except Exception as e:
+             messagebox.showerror("Error", f"An error occurred during the merge process: {e}", parent=self)
+        finally:
+            if 'list_file_path' in locals() and os.path.exists(list_file_path):
+                os.remove(list_file_path)
+            for copy in temp_copies:
+                if os.path.exists(copy):
+                    os.remove(copy)
+
+    def save_selected(self):
+        self.stop_playback()
+        selected_filenames = [self.file_list.get(idx) for idx in self.file_list.curselection()]
+        if not selected_filenames:
+            messagebox.showwarning("No Files Selected", "No files were selected to save.", parent=self)
+            return
+
+        destination_dir = filedialog.askdirectory(title="Select Destination Folder", parent=self)
+        if not destination_dir: return
+
+        copied_count = 0
+        skipped_count = 0
+
+        for filename in selected_filenames:
+            source_path = self.path_map.get(filename)
+            if not source_path:
+                continue
+
+            destination_file_path = os.path.join(destination_dir, filename)
+
+            should_copy = True
+            if os.path.exists(destination_file_path):
+                response = messagebox.askquestion(
+                    "File Exists",
+                    f"The file '{filename}' already exists.\nDo you want to overwrite it?",
+                    icon='warning',
+                    parent=self
+                )
+                if response == 'no':
+                    should_copy = False
+                    skipped_count += 1
+
+            if should_copy:
+                try:
+                    shutil.copy(source_path, destination_file_path)
+                    copied_count += 1
+                except Exception as e:
+                    skipped_count += 1
+                    messagebox.showerror("Copy Error", f"Could not copy file '{filename}'.\n\nError: {e}", parent=self)
+
+        messagebox.showinfo(
+            "Copying Complete",
+            f"Process finished.\n\nFiles copied: {copied_count}\nFiles skipped: {skipped_count}",
+            parent=self
+        )
+
+    def _on_closing(self):
+        self.stop_playback()
+        if self.video_reader:
+            self.video_reader.close()
+        self.destroy()
+
+    def center_window(self):
+        self.update_idletasks()
+        master = self.master
+        x = master.winfo_x() + (master.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f'+{x}+{y}')
+
+    def populate_file_list(self):
+        directory = "/tmp"
+        pattern = os.path.join(directory, "whisper-live_*_*.avi")
+        all_files = glob.glob(pattern)
+        video_files = [f for f in all_files if not os.path.islink(f)]
+
+        self.file_list.delete(0, tk.END)
+        if not video_files:
+            self.file_list.insert(tk.END, "No temporary video files found.")
+            return
+
+        try:
+            sorted_files = sorted(video_files, key=lambda f: Path(f).stat().st_mtime)
+        except FileNotFoundError:
+            self.after(100, self.populate_file_list)
+            return
+
+        for file_path in sorted_files:
+            self.file_list.insert(tk.END, os.path.basename(file_path))
+
+        self.path_map = {os.path.basename(p): p for p in sorted_files}
+
+
 class EnhancedStringDialog(tk.Toplevel):
     """
     A custom dialog class for Tkinter that prompts the user to enter a string.
@@ -542,6 +893,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.search_entry.bind("<KeyRelease>", self.filter_playlist)
         self.search_entry.bind("<Button-3>", self.show_popup_menu)
 
+        # Label to display the search match count, now positioned after the entry box.
+        self.search_count_label = tk.Label(self.search_frame, text="0/0")
+        self.search_count_label.pack(side=tk.LEFT, padx=(0, 5))
+
         self.clear_button = tk.Button(self.search_frame, text="Clear", command=self.clear_search)
         self.clear_button.pack(side=tk.LEFT, padx=2)
 
@@ -550,7 +905,6 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.next_button = tk.Button(self.search_frame, text="Next", command=self.next_match)
         self.next_button.pack(side=tk.LEFT, padx=2)
-
 
         # Treeview for playlist
         self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
@@ -980,6 +1334,9 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
+        self.save_videos_button = tk.Button(self.options_frame3, text="Save Videos", padx=5, command=self.open_video_saver)
+        self.save_videos_button.pack(side=tk.LEFT, padx=(10, 0))
+
         self.delete_videos_button = tk.Button(self.options_frame3, text="Delete all temp files", padx=5, command=self.delete_videos)
         self.delete_videos_button.pack(side=tk.LEFT, padx=(10, 10))
 
@@ -1028,7 +1385,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.add_label = tk.Label(self.options_frame5, text="", padx=2)
         self.add_label.pack(side=tk.LEFT)
 
-        self.add_button = tk.Button(self.options_frame5, text="Add", command=self.add_channel, padx=4)
+        self.add_button = tk.Button(self.options_frame5, text="Add URL", command=self.add_channel, padx=4)
         self.add_button.pack(side=tk.LEFT)
 
         self.add_file_button = tk.Button(self.options_frame5, text="Add File", command=self.add_file_channel, padx=4)
@@ -1049,7 +1406,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.move_down_button = tk.Button(self.options_frame5, text="Move down", command=self.move_down_channel, padx=4)
         self.move_down_button.pack(side=tk.LEFT)
 
-
         self.options_frame6 = tk.Frame(self.container_frame)
         self.options_frame6.pack(side=tk.LEFT, expand=True, pady=2)
 
@@ -1062,6 +1418,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.subtitles_button = tk.Button(self.options_frame6, text="Generate", command=self.generate_subtitles, padx=4)
         self.subtitles_button.pack(side=tk.LEFT)
 
+        self.split_video_button = tk.Button(self.options_frame6, text="Split File", command=self.split_video, padx=4)
+        self.split_video_button.pack(side=tk.LEFT, padx=(5, 0)) # Add some padding to the left
 
         self.options_frame7 = tk.Frame(self.container_frame)
         self.options_frame7.pack(side=tk.LEFT, expand=True, pady=2)
@@ -1790,6 +2148,11 @@ class M3uPlaylistPlayer(tk.Frame):
         messagebox.showinfo("Copying Process Completed", "Copying Process completed successfully.")
 
 
+    # Function to open the video saver dialog
+    def open_video_saver(self):
+        VideoSaverDialog(self.main_window)
+
+
     # Function to delete temporary videos
     def delete_videos(self):
         try:
@@ -2207,6 +2570,147 @@ class M3uPlaylistPlayer(tk.Frame):
             messagebox.showerror("Error", "Select a file to generate subtitles.")
 
 
+    # Function to split a video/audio file in half using a non-blocking thread
+    def split_video(self):
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showerror("Error", "Select a local file to split.")
+            return
+
+        item = self.tree.selection()[0]
+        url = self.tree.item(item, "values")[2]
+
+        if not re.match(r'^/|^\./', url) or not os.path.exists(url):
+            messagebox.showerror("Error", "Select a valid local file to split.")
+            return
+
+        # --- Define a worker function to be run in a separate thread ---
+        def split_worker(url, item_id, result_queue, should_overwrite):
+            try:
+                # Get duration
+                ffprobe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", url]
+                result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, check=True)
+                total_duration = float(result.stdout.strip())
+                midpoint_seconds = total_duration / 2
+
+                # Define filenames
+                directory, filename = os.path.split(url)
+                name, ext = os.path.splitext(filename)
+                output_part1 = os.path.join(directory, f"{name}_part1{ext}")
+                output_part2 = os.path.join(directory, f"{name}_part2{ext}")
+
+                # Build ffmpeg commands
+                ffmpeg_cmd_part1 = ["ffmpeg", "-i", url, "-to", str(midpoint_seconds), "-c", "copy", output_part1]
+                ffmpeg_cmd_part2 = ["ffmpeg", "-ss", str(midpoint_seconds), "-i", url, "-c", "copy", output_part2]
+
+                if should_overwrite:
+                    ffmpeg_cmd_part1.insert(1, "-y")
+                    ffmpeg_cmd_part2.insert(1, "-y")
+
+                # CORRECTION: Use capture_output=True without specifying stderr/stdout manually.
+                subprocess.run(ffmpeg_cmd_part1, check=True, capture_output=True)
+                subprocess.run(ffmpeg_cmd_part2, check=True, capture_output=True)
+
+                # On success, put a dictionary with results in the queue
+                result_queue.put({
+                    'original_item': item_id,
+                    'name_part1': f"{name}_part1",
+                    'name_part2': f"{name}_part2",
+                    'output_part1': output_part1,
+                    'output_part2': output_part2,
+                })
+            except Exception as e:
+                # On failure, put the exception object in the queue
+                result_queue.put(e)
+
+        # --- Main part of the function (runs in the GUI thread) ---
+        try:
+            directory, filename = os.path.split(url)
+            name, ext = os.path.splitext(filename)
+            output_part1 = os.path.join(directory, f"{name}_part1{ext}")
+            output_part2 = os.path.join(directory, f"{name}_part2{ext}")
+            should_overwrite = False
+
+            if os.path.exists(output_part1) or os.path.exists(output_part2):
+                response = messagebox.askquestion(
+                    "Files Exist",
+                    "One or more output files already exist. Do you want to overwrite them?\n\n"
+                    f"- {os.path.basename(output_part1)}\n"
+                    f"- {os.path.basename(output_part2)}",
+                    icon='warning'
+                )
+                if response == 'no':
+                    messagebox.showinfo("Operation Cancelled", "The split operation was cancelled by the user.")
+                    return
+                should_overwrite = True
+
+            # --- Create and display the non-modal notification window ---
+            notification = tk.Toplevel(self)
+            notification.title("Processing")
+            notification.transient(self.winfo_toplevel())
+            # Use grab_set() to temporarily disable the main window, preventing user from starting another long task
+            notification.grab_set()
+            notification.resizable(False, False)
+
+            msg = f"Splitting '{filename}'...\nThis may take a moment."
+            tk.Label(notification, text=msg, padx=20, pady=20).pack()
+            notification.update_idletasks()
+
+            x = self.winfo_toplevel().winfo_x() + (self.winfo_toplevel().winfo_width() / 2) - (notification.winfo_width() / 2)
+            y = self.winfo_toplevel().winfo_y() + (self.winfo_toplevel().winfo_height() / 2) - (notification.winfo_height() / 2)
+            notification.geometry(f"+{int(x)}+{int(y)}")
+
+            # --- Start the worker thread ---
+            result_queue = queue.Queue()
+            thread = threading.Thread(target=split_worker, args=(url, item, result_queue, should_overwrite))
+            thread.daemon = True
+            thread.start()
+
+            # --- Start polling for the result ---
+            self.after(100, self._check_split_thread, result_queue, notification)
+
+        except FileNotFoundError:
+             messagebox.showerror("Error", "FFmpeg/ffprobe not found. Please ensure it is installed and in your system's PATH.")
+        except Exception as e:
+            # This will catch errors during filename preparation, before the thread starts
+            messagebox.showerror("An Unexpected Error Occurred", str(e))
+
+
+    # Helper method to check the result from the split video thread
+    def _check_split_thread(self, result_queue, notification_window):
+        """Checks the queue for a result from the worker thread."""
+        try:
+            result = result_queue.get(block=False)
+
+            # We have a result, close the notification and process it
+            notification_window.destroy()
+
+            if isinstance(result, Exception):
+                # An error occurred in the thread
+                if isinstance(result, subprocess.CalledProcessError):
+                    error_output = result.stderr.decode('utf-8', 'ignore') if result.stderr else "No error output from FFmpeg."
+                    messagebox.showerror("FFmpeg Error", f"An error occurred while processing the file.\n\nFFmpeg error:\n{error_output}")
+                else:
+                    messagebox.showerror("An Unexpected Error Occurred", str(result))
+            else:
+                # Success! The result dictionary contains the needed info
+                original_item_index = self.tree.index(result['original_item'])
+                name_part1 = result['name_part1']
+                name_part2 = result['name_part2']
+                output_part1 = result['output_part1']
+                output_part2 = result['output_part2']
+
+                self.tree.insert("", original_item_index + 1, values=(0, name_part2, output_part2))
+                self.tree.insert("", original_item_index + 1, values=(0, name_part1, output_part1))
+                self.update_list_numbers()
+
+                messagebox.showinfo("Success", "The file was split successfully. Don't forget to save the playlist.")
+
+        except queue.Empty:
+            # No result yet, check again after 100ms
+            self.after(100, self._check_split_thread, result_queue, notification_window)
+
+
     # Function to delete a channel
     def delete_channel(self):
         selection = self.tree.selection()
@@ -2357,27 +2861,54 @@ class M3uPlaylistPlayer(tk.Frame):
                     list_number, name, url = self.tree.item(item, "values")
                     file.write(f"#EXTINF:-1,{name}\n{url}\n")
 
+    # New helper method to update the search counter label
+    def _update_search_counter(self):
+        """Updates the search count label to show 'current/total' matches."""
+        total_matches = len(self.match_items)
+        current_selection_num = 0
+
+        # If there are matches and an item is currently selected, show its 1-based index
+        if total_matches > 0 and self.current_match_index >= 0:
+            current_selection_num = self.current_match_index + 1
+
+        self.search_count_label.config(text=f"{current_selection_num}/{total_matches}")
+
     # Function to filter playlist based on search text
     def filter_playlist(self, event=None):
-        search_text = self.search_entry.get().lower()
+        search_text = self.search_entry.get() # Get text without converting to lower yet
 
         # Reset tags and current match index
         self.match_items = []
         self.current_match_index = -1
 
         if not search_text:
-            # If search is empty, restore all items
+            # If search is empty, restore all items and reset the counter
             for item in self.tree.get_children():
                 self.tree.item(item, tags=())
+            self._update_search_counter() # Update counter to 0/0
             return
 
-        # Filter items based on search text
+        # --- Wildcard search logic ---
+        # Convert user input with wildcards to a valid regex pattern.
+        # 1. Escape special regex characters in the user's input.
+        # 2. Replace the escaped wildcard '\*' with the regex '.*' (matches any character, any number of times).
+        pattern_str = re.escape(search_text).replace(r'\*', '.*')
+        try:
+            # Compile the pattern for efficient searching, ignoring case.
+            search_pattern = re.compile(pattern_str, re.IGNORECASE)
+        except re.error:
+            # Handle cases where the user might enter an invalid pattern
+            self.search_count_label.config(text="Invalid pattern")
+            return
+
+        # Filter items based on the regex pattern
         for item in self.tree.get_children():
             values = self.tree.item(item, "values")
-            name = values[1].lower()
-            url = values[2].lower()
+            # We don't need to convert to lower() because re.IGNORECASE handles it
+            name = values[1]
+            url = values[2]
 
-            if search_text in name or search_text in url:
+            if search_pattern.search(name) or search_pattern.search(url):
                 # Highlight matching items
                 self.tree.item(item, tags=("match",))
                 self.match_items.append(item)
@@ -2395,20 +2926,16 @@ class M3uPlaylistPlayer(tk.Frame):
             self.current_match_index = 0
             first_match = self.match_items[0]
 
-            # Remove selection from all items
-            self.tree.selection_remove(*self.tree.selection())
-
-            # Select and see the first match
             self.tree.selection_set(first_match)
             self.tree.see(first_match)
-            # Adjust view based on the item's position (scroll if needed)
             self.adjust_view(first_match)
-
-            # Apply current match tag
             self.tree.item(first_match, tags=("current_match",))
-
-            # Load options for the selected item
             self.load_options()
+        else:
+             self.tree.selection_remove(*self.tree.selection())
+
+        # Update the counter label with the results
+        self._update_search_counter()
 
     # Helper function to adjust the view so that the item is fully visible
     def adjust_view(self, item):
@@ -2451,6 +2978,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         # Load options for the newly selected item
         self.load_options()
+        self._update_search_counter()
 
     # Function to move to the previous matching item
     def prev_match(self):
@@ -2477,6 +3005,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         # Load options for the newly selected item
         self.load_options()
+        self._update_search_counter()
 
     # Function to clear search
     def clear_search(self):
@@ -2488,6 +3017,7 @@ class M3uPlaylistPlayer(tk.Frame):
         # Reset match tracking
         self.match_items = []
         self.current_match_index = -1
+        self._update_search_counter()
 
     # Functions to load and save config.json
     def load_options(self, event=None):
@@ -2499,33 +3029,37 @@ class M3uPlaylistPlayer(tk.Frame):
 
         selected_items = self.tree.selection()
         if not selected_items:
+            # If nothing is selected, ensure the counter reflects this
+            if hasattr(self, 'match_items') and self.match_items:
+                 self.current_match_index = -1
+                 self._update_search_counter()
             return
 
         # Use the first selected item
         selected_item = selected_items[0]
 
-        # Check if the selected item is among the filtered matches
-        if hasattr(self, 'match_items') and selected_item in self.match_items:
-            # If there's a current match already, clear its 'current_match' tag
-            if self.current_match_index >= 0:
-                previous_item = self.match_items[self.current_match_index]
-                # Revert its tag back to "match"
-                self.tree.item(previous_item, tags=("match",))
+        # If a search is active, update the index and counter based on the selection
+        if hasattr(self, 'match_items') and self.match_items:
+            # First, clear the highlight from the previously selected match
+            if self.current_match_index >= 0 and self.current_match_index < len(self.match_items):
+                previous_match_item = self.match_items[self.current_match_index]
+                if self.tree.exists(previous_match_item): # Check if item still exists
+                    self.tree.item(previous_match_item, tags=("match",))
 
-            # Update current_match_index to the index of the selected item within match_items
-            self.current_match_index = self.match_items.index(selected_item)
+            # Now, check if the new selection is a valid match
+            if selected_item in self.match_items:
+                # It is a valid match, find its index
+                self.current_match_index = self.match_items.index(selected_item)
+                # Highlight the new current match
+                self.tree.item(selected_item, tags=("current_match",))
+                self.tree.see(selected_item)
+                self.adjust_view(selected_item)
+            else:
+                # The selection is not a search result (e.g., a greyed-out item was clicked)
+                self.current_match_index = -1
 
-            # Set the selected item's tag to "current_match" for highlighting
-            self.tree.item(selected_item, tags=("current_match",))
-
-            # Optionally, adjust the view to ensure the item is fully visible
-            self.tree.see(selected_item)
-            self.adjust_view(selected_item)
-
-        else:
-            # If the selected item is not in the filtered matches, do nothing,
-            # leaving the filter colors and active element unchanged.
-            pass
+            # Finally, update the counter regardless of whether it was a match or not
+            self._update_search_counter()
 
     def load_config(self):
         try:
@@ -2683,7 +3217,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.08\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.10\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
