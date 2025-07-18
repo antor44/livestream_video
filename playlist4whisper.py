@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.10 License: GPL 3.0
+Author: Antonio R. Version: 3.12 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -631,7 +631,7 @@ class VideoSaverDialog(tk.Toplevel):
                     temp_copies.append(copy_path)
                 else:
                     final_file_list.append(path)
-            
+
             default_name = f"merged_timeshift-{pid_to_use}.avi"
 
             output_file = filedialog.asksaveasfilename(title="Save Merged Video As...", initialfile=default_name, filetypes=[("AVI video", "*.avi"), ("All files", "*.*")], parent=self)
@@ -1887,6 +1887,7 @@ class M3uPlaylistPlayer(tk.Frame):
             self.error_messages.put(err_message)
 
         options_list = trans_options.split()
+        self.speak.set(False)
         while options_list:
             option = options_list.pop(0)
             if option in lang_codes:
@@ -3217,7 +3218,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.10\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.12\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
