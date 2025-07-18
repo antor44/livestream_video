@@ -48,10 +48,6 @@ In this release, we have added various options for text output manipulation and 
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, bc, and xterm are installed. 
 
-You need to install python-mpv via pip:
-```
-pip3 install python-mpv
-```
 To install whisper-cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
 pip3 install pywhispercpp
@@ -117,10 +113,6 @@ This program depends on other Linux programs and their libraries, such as Python
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc xterm
 ```
-You need to install python-mpv via pip:
-```
-pip3 install python-mpv
-```
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
@@ -177,10 +169,6 @@ brew install smplayer
 brew install translate-shell
 brew install yt-dlp
 brew install streamlink
-```
-Install python-mpv with pip:
-```
-pip3 install python-mpv
 ```
 
 3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some extra adjustments.
@@ -291,10 +279,7 @@ Install Linux programs and their libraries, such as Python, whisper.cpp and mpv.
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc gnome-terminal xterm
 ```
-You need to install python-mpv via pip:
-```
-pip3 install python-mpv
-```
+
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
 The easy way to install yt-dlp and streamlink:
