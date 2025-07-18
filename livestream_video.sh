@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 3.08 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 3.12 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -143,7 +143,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 3.08 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 3.12 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -1468,7 +1468,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             ((tryed=tryed+1))
             sleep 0.5
         done
-        
+
         if  [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
             "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
             err=$?
