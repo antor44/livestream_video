@@ -113,11 +113,22 @@ This program depends on other Linux programs and their libraries, such as Python
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc xterm
 ```
-You need to install some libraries via pip:
+
+You need to install some libraries via pip. One option is to install a python virtualenv:
+```
+brew install virtualenv
+```
+Then:
+```
+mkdir ~/python-environments
+virtualenv ~/python-environments/whisper
+source ~/python-environments/whisper/bin/activate
+```
+And finally:
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
-
+Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
