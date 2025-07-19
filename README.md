@@ -46,7 +46,7 @@ In this release, we have added various options for text output manipulation and 
 #
 # playlist4whisper Quick start
 
-playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, bc, and xterm are installed. 
+playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, imageio, imageio-ffmpeg, Pillow, bc, and xterm are installed. 
 
 To install whisper-cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
@@ -116,7 +116,7 @@ sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-
 
 You need to install some libraries via pip. One option is to install a python virtualenv:
 ```
-brew install virtualenv
+sudo apt install virtualenv
 ```
 Then:
 ```
@@ -186,10 +186,22 @@ brew install translate-shell
 brew install yt-dlp
 brew install streamlink
 ```
-You need to install some libraries via pip:
+You need to install some libraries via pip. One option is to install a python virtualenv:
+```
+brew install virtualenv
+```
+Then:
+```
+mkdir ~/python-environments
+virtualenv ~/python-environments/whisper
+source ~/python-environments/whisper/bin/activate
+```
+And finally:
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
+Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
+
 
 3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some extra adjustments.
   
@@ -299,10 +311,22 @@ Install Linux programs and their libraries, such as Python, whisper.cpp and mpv.
 ```
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc gnome-terminal xterm
 ```
-You need to install some libraries via pip:
+
+You need to install some libraries via pip. One option is to install a python virtualenv:
+```
+sudo apt install virtualenv
+```
+Then:
+```
+mkdir ~/python-environments
+virtualenv ~/python-environments/whisper
+source ~/python-environments/whisper/bin/activate
+```
+And finally:
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
+Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
 
 For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
 
