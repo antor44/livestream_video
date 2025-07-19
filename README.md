@@ -168,7 +168,7 @@ brew install python-tk
 brew install ffmpeg
 brew install xquartz
 brew install xterm
-brew cask install vlc
+brew install vlc
 brew install mpv
 brew install smplayer
 brew install translate-shell
