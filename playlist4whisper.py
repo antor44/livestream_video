@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.12 License: GPL 3.0
+Author: Antonio R. Version: 3.20 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -36,14 +36,26 @@ import glob
 from pathlib import Path
 import time
 import argparse
+from datetime import datetime, timedelta
 import queue
 import threading
 import subprocess
 import tempfile
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, PhotoImage, scrolledtext
-import imageio
-from PIL import Image, ImageTk
+from tkinter import font as tkfont
+try:
+    import imageio
+    from PIL import Image, ImageTk
+    IMAGEIO_AVAILABLE = True
+except ImportError:
+    IMAGEIO_AVAILABLE = False
+    # Define dummy classes if Pillow is also missing to avoid other errors
+    try:
+        from PIL import Image, ImageTk
+    except ImportError:
+        class Image: pass
+        class ImageTk: pass
 
 
 previous_error_messages = set()
@@ -391,9 +403,8 @@ class CustomFileDialog(tk.Toplevel):
 
 class VideoSaverDialog(tk.Toplevel):
     """
-    Optimized version of the real-time clock sync player.
-    Reduces update frequency to improve responsiveness while maintaining sync.
-    Includes all necessary methods and window layering fixes.
+    A dialog to manage, preview, and save temporary video files created by the timeshift feature.
+    This version includes robust file checking, advanced sorting, and on-demand list refreshing.
     """
     def __init__(self, master):
         super().__init__(master)
@@ -405,6 +416,7 @@ class VideoSaverDialog(tk.Toplevel):
         # Player state variables
         self.video_reader = None
         self.is_playing = False
+        self.was_playing = False # Used for slider interaction
         self.duration_seconds = 0
         self.fps = 1.0
         self.total_frames = 0
@@ -457,8 +469,27 @@ class VideoSaverDialog(tk.Toplevel):
         self.merge_button.pack(side=tk.LEFT, padx=5)
         self.save_button = tk.Button(button_frame, text="Save Selected", command=self.save_selected)
         self.save_button.pack(side=tk.LEFT, padx=5)
+        self.refresh_button = tk.Button(button_frame, text="Refresh", command=self.refresh_list)
+        self.refresh_button.pack(side=tk.LEFT, padx=15)
         self.cancel_button = tk.Button(button_frame, text="Close", command=self._on_closing)
         self.cancel_button.pack(side=tk.RIGHT, padx=5)
+
+    def _safe_clear_image(self):
+        """Safely clears the image from the video label to prevent garbage collection errors."""
+        self.video_label.config(image='')
+        self.video_label.image = None
+
+    def refresh_list(self):
+        """Stops playback and refreshes the video file list."""
+        self.stop_playback()
+        self.play_pause_button.config(state=tk.DISABLED)
+        self.time_slider.config(state=tk.DISABLED, value=0)
+
+        self._safe_clear_image()
+        self.video_label.config(text="Select a video to preview")
+
+        self.time_label.config(text="--:-- / --:--")
+        self.populate_file_list()
 
     def on_file_select(self, event=None):
         if self.is_loading: return
@@ -467,11 +498,16 @@ class VideoSaverDialog(tk.Toplevel):
         selected_filename = self.file_list.get(selection_indices[0])
         if selected_filename and "No temporary" not in selected_filename:
             full_path = self.path_map.get(selected_filename)
-            if full_path and os.path.exists(full_path):
-                self.video_label.config(image=None, text="Loading video...")
+            # For symlinks, we need to resolve the real path for the video reader
+            real_path = os.path.realpath(full_path) if full_path and os.path.islink(full_path) else full_path
+
+            if real_path and os.path.exists(real_path):
+                self._safe_clear_image()
+                self.video_label.config(text="Loading video...")
+
                 self.is_loading = True
                 self.update_idletasks()
-                self.after(50, lambda: self.load_video(full_path))
+                self.after(50, lambda: self.load_video(real_path))
 
     def load_video(self, file_path):
         self.stop_playback()
@@ -481,7 +517,7 @@ class VideoSaverDialog(tk.Toplevel):
             self.duration_seconds = metadata.get('duration', 0)
             self.fps = metadata.get('fps', 30)
             if self.fps <= 0: self.fps = 30
-            self.total_frames = int(self.duration_seconds * self.fps)
+            self.total_frames = int(self.duration_seconds * self.fps) if self.duration_seconds > 0 else self.video_reader.count_frames()
 
             self.play_pause_button.config(state=tk.NORMAL)
             self.time_slider.config(state=tk.NORMAL, to=self.duration_seconds, value=0)
@@ -509,7 +545,7 @@ class VideoSaverDialog(tk.Toplevel):
             img.thumbnail((label_w, label_h), Image.Resampling.LANCZOS)
             photo_img = ImageTk.PhotoImage(image=img)
             self.video_label.config(image=photo_img, text="")
-            self.video_label.image = photo_img
+            self.video_label.image = photo_img # Keep a reference!
         except IndexError:
              self.stop_playback()
         except Exception as e:
@@ -565,7 +601,7 @@ class VideoSaverDialog(tk.Toplevel):
     def update_ui(self):
         if self.video_reader:
             current_seconds = self.current_frame_number / self.fps if self.fps > 0 else 0
-            if current_seconds > self.duration_seconds:
+            if self.duration_seconds > 0 and current_seconds > self.duration_seconds:
                 current_seconds = self.duration_seconds
             self.time_slider.set(current_seconds)
 
@@ -601,7 +637,30 @@ class VideoSaverDialog(tk.Toplevel):
         if len(selected_indices) < 2:
             messagebox.showwarning("Selection Error", "Please select at least two files to merge.", parent=self)
             return
+
         selected_filenames = [self.file_list.get(i) for i in selected_indices]
+
+        # --- Verification Step: Check if all selected files still exist before proceeding ---
+        missing_files = []
+        file_paths_to_merge = []
+        for name in selected_filenames:
+            path = self.path_map.get(name)
+            # For symlinks, the real path is what matters for ffmpeg concat
+            real_path = os.path.realpath(path) if path and os.path.islink(path) else path
+
+            if not real_path or not os.path.exists(real_path):
+                missing_files.append(name)
+            else:
+                file_paths_to_merge.append(real_path)
+
+        if missing_files:
+            messagebox.showerror("File Not Found",
+                                 "One or more selected files could not be found. Please refresh the list.\n\n"
+                                 f"Missing: {', '.join(missing_files)}",
+                                 parent=self)
+            return
+        # --- End of Verification ---
+
         pids = set()
         pid_to_use = None
         for name in selected_filenames:
@@ -620,40 +679,27 @@ class VideoSaverDialog(tk.Toplevel):
             messagebox.showerror("Merge Error", "The selection must be a continuous block.", parent=self)
             return
 
-        file_paths_to_merge = [self.path_map.get(name) for name in selected_filenames]
-        final_file_list, temp_copies = [], []
+        list_file_path = None
         try:
-            for path in file_paths_to_merge:
-                if "_buf" in path:
-                    copy_path = os.path.join(tempfile.gettempdir(), f"merge_copy_{os.path.basename(path)}")
-                    shutil.copy(path, copy_path)
-                    final_file_list.append(copy_path)
-                    temp_copies.append(copy_path)
-                else:
-                    final_file_list.append(path)
-
             default_name = f"merged_timeshift-{pid_to_use}.avi"
 
             output_file = filedialog.asksaveasfilename(title="Save Merged Video As...", initialfile=default_name, filetypes=[("AVI video", "*.avi"), ("All files", "*.*")], parent=self)
             if not output_file: return
 
             with tempfile.NamedTemporaryFile('w', delete=False, suffix='.txt', encoding='utf-8') as f:
-                for p in final_file_list: f.write(f"file '{p}'\n")
+                for p in file_paths_to_merge: f.write(f"file '{p}'\n")
                 list_file_path = f.name
 
             ffmpeg_cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_file]
-            subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
+            subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
             messagebox.showinfo("Success", f"Videos merged successfully into:\n{output_file}", parent=self)
         except subprocess.CalledProcessError as e:
-            messagebox.showerror("FFmpeg Error", f"Failed to merge videos.\n\n{e.stderr.decode('utf-8', 'ignore')}", parent=self)
+            messagebox.showerror("FFmpeg Error", f"Failed to merge videos.\n\n{e.stderr}", parent=self)
         except Exception as e:
              messagebox.showerror("Error", f"An error occurred during the merge process: {e}", parent=self)
         finally:
-            if 'list_file_path' in locals() and os.path.exists(list_file_path):
+            if list_file_path and os.path.exists(list_file_path):
                 os.remove(list_file_path)
-            for copy in temp_copies:
-                if os.path.exists(copy):
-                    os.remove(copy)
 
     def save_selected(self):
         self.stop_playback()
@@ -670,13 +716,20 @@ class VideoSaverDialog(tk.Toplevel):
 
         for filename in selected_filenames:
             source_path = self.path_map.get(filename)
-            if not source_path:
+            # --- Verification Step for saving ---
+            if not source_path or not os.path.exists(source_path):
+                skipped_count += 1
+                messagebox.showwarning("File Not Found", f"The file '{filename}' was not found and will be skipped.", parent=self)
                 continue
 
             destination_file_path = os.path.join(destination_dir, filename)
 
             should_copy = True
             if os.path.exists(destination_file_path):
+                # For symlinks, we need to compare the real paths to avoid overwriting a file with its own symlink's content
+                if os.path.exists(os.path.realpath(source_path)) and os.path.samefile(os.path.realpath(source_path), destination_file_path):
+                    skipped_count += 1
+                    continue
                 response = messagebox.askquestion(
                     "File Exists",
                     f"The file '{filename}' already exists.\nDo you want to overwrite it?",
@@ -689,7 +742,9 @@ class VideoSaverDialog(tk.Toplevel):
 
             if should_copy:
                 try:
-                    shutil.copy(source_path, destination_file_path)
+                    # For symlinks, we must copy the file they point to, not the link itself
+                    real_source_path = os.path.realpath(source_path)
+                    shutil.copy(real_source_path, destination_file_path)
                     copied_count += 1
                 except Exception as e:
                     skipped_count += 1
@@ -716,24 +771,63 @@ class VideoSaverDialog(tk.Toplevel):
 
     def populate_file_list(self):
         directory = "/tmp"
-        pattern = os.path.join(directory, "whisper-live_*_*.avi")
-        all_files = glob.glob(pattern)
-        video_files = [f for f in all_files if not os.path.islink(f)]
+        pattern = os.path.join(directory, "whisper-live_*.*")
+        all_files_found = glob.glob(pattern)
+
+        # Filter to get only valid files to display.
+        # This includes regular video files and symbolic links whose targets exist.
+        # It excludes the buffer files themselves from the list.
+        valid_files_to_display = []
+        for path in all_files_found:
+            basename = os.path.basename(path)
+            if "_buf" in basename:
+                continue # Never show buffer files directly in the list
+
+            if os.path.islink(path):
+                # It's a symbolic link, show it only if its target exists
+                if os.path.exists(os.path.realpath(path)):
+                    valid_files_to_display.append(path)
+            else:
+                # It's a regular file, show it
+                valid_files_to_display.append(path)
 
         self.file_list.delete(0, tk.END)
-        if not video_files:
+        if not valid_files_to_display:
             self.file_list.insert(tk.END, "No temporary video files found.")
             return
 
-        try:
-            sorted_files = sorted(video_files, key=lambda f: Path(f).stat().st_mtime)
-        except FileNotFoundError:
-            self.after(100, self.populate_file_list)
+        # Group files by their recording session prefix (e.g., 'whisper-live_12345_')
+        grouped_files = {}
+        for file_path in valid_files_to_display:
+            basename = os.path.basename(file_path)
+            match = re.match(r'(whisper-live_\d+_)', basename)
+            if match:
+                prefix = match.group(1)
+                if prefix not in grouped_files:
+                    grouped_files[prefix] = []
+                grouped_files[prefix].append(file_path)
+
+        # Sort files within each group by modification time, then flatten the list
+        sorted_files = []
+        # Sort groups by their prefix to keep them consistent
+        for prefix in sorted(grouped_files.keys()):
+            try:
+                # Sort files inside the group chronologically
+                group = sorted(grouped_files[prefix], key=lambda f: Path(f).stat().st_mtime)
+                sorted_files.extend(group)
+            except FileNotFoundError:
+                # A file might be deleted between glob and stat, just skip it
+                continue
+
+        if not sorted_files:
+            self.file_list.insert(tk.END, "No temporary video files found.")
             return
 
+        # Populate the listbox
         for file_path in sorted_files:
             self.file_list.insert(tk.END, os.path.basename(file_path))
 
+        # Update the path map for easy lookup
         self.path_map = {os.path.basename(p): p for p in sorted_files}
 
 
@@ -844,6 +938,62 @@ class EnhancedStringDialog(tk.Toplevel):
         y = master_y + (master_height // 2) - (dialog_height // 2)
 
         self.geometry(f'{dialog_width}x{dialog_height}+{x}+{y}')
+
+
+class LanguageSelectDialog(tk.Toplevel):
+    """
+    A custom dialog to select a language for merging or to merge all languages.
+    """
+    def __init__(self, master, title, prompt, languages):
+        super().__init__(master)
+        self.transient(master)
+        self.title(title)
+        self.grab_set()
+
+        self.result = None  # Will be language code, 'all', or None
+
+        tk.Label(self, text=prompt, wraplength=350, justify=tk.LEFT).pack(padx=20, pady=(20, 10))
+
+        self.selected_lang = tk.StringVar(value=languages[0])
+        self.radio_buttons = []
+
+        # Frame for individual language radio buttons
+        radio_frame = tk.Frame(self)
+        radio_frame.pack(padx=20, pady=5, fill=tk.X)
+        for lang in languages:
+            rb = tk.Radiobutton(radio_frame, text=lang, variable=self.selected_lang, value=lang)
+            rb.pack(anchor=tk.W)
+            self.radio_buttons.append(rb)
+
+        # Frame for action buttons
+        button_frame = tk.Frame(self)
+        button_frame.pack(padx=20, pady=(10, 20), fill=tk.X)
+
+        tk.Button(button_frame, text="Merge Selected Language", command=self.on_merge_selected).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(button_frame, text="Merge All", command=self.on_merge_all).pack(side=tk.LEFT, expand=True, padx=5)
+        tk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT, padx=5)
+
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+        self.center_window(master)
+        self.wait_window(self)
+
+    def on_merge_selected(self):
+        self.result = self.selected_lang.get()
+        self.destroy()
+
+    def on_merge_all(self):
+        self.result = 'all'
+        self.destroy()
+
+    def on_cancel(self):
+        self.result = None
+        self.destroy()
+
+    def center_window(self, master):
+        self.update_idletasks()
+        x = master.winfo_x() + (master.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f'+{int(x)}+{int(y)}')
 
 
 class M3uPlaylistPlayer(tk.Frame):
@@ -1334,11 +1484,11 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
-        self.save_videos_button = tk.Button(self.options_frame3, text="Save Videos", padx=5, command=self.open_video_saver)
-        self.save_videos_button.pack(side=tk.LEFT, padx=(10, 0))
+        self.delete_videos_button = tk.Button(self.options_frame3, text="Delete all temp files", command=self.delete_videos)
+        self.delete_videos_button.pack(side=tk.LEFT, padx=30)
 
-        self.delete_videos_button = tk.Button(self.options_frame3, text="Delete all temp files", padx=5, command=self.delete_videos)
-        self.delete_videos_button.pack(side=tk.LEFT, padx=(10, 10))
+        self.save_videos_button = tk.Button(self.options_frame3, text="Save Videos", command=self.open_video_saver)
+        self.save_videos_button.pack(side=tk.RIGHT, padx=10)
 
 
         # Buttons
@@ -1419,7 +1569,10 @@ class M3uPlaylistPlayer(tk.Frame):
         self.subtitles_button.pack(side=tk.LEFT)
 
         self.split_video_button = tk.Button(self.options_frame6, text="Split File", command=self.split_video, padx=4)
-        self.split_video_button.pack(side=tk.LEFT, padx=(5, 0)) # Add some padding to the left
+        self.split_video_button.pack(side=tk.LEFT)
+
+        self.merge_subs_button = tk.Button(self.options_frame6, text="Merge Subs", command=self.merge_subtitles, padx=4)
+        self.merge_subs_button.pack(side=tk.LEFT)
 
         self.options_frame7 = tk.Frame(self.container_frame)
         self.options_frame7.pack(side=tk.LEFT, expand=True, pady=2)
@@ -2148,11 +2301,17 @@ class M3uPlaylistPlayer(tk.Frame):
                 shutil.copyfile(file_path, destination_file_path)
         messagebox.showinfo("Copying Process Completed", "Copying Process completed successfully.")
 
-
     # Function to open the video saver dialog
     def open_video_saver(self):
+        if not IMAGEIO_AVAILABLE:
+            messagebox.showerror(
+                "Missing Dependency",
+                "The 'imageio' and 'Pillow' libraries are required for the video preview feature.\n\n"
+                "Please install them by running:\n"
+                "pip install imageio[ffmpeg] Pillow"
+            )
+            return
         VideoSaverDialog(self.main_window)
-
 
     # Function to delete temporary videos
     def delete_videos(self):
@@ -2712,6 +2871,162 @@ class M3uPlaylistPlayer(tk.Frame):
             self.after(100, self._check_split_thread, result_queue, notification_window)
 
 
+    # Function to merge two consecutive subtitle files (_part1.srt and _part2.srt)
+    def merge_subtitles(self):
+        """
+        Merges two subtitle files by calculating the duration of the first video part
+        and using it as a time offset for the second part.
+        """
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showerror("Error", "Please select a `..._part1` or `..._part2` file to start the merge.")
+            return
+
+        try:
+            # 1. Determine file paths and names
+            item_id = selection[0]
+            selected_name, selected_url = self.tree.item(item_id, "values")[1:3]
+            video_dir = os.path.dirname(selected_url)
+            filename, video_ext = os.path.splitext(os.path.basename(selected_url))
+
+            match = re.search(r'(_part[12])$', filename)
+            if not match:
+                messagebox.showerror("Error", "The selected file must end with `..._part1` or `..._part2`.")
+                return
+            base_name_prefix = filename[:-len(match.group(1))]
+            part1_video_path = os.path.join(video_dir, base_name_prefix + "_part1" + video_ext)
+
+            if not os.path.exists(part1_video_path):
+                messagebox.showerror("File Not Found", f"Could not find the corresponding video file for part 1:\n{part1_video_path}")
+                return
+
+            # 2. Get the precise duration of the part 1 video file using ffprobe
+            ffprobe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", part1_video_path]
+            result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, check=True)
+            duration_sec = float(result.stdout.strip())
+            time_offset = timedelta(seconds=duration_sec)
+
+            # 3. Find common subtitle languages to merge
+            base_name, part1_name, part2_name = base_name_prefix, base_name_prefix + "_part1", base_name_prefix + "_part2"
+            subs1_glob = glob.glob(os.path.join(video_dir, f"{part1_name}.*.srt"))
+            subs2_glob = glob.glob(os.path.join(video_dir, f"{part2_name}.*.srt"))
+
+            langs1 = {os.path.basename(f).split('.')[-2] for f in subs1_glob}
+            langs2 = {os.path.basename(f).split('.')[-2] for f in subs2_glob}
+            common_langs = sorted(list(langs1.intersection(langs2)))
+
+            if not common_langs:
+                messagebox.showerror("No Common Subtitles", "No matching subtitle languages found for both video parts.")
+                return
+
+            langs_to_merge = []
+            if len(common_langs) > 1:
+                dialog = LanguageSelectDialog(self.main_window, "Choose Language to Merge", "Choose an option:", common_langs)
+                choice = dialog.result
+                if choice is None: return
+                langs_to_merge = common_langs if choice == 'all' else [choice]
+            else:
+                langs_to_merge = common_langs
+
+            # 4. Process each language
+            success_count, fail_count, merged_files = 0, 0, []
+            for lang in langs_to_merge:
+                try:
+                    srt_path1 = os.path.join(video_dir, f"{part1_name}.{lang}.srt")
+                    srt_path2 = os.path.join(video_dir, f"{part2_name}.{lang}.srt")
+                    output_srt_path = os.path.join(video_dir, f"{base_name}.{lang}.srt")
+
+                    blocks1 = self._clean_and_parse_srt(srt_path1)
+                    blocks2 = self._clean_and_parse_srt(srt_path2)
+
+                    # Offset the times for the second part
+                    for block in blocks2:
+                        block['start'] += time_offset
+                        block['end'] += time_offset
+
+                    merged_blocks = blocks1 + blocks2
+
+                    # Write the final merged and re-indexed SRT file
+                    with open(output_srt_path, 'w', encoding='utf-8') as outfile:
+                        for i, block in enumerate(merged_blocks):
+                            outfile.write(f"{i + 1}\n")
+                            outfile.write(f"{self._timedelta_to_srt_time(block['start'])} --> {self._timedelta_to_srt_time(block['end'])}\n")
+                            outfile.write(f"{block['text']}\n\n")
+
+                    success_count += 1
+                    merged_files.append(os.path.basename(output_srt_path))
+
+                except Exception as e:
+                    fail_count += 1
+                    print(f"Failed to merge subtitles for language '{lang}': {e}")
+
+            # 5. Show final result message
+            if success_count > 0:
+                message = f"Successfully merged {success_count} language(s):\n" + "\n".join(merged_files)
+                if fail_count > 0: message += f"\n\nFailed to merge {fail_count} language(s). See console for details."
+                messagebox.showinfo("Merge Complete", message)
+            elif fail_count > 0:
+                messagebox.showerror("Merge Failed", f"Failed to merge {fail_count} language(s). See console for details.")
+
+        except FileNotFoundError:
+             messagebox.showerror("Error", "ffprobe not found. Please ensure it is installed and in your system's PATH.")
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("ffprobe Error", f"Failed to get video duration.\n\n{e.stderr}")
+        except Exception as e:
+            messagebox.showerror("An Unexpected Error Occurred", str(e))
+
+
+    def _srt_time_to_timedelta(self, srt_time_str):
+        """Converts an SRT time string (HH:MM:SS,ms) to a timedelta object."""
+        # This handles both comma and dot as decimal separators
+        clean_time_str = srt_time_str.replace(',', '.')
+        try:
+            time_obj = datetime.strptime(clean_time_str, '%H:%M:%S.%f')
+            return timedelta(hours=time_obj.hour, minutes=time_obj.minute, seconds=time_obj.second, microseconds=time_obj.microsecond)
+        except ValueError:
+            return timedelta(0)
+
+    def _timedelta_to_srt_time(self, td):
+        """Converts a timedelta object back to an SRT time string."""
+        total_seconds = td.total_seconds()
+        if total_seconds < 0:
+            total_seconds = 0
+
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, remainder = divmod(remainder, 60)
+        seconds = int(remainder)
+        milliseconds = int((remainder - seconds) * 1000)
+
+        return f"{int(hours):02}:{int(minutes):02}:{seconds:02},{milliseconds:03}"
+
+    def _clean_and_parse_srt(self, srt_path):
+        """
+        Reads an SRT file and returns a list of valid subtitle blocks.
+        Each block is a dictionary with its start, end, and text.
+        """
+        blocks = []
+        try:
+            with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
+            # A more robust regex to find subtitle blocks
+            pattern = re.compile(
+                r"(\d+)\s*\n"
+                r"(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*\n"
+                r"([\s\S]*?)(?=\n\s*\n|\Z)",
+                re.MULTILINE
+            )
+            for match in pattern.finditer(content):
+                start_time = self._srt_time_to_timedelta(match.group(2))
+                end_time = self._srt_time_to_timedelta(match.group(3))
+                text = match.group(4).strip()
+                if text:
+                    blocks.append({'start': start_time, 'end': end_time, 'text': text})
+        except IOError as e:
+            print(f"Could not read file {srt_path}: {e}")
+        return blocks
+
+
     # Function to delete a channel
     def delete_channel(self):
         selection = self.tree.selection()
@@ -3218,7 +3533,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.12\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.20\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -3282,17 +3597,31 @@ class MainApplication:
         tab_control = ttk.Notebook(self.main_window)
 
         tabs = []
-        canvases = []
+        label_font = tkfont.Font(family="TkDefaultFont", size=10)
+
         for name, color in zip(tab_names, tab_colors):
             tab = ttk.Frame(tab_control)
+            # We add the tab to the notebook with the original name
             tab_control.add(tab, text=name, compound="left")
             tabs.append(tab)
 
-            text_color = self.get_text_color(color)  # Determine the appropriate text color based on the background color
-            canvas = tk.Canvas(tab, width=25, height=80, bg=color, highlightthickness=0)
-            canvas.pack(side=tk.LEFT, fill=tk.Y)
-            canvas.create_text(15, 40, text=name, angle=90, fill=text_color, anchor='center')
-            canvases.append(canvas)
+            text_color = self.get_text_color(color)
+
+            # Add a space to the beginning of the string that will be drawn.
+            padded_name = " " + name
+
+            # Measure the new padded name to size the canvas correctly
+            canvas_height = label_font.measure(padded_name) + 20
+            canvas_width = label_font.metrics("linespace") + 4
+
+            canvas = tk.Canvas(tab, width=canvas_width, height=canvas_height, bg=color, highlightthickness=0)
+            canvas.pack(side=tk.LEFT, fill=tk.Y, expand=False)
+
+            # Draw the padded name. The clipped pixel will now be on the invisible space.
+            canvas.create_text(
+                canvas_width / 2, canvas_height / 2, text=padded_name, angle=90,
+                fill=text_color, font=label_font, anchor='center'
+            )
 
         tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
@@ -3302,7 +3631,7 @@ class MainApplication:
             playlist_player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages, self.main_window)
             playlist_player.pack(fill=tk.BOTH, expand=True)
             playlist_players.append(playlist_player)
-        self.playlist_players = playlist_players  # store playlist players
+        self.playlist_players = playlist_players
 
         self.main_window.protocol("WM_DELETE_WINDOW", self.on_close)
         check_error_thread = threading.Thread(target=self.check_error_messages)
