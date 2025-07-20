@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 3.12 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 3.20 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -143,7 +143,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 3.12 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 3.20 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -500,7 +500,6 @@ if [[ "$TRANS" == "trans" ]]; then
 fi
 
 
-
 # Error if generating subtitles with remote source.
 if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     echo ""
@@ -513,21 +512,32 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     exit 1
 fi
 
+
 # --- Subtitle Generation ---
 
 # Generate Subtitles from a local Audio/Video File.
 if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     echo ""
-    echo "Generating Subtitles..."
+    echo "=========================================="
+    echo "  🚀 Starting Subtitle Generation  🚀"
+    echo "=========================================="
     echo ""
     # do not stop script on error
     set +e
 
+    echo ""
+    echo "-> Step 1: Converting audio to WAV format..."
+    echo ""
     ffmpeg -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le /tmp/whisper-live_${MYPID}.wav
     err=$?
 
     if [ $err -eq 0 ]; then
+        echo ""
+        echo "-> Step 2: Running Whisper AI Transcription/Translation..."
+        echo ""
+        # This part remains identical to your original logic.
+        # If TRANSLATE is 'translate', whisper will be called with that option.
         if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
             "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav -osrt 2> /tmp/whisper-live_${MYPID}-err.err
             err=$?
@@ -541,63 +551,83 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             fi
         elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
             if [[ "$TRANSLATE" == "translate" ]]; then
-                if [[ "$LANGUAGE" == "auto" ]]; then
-                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                    err=$?
-                else
-                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                    err=$?
-                fi
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
+                err=$?
             else
-                if [[ "$LANGUAGE" == "auto" ]]; then
-                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                      err=$?
-                else
-                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${LANGUAGE} --threads 4 --model ${MODEL} --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                      err=$?
+                whisper_lang_opt=""
+                if [[ "$LANGUAGE" != "auto" ]]; then
+                    whisper_lang_opt="--language ${LANGUAGE}"
                 fi
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" ${whisper_lang_opt} --threads 4 --model ${MODEL} --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
+                err=$?
             fi
             mv /tmp/whisper-live_${MYPID}.srt /tmp/whisper-live_${MYPID}.wav.srt
         fi
 
         url_no_ext="${URL%.*}"
+        file_description="" # Variable to hold the descriptive text
+
         if [[ $TRANS == "trans" ]] && [ $err -eq 0 ]; then
+            # 'trans' will use the output of whisper, which could be English if 'translate' was set.
             echo ""
-            echo "Starting Online Translation..."
+            echo "-> Step 3: Starting Online Translation to '${TRANS_LANGUAGE}'..."
+            echo "----------------------------------------------------"
             echo ""
-            trans -b :${TRANS_LANGUAGE} -i /tmp/whisper-live_${MYPID}.wav.srt | tee /tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt
+            # The fix for clean subtitles: redirect stderr to /dev/null
+            trans -b :${TRANS_LANGUAGE} -i /tmp/whisper-live_${MYPID}.wav.srt | tee /tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt 2>/dev/null
+            echo ""
+            echo "----------------------------------------------------"
             err=$?
             destination="${url_no_ext}.${TRANS_LANGUAGE}.srt"
+            file_description="Online Translated Subtitle (${TRANS_LANGUAGE})"
             mv /tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt /tmp/whisper-live_${MYPID}.wav.srt
         elif [ $err -eq 0 ]; then
+            # This part follows your original logic for naming the destination file.
             if [[ $TRANSLATE == "" ]]; then
                 destination="${url_no_ext}.${LANGUAGE}.srt"
+                file_description="Original Subtitle (${LANGUAGE})"
             else
                 destination="${url_no_ext}.en.srt"
+                file_description="Translated Subtitle (en) from Whisper"
             fi
         fi
 
-        # Check if destination file already exists
+        # Check if destination file already exists, with enhanced text
         if [ -e "$destination" ] && [ $err -eq 0 ]; then
             echo ""
-            read -p "The file '$destination' already exists. Do you want to overwrite it? (y/n): " response
+            echo "ATTENTION: A file already exists at the destination."
             echo ""
-            if [ "$response" = "y" ]; then
+            echo "  - File: $destination"
+            echo "  - Type: $file_description"
+            echo ""
+            read -p "Do you want to overwrite it? (y/n): " response
+            echo ""
+            if [[ "$response" = "y" ]] || [[ "$response" = "Y" ]]; then
+                echo ""
+                echo "-> Overwriting existing file..."
+                echo ""
                 mv /tmp/whisper-live_${MYPID}.wav.srt "$destination"
                 err=$?
-            elif [ "$response" = "n" ]; then
+            elif [[ "$response" = "n" ]] || [[ "$response" = "N" ]]; then
                 echo ""
-                read -p "Enter a new name with full path for the destination file [${destination}]: " new_destination
-                mv -i /tmp/whisper-live_${MYPID}.wav.srt "$new_destination"
-                err=$?
-                if [ $err -ne 0 ]; then
+                read -p "Enter a new name with full path for the destination file: " new_destination
+                echo ""
+                if [ -n "$new_destination" ]; then
+                    mv -i /tmp/whisper-live_${MYPID}.wav.srt "$new_destination"
+                    err=$?
+                    if [ $err -ne 0 ]; then
+                        echo ""
+                        echo "Operation failed. You can find the temporary Subtitle File in: /tmp/whisper-live_${MYPID}.wav.srt"
+                        err=1
+                    fi
+                else
                     echo ""
-                    echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${MYPID}.wav.srt"
+                    echo "Invalid name. Aborting. You can find the temporary Subtitle File in: /tmp/whisper-live_${MYPID}.wav.srt"
                     err=1
                 fi
             else
                 echo ""
-                echo "Invalid response. Aborting. You can find the temporary Subtitles File in: /tmp/whisper-live_${MYPID}.wav.srt"
+                echo "Invalid response. Aborting. You can find the temporary Subtitle File in: /tmp/whisper-live_${MYPID}.wav.srt"
                 err=1
             fi
         else
@@ -606,14 +636,14 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         fi
     fi
 
-		if [ $err -eq 0 ]; then
+    if [ $err -eq 0 ]; then
         echo ""
-        echo "Subtitles generated successfully."
+        echo "✅ Subtitles generated successfully! ✅"
         echo ""
         exit 0
     else
         echo ""
-        echo "An error occurred while generating subtitles."
+        echo "❌ An error occurred while generating subtitles. ❌"
         echo ""
         pkill -f "^ffmpeg.*${MYPID}.*$"
         pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
@@ -626,6 +656,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     fi
 
 fi
+
 
 # --- Timeshift Logic ---
 
