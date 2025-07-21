@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.50 License: GPL 3.0
+Author: Antonio R. Version: 3.52 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -1232,7 +1232,7 @@ class VideoSaverDialog(tk.Toplevel):
 
     def populate_file_list(self):
         directory = "/tmp"
-        pattern = os.path.join(directory, "whisper-live_*.*")
+        pattern = os.path.join(directory, "whisper-live_*.avi")
         all_files_found = glob.glob(pattern)
         valid_files_to_display = []
         for path in all_files_found:
@@ -4066,7 +4066,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.50\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.52\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
