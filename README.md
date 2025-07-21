@@ -13,7 +13,7 @@ This application includes many options, and while it is commonly used to view, t
 
 - On very old computers, it's possible to generate subtitles with the largest models and without the quality limitations that real-time transcripts present for online broadcasts; the only limitation will be processing time. On the other hand, with a powerful CPU, or a GPU/NPU and a special version of whisper.cpp, subtitles will be generated very quickly.
 
-- Although the subtitles are generally of high quality, to address the issues that Whisper AI models sometimes present, the option to separate video/audio files and then merge their subtitles is included.
+- Option to cut video/audio files and then merge their subtitles. Merging only a portion of subtitles is supported. While subtitles are typically high-quality, this option to cut video/audio files can also address the issues that Whisper AI models sometimes present.
 
 - Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application. The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase:
 
