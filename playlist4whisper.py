@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.30 License: GPL 3.0
+Author: Antonio R. Version: 3.50 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -524,7 +524,7 @@ class VideoCutterDialog(tk.Toplevel):
         # 4. Draw the thumb (the draggable circle)
         thumb_x = progress_x
         self.timeline_canvas.create_oval(thumb_x - 6, track_y - 6, thumb_x + 6, track_y + 6, fill="#0078D7", outline="white", width=2)
-        
+
     def load_media(self, file_path):
         self.is_loading = True
         self.video_label.config(text="Probing file...")
@@ -851,8 +851,8 @@ class VideoCutterDialog(tk.Toplevel):
 class VideoSaverDialog(tk.Toplevel):
     """
     A dialog to manage, preview (with audio), and save temporary video files.
-    This version adopts the robust hybrid architecture from VideoCutterDialog,
-    using ffplay for synchronized audio playback and imageio for video frames.
+    This version uses a custom Canvas-based slider for pixel-perfect control,
+    avoiding all ttk.Scale geometry and behavior issues.
     """
     def __init__(self, master):
         super().__init__(master)
@@ -863,26 +863,26 @@ class VideoSaverDialog(tk.Toplevel):
 
         # Player state variables
         self.video_reader = None
-        self.media_player_process = None # For ffplay audio
+        self.media_player_process = None
         self.is_playing = False
         self.was_playing_before_seek = False
-        self.duration_seconds = 0
+        self.duration_seconds = 0.001 # Avoid division by zero
         self.fps = 30
         self.total_frames = 0
         self.is_loading = False
-        self.temp_media_file = None # For re-muxed videos
+        self.temp_media_file = None
 
         # UI Synchronization & Timers
         self.ui_update_job = None
         self.current_playback_time = 0.0
-        self.AUDIO_START_LATENCY = 0.1 # 100 milliseconds
+        self.AUDIO_START_LATENCY = 0.1
 
         # Other state variables
         self.path_map = {}
+        self.timeline_canvas = None
 
         self.center_window()
         self.create_widgets()
-
         self.after(100, self.populate_file_list)
 
     def create_widgets(self):
@@ -908,14 +908,16 @@ class VideoSaverDialog(tk.Toplevel):
         self.play_pause_button = tk.Button(controls_frame, text="Play", width=10, command=self.toggle_play_pause, state=tk.DISABLED)
         self.play_pause_button.pack(side=tk.LEFT, padx=5)
 
-        self.time_slider = ttk.Scale(controls_frame, from_=0, to=1, orient=tk.HORIZONTAL, value=0, state=tk.DISABLED)
-        self.time_slider.bind("<Button-1>", self._on_slider_press)
-        self.time_slider.bind("<B1-Motion>", self._on_slider_drag)
-        self.time_slider.bind("<ButtonRelease-1>", self._on_slider_release)
-        self.time_slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
         self.time_label = tk.Label(controls_frame, text="--:-- / --:--", width=12)
-        self.time_label.pack(side=tk.LEFT, padx=5)
+        self.time_label.pack(side=tk.RIGHT, padx=5)
+
+        # --- The Custom Canvas Slider ---
+        self.timeline_canvas = tk.Canvas(controls_frame, height=20, bg="#DDDDDD", highlightthickness=0)
+        self.timeline_canvas.pack(fill=tk.X, expand=True, padx=5)
+        self.timeline_canvas.bind("<Configure>", lambda e: self._draw_timeline())
+        self.timeline_canvas.bind("<Button-1>", self._on_slider_press)
+        self.timeline_canvas.bind("<B1-Motion>", self._on_slider_drag)
+        self.timeline_canvas.bind("<ButtonRelease-1>", self._on_slider_release)
 
         button_frame = tk.Frame(self)
         button_frame.pack(pady=10, padx=10, fill=tk.X)
@@ -928,8 +930,24 @@ class VideoSaverDialog(tk.Toplevel):
         self.cancel_button = tk.Button(button_frame, text="Close", command=self._on_closing)
         self.cancel_button.pack(side=tk.RIGHT, padx=5)
 
+    def _draw_timeline(self):
+        """Draws the entire timeline including the track, progress, and thumb."""
+        self.timeline_canvas.delete("all")
+        width = self.timeline_canvas.winfo_width()
+        height = self.timeline_canvas.winfo_height()
+        if width <= 1: return
+
+        track_y = height / 2
+        self.timeline_canvas.create_line(0, track_y, width, track_y, fill="#777777", width=4)
+
+        progress_ratio = self.current_playback_time / self.duration_seconds
+        progress_x = progress_ratio * width
+        self.timeline_canvas.create_line(0, track_y, progress_x, track_y, fill="#0078D7", width=4)
+
+        thumb_x = progress_x
+        self.timeline_canvas.create_oval(thumb_x - 6, track_y - 6, thumb_x + 6, track_y + 6, fill="#0078D7", outline="white", width=2)
+
     def refresh_list(self):
-        """Stops playback, resets the player UI, and refreshes the file list."""
         self._reset_player_state()
         self.populate_file_list()
 
@@ -937,14 +955,10 @@ class VideoSaverDialog(tk.Toplevel):
         if self.is_loading: return
         selection_indices = self.file_list.curselection()
         if not selection_indices: return
-
-        # Reset player state completely before loading a new file
         self._reset_player_state()
-
         selected_filename = self.file_list.get(selection_indices[0])
         full_path = self.path_map.get(selected_filename)
         real_path = os.path.realpath(full_path) if full_path and os.path.islink(full_path) else full_path
-
         if real_path and os.path.exists(real_path):
             self.is_loading = True
             self.video_label.config(text="Loading video...")
@@ -952,23 +966,15 @@ class VideoSaverDialog(tk.Toplevel):
             threading.Thread(target=self._get_media_info_worker, args=(real_path,)).start()
 
     def _reset_player_state(self):
-        """
-        Stops all playback and aggressively resets the player UI and state.
-        This version uses a try...finally block to guarantee cleanup.
-        """
         self.stop_playback()
         self.is_loading = False
-
         if self.video_reader:
             try:
                 self.video_reader.close()
             except Exception as e:
                 print(f"Ignoring error while closing video_reader: {e}")
             finally:
-                # This is the crucial part: ensure the reference is destroyed
-                # no matter what, preventing imageio from reusing a stale object.
                 self.video_reader = None
-
         if self.temp_media_file and os.path.exists(self.temp_media_file):
             try:
                 os.remove(self.temp_media_file)
@@ -976,15 +982,10 @@ class VideoSaverDialog(tk.Toplevel):
                 print(f"Error removing temp file: {e}")
             finally:
                 self.temp_media_file = None
-
-        # Reset UI elements to their default state
         self.play_pause_button.config(state=tk.DISABLED)
-        self.time_slider.set(0)
-        self.time_slider.config(state=tk.DISABLED)
         self.current_playback_time = 0.0
-        self.duration_seconds = 0
+        self.duration_seconds = 0.001
         self.update_ui()
-
         self.video_label.config(image='', text="Select a video to preview")
         self.video_label.image = None
         self.update_idletasks()
@@ -993,14 +994,10 @@ class VideoSaverDialog(tk.Toplevel):
         try:
             path_to_process = file_path
             _, file_extension = os.path.splitext(file_path)
-
             probe_cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file_path]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
             probe_json = json.loads(probe_result.stdout)
-
-            # Since these are temp files, they should always be video. But we check to be safe.
             is_video = any(s.get('codec_type') == 'video' for s in probe_json.get('streams', []))
-
             remux_formats = ['.webm', '.mkv', '.flv']
             if is_video and file_extension.lower() in remux_formats:
                 temp_dir = tempfile.gettempdir()
@@ -1009,16 +1006,14 @@ class VideoSaverDialog(tk.Toplevel):
                 remux_cmd = ["ffmpeg", "-y", "-i", file_path, "-c", "copy", "-movflags", "faststart", self.temp_media_file]
                 subprocess.run(remux_cmd, check=True, capture_output=True, text=True)
                 path_to_process = self.temp_media_file
-
             media_info = {'fps': 30}
             format_info = probe_json.get('format', {})
-            media_info['duration'] = float(format_info.get('duration', 0))
+            media_info['duration'] = float(format_info.get('duration', 1))
             if is_video:
                 video_stream = next(s for s in probe_json.get('streams') if s.get('codec_type') == 'video')
                 fps_str = video_stream.get('r_frame_rate', '30/1')
                 num, den = map(float, fps_str.split('/'))
                 if den > 0 and num > 0: media_info['fps'] = num / den
-
             self.after(0, self._finish_loading, path_to_process, media_info)
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Error", f"Could not read the media file:\n\n{e}", parent=self))
@@ -1026,77 +1021,43 @@ class VideoSaverDialog(tk.Toplevel):
 
     def _finish_loading(self, file_path, media_info):
         try:
-            # We open the reader inside a context that will suppress the known, harmless warning.
             with self._suppress_imageio_warnings():
                 self.video_reader = imageio.get_reader(file_path)
-
-            self.duration_seconds = media_info['duration']
+            self.duration_seconds = media_info['duration'] if media_info['duration'] > 0 else 0.001
             self.fps = media_info['fps']
             self.total_frames = int(self.duration_seconds * self.fps)
             self.display_frame()
-
             self.play_pause_button.config(state=tk.NORMAL)
-            self.time_slider.config(state=tk.NORMAL, to=self.duration_seconds, value=0)
             self.is_loading = False
             self.update_ui()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open video reader:\n\n{e}", parent=self)
             self.refresh_list()
 
-def _on_slider_press(self, event):
-    if self.is_playing:
-        self.was_playing_before_seek = True
-        self.stop_playback()
-    else:
-        self.was_playing_before_seek = False
-
-    # Immediately seek to the clicked position
-    self._perform_seek(event)
+    def _on_slider_press(self, event):
+        if self.is_playing:
+            self.was_playing_before_seek = True
+            self.stop_playback()
+        else:
+            self.was_playing_before_seek = False
+        self._perform_seek(event)
 
     def _on_slider_drag(self, event):
         self._perform_seek(event)
 
     def _on_slider_release(self, event):
-        # Perform a final seek on release to snap to the exact point.
         self._perform_seek(event)
-
         if self.was_playing_before_seek:
             self.start_playback()
 
     def _perform_seek(self, event):
         if self.is_loading: return
-
-        # --- Start of the corrected seek logic ---
-        widget_width = self.time_slider.winfo_width()
-        if widget_width <= 1: return
-
-        # Estimate half the width of the slider's thumb/handle.
-        slider_thumb_half_width = 8
-
-        # The usable "track" of the slider is narrower than the full widget width.
-        track_width = widget_width - (2 * slider_thumb_half_width)
-        if track_width <= 0: return
-
-        # Get the click position relative to the widget's left edge.
-        click_x = event.x
-
-        # Translate the click position to be relative to the start of the track.
-        # We also clamp the value between the track's start and end.
-        x_on_track = max(0, min(click_x - slider_thumb_half_width, track_width))
-
-        # Calculate the proportional position on the track (a value from 0.0 to 1.0)
-        seek_ratio = x_on_track / track_width
-        # --- End of the corrected seek logic ---
-
-        # Apply the corrected ratio to the duration to get the precise time
-        self.current_playback_time = seek_ratio * self.duration_seconds
-
-        # Ensure the time doesn't go out of bounds due to float precision
-        self.current_playback_time = max(0, min(self.current_playback_time, self.duration_seconds))
-
+        width = self.timeline_canvas.winfo_width()
+        if width <= 1: return
+        ratio = max(0, min(event.x / width, 1.0))
+        self.current_playback_time = ratio * self.duration_seconds
         self.update_ui()
-        if not self.is_audio_only:
-            self.display_frame()
+        self.display_frame()
 
     def toggle_play_pause(self):
         if self.is_loading: return
@@ -1107,19 +1068,15 @@ def _on_slider_press(self, event):
         if self.is_playing: return
         self.is_playing = True
         self.play_pause_button.config(text="Pause")
-
         self._kill_media_process()
-
         self.playback_start_time_monotonic = time.monotonic()
         self.playback_start_time_offset = self.current_playback_time
-
-        # Determine the file to play (original or re-muxed temp file)
-        file_to_play = self.temp_media_file if self.temp_media_file else self.path_map.get(self.file_list.get(self.file_list.curselection()))
+        selection = self.file_list.curselection()
+        if not selection: return
+        file_to_play = self.path_map.get(self.file_list.get(selection[0]))
         if not file_to_play: return
-
         ffplay_cmd = ["ffplay", "-ss", str(self.current_playback_time), "-autoexit", "-loglevel", "quiet", "-nodisp", "-vn", file_to_play]
         self.media_player_process = subprocess.Popen(ffplay_cmd)
-
         self.run_ui_updater()
 
     def stop_playback(self):
@@ -1137,11 +1094,9 @@ def _on_slider_press(self, event):
         elapsed_time = time.monotonic() - self.playback_start_time_monotonic
         adjusted_elapsed_time = max(0, elapsed_time - self.AUDIO_START_LATENCY)
         self.current_playback_time = self.playback_start_time_offset + adjusted_elapsed_time
-
         if self.current_playback_time >= self.duration_seconds:
             self.current_playback_time = self.duration_seconds
             self.stop_playback()
-
         self.update_ui()
         self.display_frame()
         self.ui_update_job = self.after(100, self.run_ui_updater)
@@ -1151,11 +1106,8 @@ def _on_slider_press(self, event):
         try:
             frame_number = int(self.current_playback_time * self.fps)
             if frame_number >= self.total_frames: frame_number = self.total_frames - 1
-
-            # We also suppress warnings here, as seeking can trigger the same message.
             with self._suppress_imageio_warnings():
                 frame = self.video_reader.get_data(frame_number)
-
             label_w, label_h = self.video_label.winfo_width(), self.video_label.winfo_height()
             if label_w > 1 and label_h > 1:
                 img = Image.fromarray(frame)
@@ -1167,37 +1119,25 @@ def _on_slider_press(self, event):
             pass
 
     def _suppress_imageio_warnings(self):
-        """
-        A context manager to temporarily capture stderr and suppress a specific,
-        known-harmless warning from imageio's ffmpeg backend.
-        """
         import contextlib
         import io
-
-        # This is the specific warning message we want to ignore.
         warning_to_ignore = "The frame size for reading"
-
         @contextlib.contextmanager
         def suppressor():
             stderr_redirect = io.StringIO()
             with contextlib.redirect_stderr(stderr_redirect):
                 yield
-
-            # After the block is executed, check what was captured.
             captured_output = stderr_redirect.getvalue()
             if captured_output and warning_to_ignore not in captured_output:
-                # If there was output AND it's NOT our specific warning,
-                # print it to the real stderr so we don't miss other errors.
                 print(f"Captured stderr message: {captured_output}", file=sys.stderr)
-
         return suppressor()
 
     def update_ui(self):
-        if self.duration_seconds > 0:
-            self.time_slider.set(self.current_playback_time)
+        if self.duration_seconds > 0.001:
             duration_str = time.strftime('%M:%S', time.gmtime(self.duration_seconds))
             current_time_str = time.strftime('%M:%S', time.gmtime(self.current_playback_time))
             self.time_label.config(text=f"{current_time_str} / {duration_str}")
+        self._draw_timeline()
 
     def _kill_media_process(self):
         if self.media_player_process:
@@ -4126,7 +4066,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.30\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.50\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
