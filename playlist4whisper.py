@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.20 License: GPL 3.0
+Author: Antonio R. Version: 3.30 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -27,6 +27,7 @@ https://github.com/antor44/livestream_video
 --------------------------------------------------------------------------------
 """
 
+import sys
 import json
 import re
 import os
@@ -401,10 +402,457 @@ class CustomFileDialog(tk.Toplevel):
         self.geometry(f'{dialog_width}x{dialog_height}+{x}+{y}')
 
 
+class VideoCutterDialog(tk.Toplevel):
+    """
+    A dialog for visually selecting cut points in a media file and splitting it.
+    This version uses a custom Canvas-based slider for pixel-perfect control over
+    the timeline, thumb, and markers, avoiding all ttk.Scale geometry issues.
+    """
+
+    def __init__(self, master, player):
+        super().__init__(master)
+        self.player = player
+        self.original_url = self.player.tree.item(self.player.tree.selection()[0], "values")[2]
+        self.resolved_url = os.path.abspath(os.path.expanduser(self.original_url))
+
+        self.title(f"Cut File: {os.path.basename(self.original_url)}")
+        self.geometry("900x700")
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.transient(master)
+
+        # Player State
+        self.video_reader = None
+        self.media_player_process = None
+        self.is_playing = False
+        self.was_playing_before_seek = False
+        self.duration_seconds = 0.001 # Avoid division by zero before loading
+        self.fps = 30
+        self.total_frames = 0
+        self.is_loading = False
+        self.is_audio_only = False
+        self.temp_media_file = None
+
+        # UI Synchronization & Timers
+        self.ui_update_job = None
+        self.current_playback_time = 0.0
+        self.AUDIO_START_LATENCY = 0.1
+
+        # Cutting State
+        self.cut_points = set()
+        self.click_threshold_percent = 0.01
+
+        # Custom Slider State
+        self.timeline_canvas = None
+
+        self.center_window()
+        self.create_widgets()
+        self.after(50, self.load_media, self.resolved_url)
+
+    def create_widgets(self):
+        main_frame = tk.Frame(self)
+        main_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        self.video_label = tk.Label(main_frame, bg="black", fg="white", text="Loading media...")
+        self.video_label.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(side=tk.BOTTOM, pady=(10, 0), fill=tk.X)
+
+        self.cut_button = tk.Button(button_frame, text="Cut File", command=self.perform_cut, state=tk.DISABLED)
+        self.cut_button.pack(side=tk.LEFT, padx=5)
+
+        self.cancel_button = tk.Button(button_frame, text="Cancel", command=self._on_closing)
+        self.cancel_button.pack(side=tk.RIGHT, padx=5)
+
+        manual_time_frame = tk.Frame(button_frame)
+        manual_time_frame.pack(side=tk.RIGHT, padx=20)
+
+        self.time_entry_var = tk.StringVar(value="00:00:00.000")
+        self.time_entry = tk.Entry(manual_time_frame, textvariable=self.time_entry_var, width=12, font=("Monospace", 10))
+        self.time_entry.pack(side=tk.LEFT)
+
+        add_cut_button = tk.Button(manual_time_frame, text="Add Cut", command=self.add_cut_from_entry)
+        add_cut_button.pack(side=tk.LEFT, padx=5)
+
+        controls_frame = tk.Frame(main_frame)
+        controls_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+
+        self.play_pause_button = tk.Button(controls_frame, text="Play", width=10, command=self.toggle_play_pause, state=tk.DISABLED)
+        self.play_pause_button.pack(side=tk.LEFT, padx=5)
+
+        self.time_label = tk.Label(controls_frame, text="--:-- / --:--", width=12)
+        self.time_label.pack(side=tk.RIGHT, padx=5)
+
+        # --- The Custom Canvas Slider ---
+        self.timeline_canvas = tk.Canvas(controls_frame, height=20, bg="#DDDDDD", highlightthickness=0)
+        self.timeline_canvas.pack(fill=tk.X, expand=True, padx=5)
+        self.timeline_canvas.bind("<Configure>", lambda e: self._draw_timeline())
+        self.timeline_canvas.bind("<Button-1>", self._on_slider_press)
+        self.timeline_canvas.bind("<B1-Motion>", self._on_slider_drag)
+        self.timeline_canvas.bind("<ButtonRelease-1>", self._on_slider_release)
+        self.timeline_canvas.bind("<Double-Button-1>", self._on_slider_double_click)
+
+    def _draw_timeline(self):
+        """Draws the entire timeline including the track, progress, thumb, and markers."""
+        self.timeline_canvas.delete("all")
+
+        width = self.timeline_canvas.winfo_width()
+        height = self.timeline_canvas.winfo_height()
+
+        if width <= 1: return
+
+        track_y = height / 2
+
+        # 1. Draw the main track
+        self.timeline_canvas.create_line(0, track_y, width, track_y, fill="#777777", width=4)
+
+        # 2. Draw the progress bar
+        progress_ratio = self.current_playback_time / self.duration_seconds
+        progress_x = progress_ratio * width
+        self.timeline_canvas.create_line(0, track_y, progress_x, track_y, fill="#0078D7", width=4)
+
+        # 3. Draw the cut point markers
+        for point_sec in self.cut_points:
+            marker_ratio = point_sec / self.duration_seconds
+            marker_x = marker_ratio * width
+
+            # Draw the main vertical line
+            self.timeline_canvas.create_line(marker_x, track_y - 8, marker_x, track_y + 8, fill="red", width=3)
+            # Draw a small triangle on top for better visibility
+            self.timeline_canvas.create_polygon(marker_x-4, track_y-10, marker_x+4, track_y-10, marker_x, track_y-4, fill="red", outline="red")
+
+        # 4. Draw the thumb (the draggable circle)
+        thumb_x = progress_x
+        self.timeline_canvas.create_oval(thumb_x - 6, track_y - 6, thumb_x + 6, track_y + 6, fill="#0078D7", outline="white", width=2)
+        
+    def load_media(self, file_path):
+        self.is_loading = True
+        self.video_label.config(text="Probing file...")
+        self.update_idletasks()
+        threading.Thread(target=self._get_media_info_worker, args=(file_path,)).start()
+
+    def _get_media_info_worker(self, file_path):
+        try:
+            path_to_process = file_path
+            _, file_extension = os.path.splitext(file_path)
+            probe_cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file_path]
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
+            probe_json = json.loads(probe_result.stdout)
+            is_video = any(s.get('codec_type') == 'video' for s in probe_json.get('streams', []))
+            remux_formats = ['.webm', '.flv', '.ts', '.vob', '.ogv']
+            if is_video and file_extension.lower() in remux_formats:
+                self.after(0, lambda: self.video_label.config(text="Optimizing for preview... (re-muxing)"))
+                temp_dir = tempfile.gettempdir()
+                temp_name = f"p4w_remux_{int(time.time())}_{os.path.basename(file_path)}.mp4"
+                self.temp_media_file = os.path.join(temp_dir, temp_name)
+                remux_cmd = ["ffmpeg", "-y", "-i", file_path, "-c", "copy", "-movflags", "faststart", self.temp_media_file]
+                subprocess.run(remux_cmd, check=True, capture_output=True, text=True)
+                path_to_process = self.temp_media_file
+            media_info = {'fps': 30, 'codec_type': 'audio'}
+            format_info = probe_json.get('format', {})
+            media_info['duration'] = float(format_info.get('duration', 1))
+            if is_video:
+                video_stream = next(s for s in probe_json.get('streams') if s.get('codec_type') == 'video')
+                media_info['codec_type'] = 'video'
+                fps_str = video_stream.get('r_frame_rate', '30/1')
+                num, den = map(float, fps_str.split('/'))
+                if den > 0 and num > 0: media_info['fps'] = num / den
+            self.after(0, self._finish_loading, path_to_process, media_info)
+        except Exception as e:
+            self.after(0, self._loading_failed, e)
+
+    def _finish_loading(self, file_path, media_info):
+        self.duration_seconds = media_info['duration'] if media_info['duration'] > 0 else 0.001
+        self.fps = media_info['fps']
+        self.is_audio_only = (media_info['codec_type'] == 'audio')
+        try:
+            if self.is_audio_only:
+                self.video_label.config(text=f"Audio File\n\n{os.path.basename(self.original_url)}", font=("TkDefaultFont", 16))
+            else:
+                self.video_reader = imageio.get_reader(file_path)
+                self.total_frames = int(self.duration_seconds * self.fps)
+                self.display_frame()
+            self.play_pause_button.config(state=tk.NORMAL)
+            self.cut_button.config(state=tk.NORMAL)
+            self.is_loading = False
+            self.update_ui()
+        except Exception as e:
+            self._loading_failed(e)
+
+    def _loading_failed(self, error):
+        messagebox.showerror("Error", f"Could not read the media file.\n\nError: {error}", parent=self)
+        self._on_closing()
+
+    def _on_slider_press(self, event):
+        if self.is_playing:
+            self.was_playing_before_seek = True
+            self.stop_playback()
+        else:
+            self.was_playing_before_seek = False
+        self._perform_seek(event)
+
+    def _on_slider_drag(self, event):
+        self._perform_seek(event)
+
+    def _on_slider_release(self, event):
+        self._perform_seek(event)
+        if self.was_playing_before_seek:
+            self.start_playback()
+
+    def _on_slider_double_click(self, event):
+        width = self.timeline_canvas.winfo_width()
+        if width <= 1: return
+
+        ratio = max(0, min(event.x / width, 1.0))
+        clicked_time = ratio * self.duration_seconds
+
+        threshold_sec = self.duration_seconds * self.click_threshold_percent
+        for point in list(self.cut_points):
+            if abs(point - clicked_time) < threshold_sec:
+                self.cut_points.remove(point)
+                self._draw_timeline()
+                return
+
+        self.cut_points.add(clicked_time)
+        self._draw_timeline()
+
+    def _perform_seek(self, event):
+        if self.is_loading: return
+
+        width = self.timeline_canvas.winfo_width()
+        if width <= 1: return
+
+        ratio = max(0, min(event.x / width, 1.0))
+        self.current_playback_time = ratio * self.duration_seconds
+
+        self.update_ui()
+        if not self.is_audio_only:
+            self.display_frame()
+
+    def toggle_play_pause(self):
+        if self.is_loading: return
+        if self.is_playing: self.stop_playback()
+        else: self.start_playback()
+
+    def start_playback(self):
+        if self.is_playing: return
+        self.is_playing = True
+        self.play_pause_button.config(text="Pause")
+        self._kill_media_process()
+        self.playback_start_time_monotonic = time.monotonic()
+        self.playback_start_time_offset = self.current_playback_time
+        ffplay_cmd = ["ffplay", "-ss", str(self.current_playback_time), "-autoexit", "-loglevel", "quiet", "-nodisp"]
+        if not self.is_audio_only:
+            ffplay_cmd.append("-vn")
+        ffplay_cmd.append(self.resolved_url)
+        self.media_player_process = subprocess.Popen(ffplay_cmd)
+        self.run_ui_updater()
+
+    def stop_playback(self):
+        if not self.is_playing: return
+        self.is_playing = False
+        self.play_pause_button.config(text="Play")
+        self._kill_media_process()
+        if self.ui_update_job:
+            self.after_cancel(self.ui_update_job)
+            self.ui_update_job = None
+
+    def run_ui_updater(self):
+        if not self.is_playing: return
+        elapsed_time = time.monotonic() - self.playback_start_time_monotonic
+        adjusted_elapsed_time = max(0, elapsed_time - self.AUDIO_START_LATENCY)
+        self.current_playback_time = self.playback_start_time_offset + adjusted_elapsed_time
+        if self.current_playback_time >= self.duration_seconds:
+            self.current_playback_time = self.duration_seconds
+            self.stop_playback()
+        self.update_ui()
+        if not self.is_audio_only:
+            self.display_frame()
+        self.ui_update_job = self.after(100, self.run_ui_updater)
+
+    def display_frame(self):
+        if self.is_audio_only or not self.video_reader: return
+        try:
+            frame_number = int(self.current_playback_time * self.fps)
+            if frame_number >= self.total_frames: frame_number = self.total_frames - 1
+            frame = self.video_reader.get_data(frame_number)
+            img = Image.fromarray(frame)
+            label_w, label_h = self.video_label.winfo_width(), self.video_label.winfo_height()
+            if label_w > 1 and label_h > 1:
+                img.thumbnail((label_w, label_h), Image.Resampling.LANCZOS)
+                photo_img = ImageTk.PhotoImage(image=img)
+                self.video_label.config(image=photo_img, text="")
+                self.video_label.image = photo_img
+        except Exception:
+            pass
+
+    def update_ui(self):
+        # This now only updates text labels and calls the drawing function.
+        if self.duration_seconds > 0.001:
+            duration_str = time.strftime('%M:%S', time.gmtime(self.duration_seconds))
+            current_time_str = time.strftime('%M:%S', time.gmtime(self.current_playback_time))
+            self.time_label.config(text=f"{current_time_str} / {duration_str}")
+            td = timedelta(seconds=self.current_playback_time)
+            total_seconds = td.total_seconds()
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, remainder = divmod(remainder, 60)
+            seconds, milliseconds = divmod(remainder, 1)
+            precise_time_str = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}.{int(milliseconds*1000):03}"
+            if self.focus_get() != self.time_entry:
+                self.time_entry_var.set(precise_time_str)
+
+        self._draw_timeline()
+
+    def _kill_media_process(self):
+        if self.media_player_process:
+            try:
+                self.media_player_process.kill()
+                self.media_player_process.wait(timeout=0.5)
+            except (ProcessLookupError, subprocess.TimeoutExpired):
+                pass
+            finally:
+                self.media_player_process = None
+
+    def _on_closing(self):
+        self.stop_playback()
+        if self.video_reader:
+            self.video_reader.close()
+        if self.temp_media_file and os.path.exists(self.temp_media_file):
+            try:
+                os.remove(self.temp_media_file)
+            except OSError as e:
+                print(f"Error removing temp file: {e}")
+        self.destroy()
+
+    def add_cut_from_entry(self):
+        time_str = self.time_entry_var.get()
+        try:
+            time_parts = re.split(r'[:.,]', time_str)
+            if len(time_parts) != 4: raise ValueError("Invalid time format")
+            h, m, s, ms = map(int, time_parts)
+            time_in_seconds = (h * 3600) + (m * 60) + s + (ms / 1000.0)
+            if 0 < time_in_seconds < self.duration_seconds:
+                self.cut_points.add(time_in_seconds)
+                self.current_playback_time = time_in_seconds
+                if not self.is_audio_only: self.display_frame()
+                self.update_ui()
+            else:
+                messagebox.showwarning("Invalid Time", "The entered time must be greater than 0 and less than the total duration.", parent=self)
+        except (ValueError, TypeError):
+            messagebox.showerror("Invalid Format", "Please enter the time in HH:MM:SS.ms format (e.g., 00:01:23.456).", parent=self)
+
+    def perform_cut(self):
+        self.stop_playback()
+        if not self.cut_points:
+            messagebox.showwarning("No Cuts Defined", "Please add at least one cut point by double-clicking on the timeline or entering a time manually.", parent=self)
+            return
+        calculation_points = {0.0}
+        calculation_points.update(self.cut_points)
+        final_cut_points = sorted(list(calculation_points))
+        if self.duration_seconds not in final_cut_points:
+            final_cut_points.append(self.duration_seconds)
+        if len(final_cut_points) < 2:
+            messagebox.showwarning("Not enough cuts", "Please add at least one cut point to create a segment.", parent=self)
+            return
+        segments = [{'start': final_cut_points[i], 'end': final_cut_points[i+1]}
+                    for i in range(len(final_cut_points) - 1) if (final_cut_points[i+1] - final_cut_points[i]) > 0.5]
+        if not segments:
+            messagebox.showwarning("No segments", "No valid segments could be created from the cut points.", parent=self)
+            return
+        directory, filename = os.path.split(self.original_url)
+        name, ext = os.path.splitext(filename)
+        num_new_parts = len(segments)
+        proposed_output_files = {os.path.join(directory, f"{name}_part{i+1}{ext}") for i in range(num_new_parts)}
+        all_existing_parts_glob = glob.glob(os.path.join(directory, f"{name}_part*.*"))
+        files_to_overwrite_basenames = []
+        files_to_delete_basenames = []
+        all_old_media_basenames = []
+        for existing_path in all_existing_parts_glob:
+            is_media_file = not existing_path.endswith(('.srt', '.txt'))
+            if is_media_file:
+                all_old_media_basenames.append(os.path.basename(existing_path))
+            if existing_path in proposed_output_files:
+                files_to_overwrite_basenames.append(os.path.basename(existing_path))
+            else:
+                files_to_delete_basenames.append(os.path.basename(existing_path))
+        if files_to_overwrite_basenames or files_to_delete_basenames:
+            message = "Please review the following file operations:\n"
+            overwrite_media_display = sorted(list({b for b in files_to_overwrite_basenames if not b.endswith(('.srt', '.txt'))}))
+            if overwrite_media_display:
+                message += "\nTHE FOLLOWING FILES WILL BE OVERWRITTEN:\n"
+                message += "\n".join([f"- {f}" for f in overwrite_media_display])
+            if files_to_delete_basenames:
+                message += "\n\nTHE FOLLOWING ORPHAN FILES from a previous cut will be DELETED (this includes related subtitles):\n"
+                message += "\n".join([f"- {f}" for f in sorted(list(set(files_to_delete_basenames)))])
+            message += "\n\nDo you want to proceed?"
+            if not messagebox.askyesno("Confirm File Operations", message, icon='warning', parent=self):
+                return
+        for f_basename in files_to_delete_basenames:
+            try:
+                os.remove(os.path.join(directory, f_basename))
+            except OSError as e:
+                print(f"Could not delete orphan file {f_basename}: {e}")
+        notification = tk.Toplevel(self)
+        notification.title("Processing")
+        notification.transient(self)
+        notification.grab_set()
+        notification.resizable(False, False)
+        msg = f"Cutting '{os.path.basename(self.original_url)}' into {len(segments)} parts..."
+        tk.Label(notification, text=msg, padx=20, pady=20).pack()
+        notification.update_idletasks()
+        self.center_widget(notification)
+        result_queue = queue.Queue()
+        threading.Thread(target=self._cut_worker, args=(self.original_url, segments, all_old_media_basenames, result_queue)).start()
+        self.after(100, self._check_cut_result, result_queue, notification)
+
+    def _cut_worker(self, url, segments, all_old_media_basenames, result_queue):
+        try:
+            output_files = []
+            directory, filename = os.path.split(url)
+            name, ext = os.path.splitext(filename)
+            for i, seg in enumerate(segments):
+                output_path = os.path.join(directory, f"{name}_part{i+1}{ext}")
+                ffmpeg_cmd = ["ffmpeg", "-y", "-i", url, "-ss", str(seg['start']), "-to", str(seg['end']), "-c", "copy", output_path]
+                subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
+                output_files.append(output_path)
+            full_paths_to_delete = [os.path.join(directory, basename) for basename in all_old_media_basenames]
+            result_queue.put((output_files, full_paths_to_delete))
+        except Exception as e:
+            result_queue.put(e)
+
+    def _check_cut_result(self, result_queue, notification_window):
+        try:
+            result = result_queue.get(block=False)
+            notification_window.destroy()
+            if isinstance(result, Exception):
+                error_msg = str(result.stderr) if isinstance(result, subprocess.CalledProcessError) else str(result)
+                messagebox.showerror("Cutting Failed", f"An error occurred:\n\n{error_msg}", parent=self.player.main_window)
+            else:
+                new_files, files_to_delete = result
+                self.player.update_playlist_after_cut(new_files, files_to_delete)
+                self._on_closing()
+        except queue.Empty:
+            self.after(100, self._check_cut_result, result_queue, notification_window)
+
+    def center_window(self):
+        self.update_idletasks()
+        master = self.master
+        x = master.winfo_x() + (master.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f'+{int(x)}+{int(y)}')
+
+    def center_widget(self, widget):
+        widget.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() / 2) - (widget.winfo_width() / 2)
+        y = self.winfo_y() + (self.winfo_height() / 2) - (widget.winfo_height() / 2)
+        widget.geometry(f"+{int(x)}+{int(y)}")
+
+
 class VideoSaverDialog(tk.Toplevel):
     """
-    A dialog to manage, preview, and save temporary video files created by the timeshift feature.
-    This version includes robust file checking, advanced sorting, and on-demand list refreshing.
+    A dialog to manage, preview (with audio), and save temporary video files.
+    This version adopts the robust hybrid architecture from VideoCutterDialog,
+    using ffplay for synchronized audio playback and imageio for video frames.
     """
     def __init__(self, master):
         super().__init__(master)
@@ -415,19 +863,22 @@ class VideoSaverDialog(tk.Toplevel):
 
         # Player state variables
         self.video_reader = None
+        self.media_player_process = None # For ffplay audio
         self.is_playing = False
-        self.was_playing = False # Used for slider interaction
+        self.was_playing_before_seek = False
         self.duration_seconds = 0
-        self.fps = 1.0
+        self.fps = 30
         self.total_frames = 0
-        self.current_frame_number = 0
-        self.playback_job = None
-        self.path_map = {}
         self.is_loading = False
+        self.temp_media_file = None # For re-muxed videos
 
-        # Real-time clock sync variables
-        self.playback_start_time = 0
-        self.playback_start_frame = 0
+        # UI Synchronization & Timers
+        self.ui_update_job = None
+        self.current_playback_time = 0.0
+        self.AUDIO_START_LATENCY = 0.1 # 100 milliseconds
+
+        # Other state variables
+        self.path_map = {}
 
         self.center_window()
         self.create_widgets()
@@ -456,10 +907,13 @@ class VideoSaverDialog(tk.Toplevel):
         controls_frame.pack(fill=tk.X, pady=5)
         self.play_pause_button = tk.Button(controls_frame, text="Play", width=10, command=self.toggle_play_pause, state=tk.DISABLED)
         self.play_pause_button.pack(side=tk.LEFT, padx=5)
+
         self.time_slider = ttk.Scale(controls_frame, from_=0, to=1, orient=tk.HORIZONTAL, value=0, state=tk.DISABLED)
-        self.time_slider.bind("<ButtonPress-1>", self._on_slider_press)
+        self.time_slider.bind("<Button-1>", self._on_slider_press)
+        self.time_slider.bind("<B1-Motion>", self._on_slider_drag)
         self.time_slider.bind("<ButtonRelease-1>", self._on_slider_release)
         self.time_slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
         self.time_label = tk.Label(controls_frame, text="--:-- / --:--", width=12)
         self.time_label.pack(side=tk.LEFT, padx=5)
 
@@ -474,162 +928,292 @@ class VideoSaverDialog(tk.Toplevel):
         self.cancel_button = tk.Button(button_frame, text="Close", command=self._on_closing)
         self.cancel_button.pack(side=tk.RIGHT, padx=5)
 
-    def _safe_clear_image(self):
-        """Safely clears the image from the video label to prevent garbage collection errors."""
-        self.video_label.config(image='')
-        self.video_label.image = None
-
     def refresh_list(self):
-        """Stops playback and refreshes the video file list."""
-        self.stop_playback()
-        self.play_pause_button.config(state=tk.DISABLED)
-        self.time_slider.config(state=tk.DISABLED, value=0)
-
-        self._safe_clear_image()
-        self.video_label.config(text="Select a video to preview")
-
-        self.time_label.config(text="--:-- / --:--")
+        """Stops playback, resets the player UI, and refreshes the file list."""
+        self._reset_player_state()
         self.populate_file_list()
 
     def on_file_select(self, event=None):
         if self.is_loading: return
         selection_indices = self.file_list.curselection()
         if not selection_indices: return
+
+        # Reset player state completely before loading a new file
+        self._reset_player_state()
+
         selected_filename = self.file_list.get(selection_indices[0])
-        if selected_filename and "No temporary" not in selected_filename:
-            full_path = self.path_map.get(selected_filename)
-            # For symlinks, we need to resolve the real path for the video reader
-            real_path = os.path.realpath(full_path) if full_path and os.path.islink(full_path) else full_path
+        full_path = self.path_map.get(selected_filename)
+        real_path = os.path.realpath(full_path) if full_path and os.path.islink(full_path) else full_path
 
-            if real_path and os.path.exists(real_path):
-                self._safe_clear_image()
-                self.video_label.config(text="Loading video...")
+        if real_path and os.path.exists(real_path):
+            self.is_loading = True
+            self.video_label.config(text="Loading video...")
+            self.update_idletasks()
+            threading.Thread(target=self._get_media_info_worker, args=(real_path,)).start()
 
-                self.is_loading = True
-                self.update_idletasks()
-                self.after(50, lambda: self.load_video(real_path))
-
-    def load_video(self, file_path):
+    def _reset_player_state(self):
+        """
+        Stops all playback and aggressively resets the player UI and state.
+        This version uses a try...finally block to guarantee cleanup.
+        """
         self.stop_playback()
+        self.is_loading = False
+
+        if self.video_reader:
+            try:
+                self.video_reader.close()
+            except Exception as e:
+                print(f"Ignoring error while closing video_reader: {e}")
+            finally:
+                # This is the crucial part: ensure the reference is destroyed
+                # no matter what, preventing imageio from reusing a stale object.
+                self.video_reader = None
+
+        if self.temp_media_file and os.path.exists(self.temp_media_file):
+            try:
+                os.remove(self.temp_media_file)
+            except OSError as e:
+                print(f"Error removing temp file: {e}")
+            finally:
+                self.temp_media_file = None
+
+        # Reset UI elements to their default state
+        self.play_pause_button.config(state=tk.DISABLED)
+        self.time_slider.set(0)
+        self.time_slider.config(state=tk.DISABLED)
+        self.current_playback_time = 0.0
+        self.duration_seconds = 0
+        self.update_ui()
+
+        self.video_label.config(image='', text="Select a video to preview")
+        self.video_label.image = None
+        self.update_idletasks()
+
+    def _get_media_info_worker(self, file_path):
         try:
-            self.video_reader = imageio.get_reader(file_path)
-            metadata = self.video_reader.get_meta_data()
-            self.duration_seconds = metadata.get('duration', 0)
-            self.fps = metadata.get('fps', 30)
-            if self.fps <= 0: self.fps = 30
-            self.total_frames = int(self.duration_seconds * self.fps) if self.duration_seconds > 0 else self.video_reader.count_frames()
+            path_to_process = file_path
+            _, file_extension = os.path.splitext(file_path)
+
+            probe_cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file_path]
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
+            probe_json = json.loads(probe_result.stdout)
+
+            # Since these are temp files, they should always be video. But we check to be safe.
+            is_video = any(s.get('codec_type') == 'video' for s in probe_json.get('streams', []))
+
+            remux_formats = ['.webm', '.mkv', '.flv']
+            if is_video and file_extension.lower() in remux_formats:
+                temp_dir = tempfile.gettempdir()
+                temp_name = f"p4w_remux_saver_{int(time.time())}.mp4"
+                self.temp_media_file = os.path.join(temp_dir, temp_name)
+                remux_cmd = ["ffmpeg", "-y", "-i", file_path, "-c", "copy", "-movflags", "faststart", self.temp_media_file]
+                subprocess.run(remux_cmd, check=True, capture_output=True, text=True)
+                path_to_process = self.temp_media_file
+
+            media_info = {'fps': 30}
+            format_info = probe_json.get('format', {})
+            media_info['duration'] = float(format_info.get('duration', 0))
+            if is_video:
+                video_stream = next(s for s in probe_json.get('streams') if s.get('codec_type') == 'video')
+                fps_str = video_stream.get('r_frame_rate', '30/1')
+                num, den = map(float, fps_str.split('/'))
+                if den > 0 and num > 0: media_info['fps'] = num / den
+
+            self.after(0, self._finish_loading, path_to_process, media_info)
+        except Exception as e:
+            self.after(0, lambda: messagebox.showerror("Error", f"Could not read the media file:\n\n{e}", parent=self))
+            self.after(0, self.refresh_list)
+
+    def _finish_loading(self, file_path, media_info):
+        try:
+            # We open the reader inside a context that will suppress the known, harmless warning.
+            with self._suppress_imageio_warnings():
+                self.video_reader = imageio.get_reader(file_path)
+
+            self.duration_seconds = media_info['duration']
+            self.fps = media_info['fps']
+            self.total_frames = int(self.duration_seconds * self.fps)
+            self.display_frame()
 
             self.play_pause_button.config(state=tk.NORMAL)
             self.time_slider.config(state=tk.NORMAL, to=self.duration_seconds, value=0)
-            self.current_frame_number = 0
-            self.is_playing = False
-            self.play_pause_button.config(text="Play")
-
-            self.display_frame(0)
-            self.update_ui()
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not read the video file.\n\nError: {e}", parent=self)
-            self.video_reader = None
-        finally:
             self.is_loading = False
-
-    def display_frame(self, frame_number):
-        if not self.video_reader: return
-        try:
-            frame = self.video_reader.get_data(frame_number)
-            self.update_idletasks()
-            label_w, label_h = self.video_label.winfo_width(), self.video_label.winfo_height()
-            if label_w <= 1 or label_h <= 1: return
-
-            img = Image.fromarray(frame)
-            img.thumbnail((label_w, label_h), Image.Resampling.LANCZOS)
-            photo_img = ImageTk.PhotoImage(image=img)
-            self.video_label.config(image=photo_img, text="")
-            self.video_label.image = photo_img # Keep a reference!
-        except IndexError:
-             self.stop_playback()
-        except Exception as e:
-            print(f"Error displaying frame {frame_number}: {e}")
-
-    def toggle_play_pause(self):
-        if not self.video_reader or self.is_loading: return
-        self.is_playing = not self.is_playing
-        if self.is_playing:
-            self.play_pause_button.config(text="Pause")
-            self.start_playback()
-        else:
-            self.play_pause_button.config(text="Play")
-            self.stop_playback()
-
-    def start_playback(self):
-        if not self.is_playing: return
-        self.playback_start_time = time.time()
-        self.playback_start_frame = self.current_frame_number
-        self._playback_loop()
-
-    def _playback_loop(self):
-        if not self.is_playing: return
-
-        target_preview_fps = 20
-        delay_ms = int(1000 / target_preview_fps)
-
-        elapsed_time = time.time() - self.playback_start_time
-        target_frame = self.playback_start_frame + int(elapsed_time * self.fps)
-
-        if target_frame >= self.total_frames:
-            self.stop_playback()
-            self.current_frame_number = self.total_frames - 1 if self.total_frames > 0 else 0
-            self.display_frame(self.current_frame_number)
             self.update_ui()
-            return
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open video reader:\n\n{e}", parent=self)
+            self.refresh_list()
 
-        if target_frame > self.current_frame_number:
-            self.current_frame_number = target_frame
-            self.display_frame(self.current_frame_number)
+def _on_slider_press(self, event):
+    if self.is_playing:
+        self.was_playing_before_seek = True
+        self.stop_playback()
+    else:
+        self.was_playing_before_seek = False
 
-        self.update_ui()
-        self.playback_job = self.after(delay_ms, self._playback_loop)
+    # Immediately seek to the clicked position
+    self._perform_seek(event)
 
-    def stop_playback(self):
-        self.is_playing = False
-        if self.playback_job:
-            self.after_cancel(self.playback_job)
-            self.playback_job = None
-        if self.video_reader and self.play_pause_button.winfo_exists():
-            self.play_pause_button.config(text="Play")
-
-    def update_ui(self):
-        if self.video_reader:
-            current_seconds = self.current_frame_number / self.fps if self.fps > 0 else 0
-            if self.duration_seconds > 0 and current_seconds > self.duration_seconds:
-                current_seconds = self.duration_seconds
-            self.time_slider.set(current_seconds)
-
-            duration_str = time.strftime('%M:%S', time.gmtime(self.duration_seconds))
-            current_time_str = time.strftime('%M:%S', time.gmtime(current_seconds))
-            self.time_label.config(text=f"{current_time_str} / {duration_str}")
-
-    def _on_slider_press(self, event):
-        if self.is_playing:
-            self.was_playing = True
-            self.stop_playback()
-        else:
-            self.was_playing = False
+    def _on_slider_drag(self, event):
+        self._perform_seek(event)
 
     def _on_slider_release(self, event):
-        if self.video_reader:
-            seek_seconds = self.time_slider.get()
-            self.current_frame_number = int(seek_seconds * self.fps)
-            if self.current_frame_number >= self.total_frames:
-                self.current_frame_number = self.total_frames - 1 if self.total_frames > 0 else 0
+        # Perform a final seek on release to snap to the exact point.
+        self._perform_seek(event)
 
-            self.display_frame(self.current_frame_number)
-            self.update_ui()
+        if self.was_playing_before_seek:
+            self.start_playback()
 
-            if self.was_playing:
-                self.is_playing = True
-                self.play_pause_button.config(text="Pause")
-                self.start_playback()
+    def _perform_seek(self, event):
+        if self.is_loading: return
+
+        # --- Start of the corrected seek logic ---
+        widget_width = self.time_slider.winfo_width()
+        if widget_width <= 1: return
+
+        # Estimate half the width of the slider's thumb/handle.
+        slider_thumb_half_width = 8
+
+        # The usable "track" of the slider is narrower than the full widget width.
+        track_width = widget_width - (2 * slider_thumb_half_width)
+        if track_width <= 0: return
+
+        # Get the click position relative to the widget's left edge.
+        click_x = event.x
+
+        # Translate the click position to be relative to the start of the track.
+        # We also clamp the value between the track's start and end.
+        x_on_track = max(0, min(click_x - slider_thumb_half_width, track_width))
+
+        # Calculate the proportional position on the track (a value from 0.0 to 1.0)
+        seek_ratio = x_on_track / track_width
+        # --- End of the corrected seek logic ---
+
+        # Apply the corrected ratio to the duration to get the precise time
+        self.current_playback_time = seek_ratio * self.duration_seconds
+
+        # Ensure the time doesn't go out of bounds due to float precision
+        self.current_playback_time = max(0, min(self.current_playback_time, self.duration_seconds))
+
+        self.update_ui()
+        if not self.is_audio_only:
+            self.display_frame()
+
+    def toggle_play_pause(self):
+        if self.is_loading: return
+        if self.is_playing: self.stop_playback()
+        else: self.start_playback()
+
+    def start_playback(self):
+        if self.is_playing: return
+        self.is_playing = True
+        self.play_pause_button.config(text="Pause")
+
+        self._kill_media_process()
+
+        self.playback_start_time_monotonic = time.monotonic()
+        self.playback_start_time_offset = self.current_playback_time
+
+        # Determine the file to play (original or re-muxed temp file)
+        file_to_play = self.temp_media_file if self.temp_media_file else self.path_map.get(self.file_list.get(self.file_list.curselection()))
+        if not file_to_play: return
+
+        ffplay_cmd = ["ffplay", "-ss", str(self.current_playback_time), "-autoexit", "-loglevel", "quiet", "-nodisp", "-vn", file_to_play]
+        self.media_player_process = subprocess.Popen(ffplay_cmd)
+
+        self.run_ui_updater()
+
+    def stop_playback(self):
+        if not self.is_playing: return
+        self.is_playing = False
+        if self.play_pause_button.winfo_exists():
+            self.play_pause_button.config(text="Play")
+        self._kill_media_process()
+        if self.ui_update_job:
+            self.after_cancel(self.ui_update_job)
+            self.ui_update_job = None
+
+    def run_ui_updater(self):
+        if not self.is_playing: return
+        elapsed_time = time.monotonic() - self.playback_start_time_monotonic
+        adjusted_elapsed_time = max(0, elapsed_time - self.AUDIO_START_LATENCY)
+        self.current_playback_time = self.playback_start_time_offset + adjusted_elapsed_time
+
+        if self.current_playback_time >= self.duration_seconds:
+            self.current_playback_time = self.duration_seconds
+            self.stop_playback()
+
+        self.update_ui()
+        self.display_frame()
+        self.ui_update_job = self.after(100, self.run_ui_updater)
+
+    def display_frame(self):
+        if not self.video_reader: return
+        try:
+            frame_number = int(self.current_playback_time * self.fps)
+            if frame_number >= self.total_frames: frame_number = self.total_frames - 1
+
+            # We also suppress warnings here, as seeking can trigger the same message.
+            with self._suppress_imageio_warnings():
+                frame = self.video_reader.get_data(frame_number)
+
+            label_w, label_h = self.video_label.winfo_width(), self.video_label.winfo_height()
+            if label_w > 1 and label_h > 1:
+                img = Image.fromarray(frame)
+                img.thumbnail((label_w, label_h), Image.Resampling.LANCZOS)
+                photo_img = ImageTk.PhotoImage(image=img)
+                self.video_label.config(image=photo_img, text="")
+                self.video_label.image = photo_img
+        except Exception:
+            pass
+
+    def _suppress_imageio_warnings(self):
+        """
+        A context manager to temporarily capture stderr and suppress a specific,
+        known-harmless warning from imageio's ffmpeg backend.
+        """
+        import contextlib
+        import io
+
+        # This is the specific warning message we want to ignore.
+        warning_to_ignore = "The frame size for reading"
+
+        @contextlib.contextmanager
+        def suppressor():
+            stderr_redirect = io.StringIO()
+            with contextlib.redirect_stderr(stderr_redirect):
+                yield
+
+            # After the block is executed, check what was captured.
+            captured_output = stderr_redirect.getvalue()
+            if captured_output and warning_to_ignore not in captured_output:
+                # If there was output AND it's NOT our specific warning,
+                # print it to the real stderr so we don't miss other errors.
+                print(f"Captured stderr message: {captured_output}", file=sys.stderr)
+
+        return suppressor()
+
+    def update_ui(self):
+        if self.duration_seconds > 0:
+            self.time_slider.set(self.current_playback_time)
+            duration_str = time.strftime('%M:%S', time.gmtime(self.duration_seconds))
+            current_time_str = time.strftime('%M:%S', time.gmtime(self.current_playback_time))
+            self.time_label.config(text=f"{current_time_str} / {duration_str}")
+
+    def _kill_media_process(self):
+        if self.media_player_process:
+            try:
+                self.media_player_process.kill()
+                self.media_player_process.wait(timeout=0.5)
+            except (ProcessLookupError, subprocess.TimeoutExpired): pass
+            finally: self.media_player_process = None
+
+    def _on_closing(self):
+        self.stop_playback()
+        if self.video_reader: self.video_reader.close()
+        if self.temp_media_file and os.path.exists(self.temp_media_file):
+            try: os.remove(self.temp_media_file)
+            except OSError as e: print(f"Error removing temp file: {e}")
+        self.destroy()
 
     def merge_selected_videos(self):
         self.stop_playback()
@@ -637,69 +1221,41 @@ class VideoSaverDialog(tk.Toplevel):
         if len(selected_indices) < 2:
             messagebox.showwarning("Selection Error", "Please select at least two files to merge.", parent=self)
             return
-
         selected_filenames = [self.file_list.get(i) for i in selected_indices]
-
-        # --- Verification Step: Check if all selected files still exist before proceeding ---
-        missing_files = []
-        file_paths_to_merge = []
+        missing_files, file_paths_to_merge = [], []
         for name in selected_filenames:
             path = self.path_map.get(name)
-            # For symlinks, the real path is what matters for ffmpeg concat
             real_path = os.path.realpath(path) if path and os.path.islink(path) else path
-
             if not real_path or not os.path.exists(real_path):
                 missing_files.append(name)
             else:
                 file_paths_to_merge.append(real_path)
-
         if missing_files:
-            messagebox.showerror("File Not Found",
-                                 "One or more selected files could not be found. Please refresh the list.\n\n"
-                                 f"Missing: {', '.join(missing_files)}",
-                                 parent=self)
+            messagebox.showerror("File Not Found", f"One or more selected files could not be found: {', '.join(missing_files)}", parent=self)
             return
-        # --- End of Verification ---
-
-        pids = set()
-        pid_to_use = None
-        for name in selected_filenames:
-            match = re.search(r'whisper-live_(\d+)_', name)
-            if match:
-                pid_to_use = match.group(1)
-                pids.add(pid_to_use)
+        pids = {re.search(r'whisper-live_(\d+)_', name).group(1) for name in selected_filenames if re.search(r'whisper-live_(\d+)_', name)}
         if len(pids) > 1:
             messagebox.showerror("Merge Error", "Cannot merge videos from different recording sources (PIDs).", parent=self)
             return
-        if not pids:
-            messagebox.showerror("Merge Error", "Could not identify the source of the selected files.", parent=self)
-            return
+        pid_to_use = pids.pop() if pids else "merged"
         min_idx, max_idx = min(selected_indices), max(selected_indices)
         if len(selected_indices) != (max_idx - min_idx + 1):
             messagebox.showerror("Merge Error", "The selection must be a continuous block.", parent=self)
             return
-
-        list_file_path = None
+        default_name = f"merged_timeshift-{pid_to_use}.avi"
+        output_file = filedialog.asksaveasfilename(title="Save Merged Video As...", initialfile=default_name, filetypes=[("AVI video", "*.avi"), ("All files", "*.*")], parent=self)
+        if not output_file: return
+        with tempfile.NamedTemporaryFile('w', delete=False, suffix='.txt', encoding='utf-8') as f:
+            for p in file_paths_to_merge: f.write(f"file '{p}'\n")
+            list_file_path = f.name
         try:
-            default_name = f"merged_timeshift-{pid_to_use}.avi"
-
-            output_file = filedialog.asksaveasfilename(title="Save Merged Video As...", initialfile=default_name, filetypes=[("AVI video", "*.avi"), ("All files", "*.*")], parent=self)
-            if not output_file: return
-
-            with tempfile.NamedTemporaryFile('w', delete=False, suffix='.txt', encoding='utf-8') as f:
-                for p in file_paths_to_merge: f.write(f"file '{p}'\n")
-                list_file_path = f.name
-
             ffmpeg_cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_file]
             subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
             messagebox.showinfo("Success", f"Videos merged successfully into:\n{output_file}", parent=self)
         except subprocess.CalledProcessError as e:
             messagebox.showerror("FFmpeg Error", f"Failed to merge videos.\n\n{e.stderr}", parent=self)
-        except Exception as e:
-             messagebox.showerror("Error", f"An error occurred during the merge process: {e}", parent=self)
         finally:
-            if list_file_path and os.path.exists(list_file_path):
-                os.remove(list_file_path)
+            if os.path.exists(list_file_path): os.remove(list_file_path)
 
     def save_selected(self):
         self.stop_playback()
@@ -707,128 +1263,77 @@ class VideoSaverDialog(tk.Toplevel):
         if not selected_filenames:
             messagebox.showwarning("No Files Selected", "No files were selected to save.", parent=self)
             return
-
         destination_dir = filedialog.askdirectory(title="Select Destination Folder", parent=self)
         if not destination_dir: return
-
-        copied_count = 0
-        skipped_count = 0
-
+        copied_count, skipped_count = 0, 0
         for filename in selected_filenames:
             source_path = self.path_map.get(filename)
-            # --- Verification Step for saving ---
             if not source_path or not os.path.exists(source_path):
                 skipped_count += 1
-                messagebox.showwarning("File Not Found", f"The file '{filename}' was not found and will be skipped.", parent=self)
                 continue
-
-            destination_file_path = os.path.join(destination_dir, filename)
-
+            destination_file_path = os.path.join(destination_dir, os.path.basename(source_path))
             should_copy = True
             if os.path.exists(destination_file_path):
-                # For symlinks, we need to compare the real paths to avoid overwriting a file with its own symlink's content
-                if os.path.exists(os.path.realpath(source_path)) and os.path.samefile(os.path.realpath(source_path), destination_file_path):
+                if os.path.samefile(os.path.realpath(source_path), destination_file_path):
                     skipped_count += 1
                     continue
-                response = messagebox.askquestion(
-                    "File Exists",
-                    f"The file '{filename}' already exists.\nDo you want to overwrite it?",
-                    icon='warning',
-                    parent=self
-                )
+                response = messagebox.askquestion("File Exists", f"The file '{os.path.basename(source_path)}' already exists. Overwrite?", icon='warning', parent=self)
                 if response == 'no':
                     should_copy = False
                     skipped_count += 1
-
             if should_copy:
                 try:
-                    # For symlinks, we must copy the file they point to, not the link itself
-                    real_source_path = os.path.realpath(source_path)
-                    shutil.copy(real_source_path, destination_file_path)
+                    shutil.copy(os.path.realpath(source_path), destination_file_path)
                     copied_count += 1
                 except Exception as e:
                     skipped_count += 1
                     messagebox.showerror("Copy Error", f"Could not copy file '{filename}'.\n\nError: {e}", parent=self)
+        messagebox.showinfo("Copying Complete", f"Process finished.\nFiles copied: {copied_count}\nFiles skipped: {skipped_count}", parent=self)
 
-        messagebox.showinfo(
-            "Copying Complete",
-            f"Process finished.\n\nFiles copied: {copied_count}\nFiles skipped: {skipped_count}",
-            parent=self
-        )
-
-    def _on_closing(self):
-        self.stop_playback()
-        if self.video_reader:
-            self.video_reader.close()
-        self.destroy()
+    def populate_file_list(self):
+        directory = "/tmp"
+        pattern = os.path.join(directory, "whisper-live_*.*")
+        all_files_found = glob.glob(pattern)
+        valid_files_to_display = []
+        for path in all_files_found:
+            basename = os.path.basename(path)
+            if "_buf" in basename: continue
+            if os.path.islink(path):
+                if os.path.exists(os.path.realpath(path)):
+                    valid_files_to_display.append(path)
+            else:
+                valid_files_to_display.append(path)
+        self.file_list.delete(0, tk.END)
+        if not valid_files_to_display:
+            self.file_list.insert(tk.END, "No temporary video files found.")
+            return
+        grouped_files = {}
+        for file_path in valid_files_to_display:
+            match = re.match(r'(whisper-live_\d+_)', os.path.basename(file_path))
+            if match:
+                prefix = match.group(1)
+                if prefix not in grouped_files: grouped_files[prefix] = []
+                grouped_files[prefix].append(file_path)
+        sorted_files = []
+        for prefix in sorted(grouped_files.keys()):
+            try:
+                group = sorted(grouped_files[prefix], key=lambda f: Path(f).stat().st_mtime)
+                sorted_files.extend(group)
+            except FileNotFoundError:
+                continue
+        if not sorted_files:
+            self.file_list.insert(tk.END, "No temporary video files found.")
+            return
+        for file_path in sorted_files:
+            self.file_list.insert(tk.END, os.path.basename(file_path))
+        self.path_map = {os.path.basename(p): p for p in sorted_files}
 
     def center_window(self):
         self.update_idletasks()
         master = self.master
         x = master.winfo_x() + (master.winfo_width() // 2) - (self.winfo_width() // 2)
         y = master.winfo_y() + (master.winfo_height() // 2) - (self.winfo_height() // 2)
-        self.geometry(f'+{x}+{y}')
-
-    def populate_file_list(self):
-        directory = "/tmp"
-        pattern = os.path.join(directory, "whisper-live_*.*")
-        all_files_found = glob.glob(pattern)
-
-        # Filter to get only valid files to display.
-        # This includes regular video files and symbolic links whose targets exist.
-        # It excludes the buffer files themselves from the list.
-        valid_files_to_display = []
-        for path in all_files_found:
-            basename = os.path.basename(path)
-            if "_buf" in basename:
-                continue # Never show buffer files directly in the list
-
-            if os.path.islink(path):
-                # It's a symbolic link, show it only if its target exists
-                if os.path.exists(os.path.realpath(path)):
-                    valid_files_to_display.append(path)
-            else:
-                # It's a regular file, show it
-                valid_files_to_display.append(path)
-
-        self.file_list.delete(0, tk.END)
-        if not valid_files_to_display:
-            self.file_list.insert(tk.END, "No temporary video files found.")
-            return
-
-        # Group files by their recording session prefix (e.g., 'whisper-live_12345_')
-        grouped_files = {}
-        for file_path in valid_files_to_display:
-            basename = os.path.basename(file_path)
-            match = re.match(r'(whisper-live_\d+_)', basename)
-            if match:
-                prefix = match.group(1)
-                if prefix not in grouped_files:
-                    grouped_files[prefix] = []
-                grouped_files[prefix].append(file_path)
-
-        # Sort files within each group by modification time, then flatten the list
-        sorted_files = []
-        # Sort groups by their prefix to keep them consistent
-        for prefix in sorted(grouped_files.keys()):
-            try:
-                # Sort files inside the group chronologically
-                group = sorted(grouped_files[prefix], key=lambda f: Path(f).stat().st_mtime)
-                sorted_files.extend(group)
-            except FileNotFoundError:
-                # A file might be deleted between glob and stat, just skip it
-                continue
-
-        if not sorted_files:
-            self.file_list.insert(tk.END, "No temporary video files found.")
-            return
-
-        # Populate the listbox
-        for file_path in sorted_files:
-            self.file_list.insert(tk.END, os.path.basename(file_path))
-
-        # Update the path map for easy lookup
-        self.path_map = {os.path.basename(p): p for p in sorted_files}
+        self.geometry(f'+{int(x)}+{int(y)}')
 
 
 class EnhancedStringDialog(tk.Toplevel):
@@ -983,6 +1488,107 @@ class LanguageSelectDialog(tk.Toplevel):
 
     def on_merge_all(self):
         self.result = 'all'
+        self.destroy()
+
+    def on_cancel(self):
+        self.result = None
+        self.destroy()
+
+    def center_window(self, master):
+        self.update_idletasks()
+        x = master.winfo_x() + (master.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f'+{int(x)}+{int(y)}')
+
+
+class MergeLanguageSelectionDialog(tk.Toplevel):
+    """
+    A custom dialog that lists all available subtitle languages (both complete
+    and incomplete), and allows the user to select multiple languages for merging
+    using checkboxes.
+    """
+    def __init__(self, master, title, language_info):
+        super().__init__(master)
+        self.transient(master)
+        self.title(title)
+        self.grab_set()
+        self.geometry("550x400")
+        self.resizable(False, False)
+
+        self.result = None  # Will be a list of selected language codes
+
+        # --- Main Frame ---
+        main_frame = tk.Frame(self)
+        main_frame.pack(padx=20, pady=15, fill=tk.BOTH, expand=True)
+
+        tk.Label(main_frame, text="Select the subtitle sets you want to merge:", justify=tk.LEFT).pack(anchor="w")
+
+        # --- Scrollable Checkbox List ---
+        scroll_container = tk.Frame(main_frame, relief=tk.SUNKEN, bd=1)
+        scroll_container.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        canvas = tk.Canvas(scroll_container)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self.selection_vars = {}
+        if not language_info:
+             tk.Label(scrollable_frame, text="No subtitle part files found for this media set.", padx=10, pady=10).pack()
+        else:
+            sorted_langs = sorted(language_info.keys())
+            for lang_code in sorted_langs:
+                missing_parts = language_info[lang_code]
+                lang_name = lang_codes.get(lang_code, lang_code.capitalize())
+
+                # Create a frame for each line item
+                item_frame = tk.Frame(scrollable_frame)
+                item_frame.pack(fill='x', expand=True, pady=2)
+
+                # Checkbox
+                self.selection_vars[lang_code] = tk.BooleanVar()
+                cb = tk.Checkbutton(item_frame, variable=self.selection_vars[lang_code])
+                cb.pack(side=tk.LEFT, padx=(5,0))
+
+                # Label with description
+                if not missing_parts:
+                    label_text = f"{lang_name} ({lang_code}) - Complete set"
+                else:
+                    missing_str = ", ".join(map(str, missing_parts))
+                    label_text = f"{lang_name} ({lang_code}) - Missing part(s): {missing_str}"
+
+                label = tk.Label(item_frame, text=label_text, anchor="w", justify=tk.LEFT)
+                label.pack(side=tk.LEFT, fill='x', expand=True, padx=5)
+
+        # --- Action Buttons ---
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(10, 0))
+
+        merge_button = tk.Button(button_frame, text="Merge Selected", command=self.on_merge)
+        merge_button.pack(side=tk.LEFT, expand=True, padx=5)
+        if not language_info:
+            merge_button.config(state=tk.DISABLED)
+
+        tk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT, padx=5)
+
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+        self.center_window(master)
+        self.wait_window(self)
+
+    def on_merge(self):
+        self.result = [lang for lang, var in self.selection_vars.items() if var.get()]
         self.destroy()
 
     def on_cancel(self):
@@ -1568,8 +2174,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.subtitles_button = tk.Button(self.options_frame6, text="Generate", command=self.generate_subtitles, padx=4)
         self.subtitles_button.pack(side=tk.LEFT)
 
-        self.split_video_button = tk.Button(self.options_frame6, text="Split File", command=self.split_video, padx=4)
-        self.split_video_button.pack(side=tk.LEFT)
+        self.cut_file_button = tk.Button(self.options_frame6, text="Cut File", command=self.open_video_cutter, padx=4)
+        self.cut_file_button.pack(side=tk.LEFT)
 
         self.merge_subs_button = tk.Button(self.options_frame6, text="Merge Subs", command=self.merge_subtitles, padx=4)
         self.merge_subs_button.pack(side=tk.LEFT)
@@ -2730,248 +3336,235 @@ class M3uPlaylistPlayer(tk.Frame):
             messagebox.showerror("Error", "Select a file to generate subtitles.")
 
 
-    # Function to split a video/audio file in half using a non-blocking thread
-    def split_video(self):
+    # Opens the Video Cutter dialog
+    def open_video_cutter(self):
+        """Opens the Video Cutter dialog for the selected local file."""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showerror("Error", "Select a local file to split.")
+            messagebox.showerror("Error", "Select a local file to cut.")
             return
 
         item = self.tree.selection()[0]
         url = self.tree.item(item, "values")[2]
 
-        if not re.match(r'^/|^\./', url) or not os.path.exists(url):
-            messagebox.showerror("Error", "Select a valid local file to split.")
+        # MODIFIED REGEX: Now correctly accepts ./, ../, and / starting paths
+        # os.path.isabs() is a robust way to check for absolute paths like /home/...
+        if not (url.startswith('./') or url.startswith('../') or os.path.isabs(url)):
+            messagebox.showerror("Error", "Select a valid local file to cut.")
             return
 
-        # --- Define a worker function to be run in a separate thread ---
-        def split_worker(url, item_id, result_queue, should_overwrite):
+        # Now, we also must check if the file actually exists
+        # os.path.expanduser handles paths like ~/video.mp4
+        if not os.path.exists(os.path.expanduser(url)):
+            messagebox.showerror("File Not Found", f"The file could not be found at the path:\n{url}")
+            return
+
+
+        if not IMAGEIO_AVAILABLE:
+            messagebox.showerror(
+                "Missing Dependency",
+                "The 'imageio' and 'Pillow' libraries are required for this feature.\n\n"
+                "Please install them by running:\n"
+                "pip install imageio[ffmpeg] Pillow"
+            )
+            return
+
+        VideoCutterDialog(master=self.main_window, player=self)
+
+
+    # Inserts a list of file paths into the treeview
+    def add_files_to_playlist(self, file_paths):
+        """Inserts a list of file paths into the treeview after the original item, ensuring they are sorted correctly."""
+        if not file_paths:
+            return
+
+        # Sort the file paths numerically based on the '_part<number>' suffix
+        # This is the key change to fix the ordering issue.
+        try:
+            sorted_file_paths = sorted(
+                file_paths,
+                key=lambda x: int(re.search(r'_part(\d+)', os.path.basename(x)).group(1))
+            )
+        except (AttributeError, ValueError):
+            # If sorting fails (e.g., file names don't match the pattern), fall back to alphabetical sort.
+            sorted_file_paths = sorted(file_paths)
+
+
+        selection = self.tree.selection()
+        if not selection:
+            # If nothing is selected, add to the end
+            base_index = len(self.tree.get_children())
+        else:
+            base_index = self.tree.index(selection[0]) + 1
+
+        for i, file_path in enumerate(sorted_file_paths):
+            name = os.path.splitext(os.path.basename(file_path))[0]
+            # The list number will be updated by update_list_numbers
+            self.tree.insert("", base_index + i, values=(0, name, file_path))
+
+        self.update_list_numbers()
+        messagebox.showinfo("Success", f"{len(file_paths)} parts were created and added to the playlist. Don't forget to save the playlist.", parent=self.main_window)
+
+
+    def update_playlist_after_cut(self, new_files, deleted_files_paths):
+        """Removes old part entries from the playlist and adds the new ones."""
+        # --- Remove old items ---
+        items_to_delete_ids = []
+        # Normalize paths for reliable comparison, creating a set for fast lookups.
+        normalized_deleted_paths = {os.path.normpath(os.path.abspath(p)) for p in deleted_files_paths}
+
+        for item_id in self.tree.get_children():
             try:
-                # Get duration
-                ffprobe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", url]
-                result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, check=True)
-                total_duration = float(result.stdout.strip())
-                midpoint_seconds = total_duration / 2
+                # The URL is the third value (index 2)
+                item_url = self.tree.item(item_id, "values")[2]
+                # Normalize the path from the playlist for comparison
+                normalized_item_path = os.path.normpath(os.path.abspath(item_url))
 
-                # Define filenames
-                directory, filename = os.path.split(url)
-                name, ext = os.path.splitext(filename)
-                output_part1 = os.path.join(directory, f"{name}_part1{ext}")
-                output_part2 = os.path.join(directory, f"{name}_part2{ext}")
+                if normalized_item_path in normalized_deleted_paths:
+                    items_to_delete_ids.append(item_id)
+            except IndexError:
+                # This can happen if an item is malformed. It's safe to ignore.
+                continue
 
-                # Build ffmpeg commands
-                ffmpeg_cmd_part1 = ["ffmpeg", "-i", url, "-to", str(midpoint_seconds), "-c", "copy", output_part1]
-                ffmpeg_cmd_part2 = ["ffmpeg", "-ss", str(midpoint_seconds), "-i", url, "-c", "copy", output_part2]
+        if items_to_delete_ids:
+            self.tree.delete(*items_to_delete_ids)
 
-                if should_overwrite:
-                    ffmpeg_cmd_part1.insert(1, "-y")
-                    ffmpeg_cmd_part2.insert(1, "-y")
-
-                # CORRECTION: Use capture_output=True without specifying stderr/stdout manually.
-                subprocess.run(ffmpeg_cmd_part1, check=True, capture_output=True)
-                subprocess.run(ffmpeg_cmd_part2, check=True, capture_output=True)
-
-                # On success, put a dictionary with results in the queue
-                result_queue.put({
-                    'original_item': item_id,
-                    'name_part1': f"{name}_part1",
-                    'name_part2': f"{name}_part2",
-                    'output_part1': output_part1,
-                    'output_part2': output_part2,
-                })
-            except Exception as e:
-                # On failure, put the exception object in the queue
-                result_queue.put(e)
-
-        # --- Main part of the function (runs in the GUI thread) ---
-        try:
-            directory, filename = os.path.split(url)
-            name, ext = os.path.splitext(filename)
-            output_part1 = os.path.join(directory, f"{name}_part1{ext}")
-            output_part2 = os.path.join(directory, f"{name}_part2{ext}")
-            should_overwrite = False
-
-            if os.path.exists(output_part1) or os.path.exists(output_part2):
-                response = messagebox.askquestion(
-                    "Files Exist",
-                    "One or more output files already exist. Do you want to overwrite them?\n\n"
-                    f"- {os.path.basename(output_part1)}\n"
-                    f"- {os.path.basename(output_part2)}",
-                    icon='warning'
-                )
-                if response == 'no':
-                    messagebox.showinfo("Operation Cancelled", "The split operation was cancelled by the user.")
-                    return
-                should_overwrite = True
-
-            # --- Create and display the non-modal notification window ---
-            notification = tk.Toplevel(self)
-            notification.title("Processing")
-            notification.transient(self.winfo_toplevel())
-            # Use grab_set() to temporarily disable the main window, preventing user from starting another long task
-            notification.grab_set()
-            notification.resizable(False, False)
-
-            msg = f"Splitting '{filename}'...\nThis may take a moment."
-            tk.Label(notification, text=msg, padx=20, pady=20).pack()
-            notification.update_idletasks()
-
-            x = self.winfo_toplevel().winfo_x() + (self.winfo_toplevel().winfo_width() / 2) - (notification.winfo_width() / 2)
-            y = self.winfo_toplevel().winfo_y() + (self.winfo_toplevel().winfo_height() / 2) - (notification.winfo_height() / 2)
-            notification.geometry(f"+{int(x)}+{int(y)}")
-
-            # --- Start the worker thread ---
-            result_queue = queue.Queue()
-            thread = threading.Thread(target=split_worker, args=(url, item, result_queue, should_overwrite))
-            thread.daemon = True
-            thread.start()
-
-            # --- Start polling for the result ---
-            self.after(100, self._check_split_thread, result_queue, notification)
-
-        except FileNotFoundError:
-             messagebox.showerror("Error", "FFmpeg/ffprobe not found. Please ensure it is installed and in your system's PATH.")
-        except Exception as e:
-            # This will catch errors during filename preparation, before the thread starts
-            messagebox.showerror("An Unexpected Error Occurred", str(e))
-
-
-    # Helper method to check the result from the split video thread
-    def _check_split_thread(self, result_queue, notification_window):
-        """Checks the queue for a result from the worker thread."""
-        try:
-            result = result_queue.get(block=False)
-
-            # We have a result, close the notification and process it
-            notification_window.destroy()
-
-            if isinstance(result, Exception):
-                # An error occurred in the thread
-                if isinstance(result, subprocess.CalledProcessError):
-                    error_output = result.stderr.decode('utf-8', 'ignore') if result.stderr else "No error output from FFmpeg."
-                    messagebox.showerror("FFmpeg Error", f"An error occurred while processing the file.\n\nFFmpeg error:\n{error_output}")
-                else:
-                    messagebox.showerror("An Unexpected Error Occurred", str(result))
-            else:
-                # Success! The result dictionary contains the needed info
-                original_item_index = self.tree.index(result['original_item'])
-                name_part1 = result['name_part1']
-                name_part2 = result['name_part2']
-                output_part1 = result['output_part1']
-                output_part2 = result['output_part2']
-
-                self.tree.insert("", original_item_index + 1, values=(0, name_part2, output_part2))
-                self.tree.insert("", original_item_index + 1, values=(0, name_part1, output_part1))
-                self.update_list_numbers()
-
-                messagebox.showinfo("Success", "The file was split successfully. Don't forget to save the playlist.")
-
-        except queue.Empty:
-            # No result yet, check again after 100ms
-            self.after(100, self._check_split_thread, result_queue, notification_window)
+        # --- Add new items ---
+        # This function already handles adding the new files correctly.
+        self.add_files_to_playlist(new_files)
 
 
     # Function to merge two consecutive subtitle files (_part1.srt and _part2.srt)
     def merge_subtitles(self):
-        """
-        Merges two subtitle files by calculating the duration of the first video part
-        and using it as a time offset for the second part.
-        """
         selection = self.tree.selection()
         if not selection:
-            messagebox.showerror("Error", "Please select a `..._part1` or `..._part2` file to start the merge.")
+            messagebox.showerror("Error", "Please select a media part file (e.g., '..._part1.mkv') to start the merge.")
             return
 
         try:
-            # 1. Determine file paths and names
-            item_id = selection[0]
-            selected_name, selected_url = self.tree.item(item_id, "values")[1:3]
+            # --- 1. Analyze file structure and media parts ---
+            selected_url = self.tree.item(selection[0], "values")[2]
             video_dir = os.path.dirname(selected_url)
-            filename, video_ext = os.path.splitext(os.path.basename(selected_url))
+            filename, _ = os.path.splitext(os.path.basename(selected_url))
 
-            match = re.search(r'(_part[12])$', filename)
+            match = re.search(r'(.*?)_part\d+$', filename)
             if not match:
-                messagebox.showerror("Error", "The selected file must end with `..._part1` or `..._part2`.")
+                messagebox.showerror("Invalid File", "The selected file's name must end with `..._part<number>` to be processed.")
                 return
-            base_name_prefix = filename[:-len(match.group(1))]
-            part1_video_path = os.path.join(video_dir, base_name_prefix + "_part1" + video_ext)
+            base_name_prefix = match.group(1)
 
-            if not os.path.exists(part1_video_path):
-                messagebox.showerror("File Not Found", f"Could not find the corresponding video file for part 1:\n{part1_video_path}")
+            all_files_in_dir = glob.glob(os.path.join(video_dir, f"{base_name_prefix}_part*"))
+            video_parts = sorted(
+                [p for p in all_files_in_dir if not p.endswith(('.srt', '.txt'))],
+                key=lambda x: int(re.search(r'_part(\d+)', x).group(1))
+            )
+
+            if not video_parts:
+                messagebox.showerror("Error", "No corresponding media part files found.")
                 return
+            num_parts = len(video_parts)
 
-            # 2. Get the precise duration of the part 1 video file using ffprobe
-            ffprobe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", part1_video_path]
-            result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, check=True)
-            duration_sec = float(result.stdout.strip())
-            time_offset = timedelta(seconds=duration_sec)
+            # --- 2. Analyze subtitle availability for each language ---
+            subtitle_parts_glob = glob.glob(os.path.join(video_dir, f"{base_name_prefix}_part*.srt"))
+            all_langs = sorted(list({os.path.basename(f).split('.')[-2] for f in subtitle_parts_glob}))
 
-            # 3. Find common subtitle languages to merge
-            base_name, part1_name, part2_name = base_name_prefix, base_name_prefix + "_part1", base_name_prefix + "_part2"
-            subs1_glob = glob.glob(os.path.join(video_dir, f"{part1_name}.*.srt"))
-            subs2_glob = glob.glob(os.path.join(video_dir, f"{part2_name}.*.srt"))
+            language_info = {}
+            for lang in all_langs:
+                missing = [i for i in range(1, num_parts + 1) if not os.path.exists(os.path.join(video_dir, f"{base_name_prefix}_part{i}.{lang}.srt"))]
+                language_info[lang] = missing
 
-            langs1 = {os.path.basename(f).split('.')[-2] for f in subs1_glob}
-            langs2 = {os.path.basename(f).split('.')[-2] for f in subs2_glob}
-            common_langs = sorted(list(langs1.intersection(langs2)))
+            # --- 3. Interact with user for language selection ---
+            dialog = MergeLanguageSelectionDialog(self.main_window, "Select Subtitles to Merge", language_info)
+            langs_to_process = dialog.result
 
-            if not common_langs:
-                messagebox.showerror("No Common Subtitles", "No matching subtitle languages found for both video parts.")
-                return
+            if not langs_to_process:
+                return # User cancelled or selected nothing
 
-            langs_to_merge = []
-            if len(common_langs) > 1:
-                dialog = LanguageSelectDialog(self.main_window, "Choose Language to Merge", "Choose an option:", common_langs)
-                choice = dialog.result
-                if choice is None: return
-                langs_to_merge = common_langs if choice == 'all' else [choice]
-            else:
-                langs_to_merge = common_langs
+            # --- 4. Handle overwriting of existing merged files ---
+            files_to_overwrite = [os.path.basename(f) for lang in langs_to_process if os.path.exists(f := os.path.join(video_dir, f"{base_name_prefix}.{lang}.srt"))]
 
-            # 4. Process each language
-            success_count, fail_count, merged_files = 0, 0, []
-            for lang in langs_to_merge:
+            if files_to_overwrite:
+                msg = "The following merged files already exist and will be overwritten:\n\n" + "\n".join([f"- {f}" for f in files_to_overwrite]) + "\n\nDo you want to proceed?"
+                if not messagebox.askyesno("Confirm Overwrite", msg, icon='warning'):
+                    messagebox.showinfo("Cancelled", "Merge operation was cancelled.")
+                    return
+
+            # --- 5. Calculate time offsets for each video part ---
+            time_offsets = [timedelta(0)]
+            total_offset = timedelta(0)
+            for i in range(num_parts - 1):
+                ffprobe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_parts[i]]
+                result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, check=True)
+                duration_sec = float(result.stdout.strip())
+                total_offset += timedelta(seconds=duration_sec)
+                time_offsets.append(total_offset)
+
+            # --- 6. Process and merge each selected language ---
+            success_count, fail_count, merged_files_log = 0, 0, []
+            for lang in langs_to_process:
                 try:
-                    srt_path1 = os.path.join(video_dir, f"{part1_name}.{lang}.srt")
-                    srt_path2 = os.path.join(video_dir, f"{part2_name}.{lang}.srt")
-                    output_srt_path = os.path.join(video_dir, f"{base_name}.{lang}.srt")
+                    merged_blocks = []
+                    for i, video_part_path in enumerate(video_parts):
+                        part_num = int(re.search(r'_part(\d+)', video_part_path).group(1))
+                        srt_path = os.path.join(video_dir, f"{base_name_prefix}_part{part_num}.{lang}.srt")
 
-                    blocks1 = self._clean_and_parse_srt(srt_path1)
-                    blocks2 = self._clean_and_parse_srt(srt_path2)
+                        if os.path.exists(srt_path): # This check is key for incomplete sets
+                            blocks = self._clean_and_parse_srt(srt_path)
+                            current_offset = time_offsets[i]
+                            for block in blocks:
+                                block['start'] += current_offset
+                                block['end'] += current_offset
+                            merged_blocks.extend(blocks)
 
-                    # Offset the times for the second part
-                    for block in blocks2:
-                        block['start'] += time_offset
-                        block['end'] += time_offset
+                    if not merged_blocks:
+                        fail_count += 1
+                        continue
 
-                    merged_blocks = blocks1 + blocks2
-
-                    # Write the final merged and re-indexed SRT file
+                    output_srt_path = os.path.join(video_dir, f"{base_name_prefix}.{lang}.srt")
                     with open(output_srt_path, 'w', encoding='utf-8') as outfile:
-                        for i, block in enumerate(merged_blocks):
+                        # Re-index the merged blocks
+                        for i, block in enumerate(sorted(merged_blocks, key=lambda b: b['start'])):
                             outfile.write(f"{i + 1}\n")
                             outfile.write(f"{self._timedelta_to_srt_time(block['start'])} --> {self._timedelta_to_srt_time(block['end'])}\n")
                             outfile.write(f"{block['text']}\n\n")
 
                     success_count += 1
-                    merged_files.append(os.path.basename(output_srt_path))
+                    merged_files_log.append(os.path.basename(output_srt_path))
 
+                    # --- 7. Handle the 'auto' language case POST-SAVE ---
+                    if lang == 'auto':
+                        if messagebox.askquestion("Rename 'auto' Subtitle?", f"'{os.path.basename(output_srt_path)}' has been created.\n\nThe 'auto' language code is not standard. Do you want to save an ADDITIONAL copy with a standard code (e.g., 'en', 'es')?", icon='question') == 'yes':
+                            new_lang_code = EnhancedStringDialog(self.main_window, "Enter Standard Language Code", "Enter a 2-letter code for the new copy:", "").result
+                            if new_lang_code and len(new_lang_code) >= 2:
+                                new_lang_code = new_lang_code.strip().lower()
+                                new_output_path = os.path.join(video_dir, f"{base_name_prefix}.{new_lang_code}.srt")
+
+                                do_copy = True
+                                if os.path.exists(new_output_path):
+                                    if not messagebox.askyesno("Confirm Overwrite", f"The file '{os.path.basename(new_output_path)}' already exists. Overwrite it?", icon='warning'):
+                                        do_copy = False
+
+                                if do_copy:
+                                    shutil.copy(output_srt_path, new_output_path)
+                                    merged_files_log.append(os.path.basename(new_output_path))
                 except Exception as e:
                     fail_count += 1
                     print(f"Failed to merge subtitles for language '{lang}': {e}")
 
-            # 5. Show final result message
+            # --- 8. Show final result message ---
             if success_count > 0:
-                message = f"Successfully merged {success_count} language(s):\n" + "\n".join(merged_files)
-                if fail_count > 0: message += f"\n\nFailed to merge {fail_count} language(s). See console for details."
+                message = f"Successfully created/updated {success_count} subtitle file(s):\n\n" + "\n".join([f"- {f}" for f in sorted(list(set(merged_files_log)))])
+                if fail_count > 0: message += f"\n\nSkipped or failed to merge {fail_count} language set(s)."
                 messagebox.showinfo("Merge Complete", message)
             elif fail_count > 0:
-                messagebox.showerror("Merge Failed", f"Failed to merge {fail_count} language(s). See console for details.")
+                messagebox.showerror("Merge Failed", "Failed to merge all selected language sets.")
+            else:
+                messagebox.showinfo("Merge Info", "No subtitle sets were merged.")
 
         except FileNotFoundError:
              messagebox.showerror("Error", "ffprobe not found. Please ensure it is installed and in your system's PATH.")
-        except subprocess.CalledProcessError as e:
-            messagebox.showerror("ffprobe Error", f"Failed to get video duration.\n\n{e.stderr}")
+        except (subprocess.CalledProcessError, ValueError) as e:
+            messagebox.showerror("FFprobe Error", f"Failed to get media duration.\n\n{e}")
         except Exception as e:
             messagebox.showerror("An Unexpected Error Occurred", str(e))
 
@@ -3533,7 +4126,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.20\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.30\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
