@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 3.30 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 3.52 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -53,6 +53,30 @@ AUDIO_SOURCE=""         # Audio source (pulse:index or avfoundation:index)
 AUDIO_INDEX="0"         # Default audio index
 WHISPER_EXECUTABLE=""   # Path to the Whisper executable
 
+
+# --- Style Configuration ---
+# Auto-detect terminal capabilities for styled output.
+if [[ ($LANG == *.UTF-8 || $LC_ALL == *.UTF-8) && "$TERM" != "xterm" && "$TERM" != "linux" && "$TERM" != "vt100" ]]; then
+    USE_EMOJI=true
+else
+    USE_EMOJI=false
+fi
+
+if [ "$USE_EMOJI" = true ]; then
+    # Emoji symbols
+    ICON_OK="✅"
+    ICON_ERROR="❌"
+    ICON_WARN="⚠️"
+    ICON_ROCKET="🚀"
+else
+    # ASCII-safe symbols
+    ICON_OK="[OK]"
+    ICON_ERROR="[ERROR]"
+    ICON_WARN="[WARNING]"
+    ICON_ROCKET="-->"
+fi
+
+
 # --- Supported Languages and Models ---
 
 # Array of supported languages for Whisper
@@ -91,7 +115,7 @@ check_requirements() {
     if [[ -n "$WHISPER_EXECUTABLE" ]]; then
         # Check if the executable exists in the current directory or in the PATH
         if [[ ! -x "$(command -v "$WHISPER_EXECUTABLE")" ]]; then
-            echo "Specified whisper executable '$WHISPER_EXECUTABLE' not found."
+            echo "${ICON_ERROR} Specified whisper executable '$WHISPER_EXECUTABLE' not found."
             exit 1
         fi
     else
@@ -111,9 +135,9 @@ check_requirements() {
 
     echo
     if [[ -z "$WHISPER_EXECUTABLE" ]]; then
-        echo "Whisper executable is required."
+        echo "${ICON_ERROR} Whisper executable is required."
         exit 1
-    else
+    elif [[ "$PLAYER_ONLY" == "" ]]; then
         echo -n "Found whisper executable: ${WHISPER_EXECUTABLE} - "
         local current_dir=$(pwd)
         local models_dir="$current_dir/models"
@@ -123,9 +147,10 @@ check_requirements() {
     fi
 
     if ! command -v ffmpeg &>/dev/null; then
-        echo "ffmpeg is required (https://ffmpeg.org)."
+        echo "${ICON_ERROR} ffmpeg is required (https://ffmpeg.org)."
         exit 1
     fi
+
     if [[ "$WHISPER_EXECUTABLE" == "whisper" && ! -f "./models/${MODEL}.pt" ]]; then
       echo "Please wait until the model file is downloaded for first time."
       whisper --threads 4 --model ${MODEL} --model_dir ./models /tmp/whisper-live_${MYPID}.wav > /dev/null 2> /tmp/whisper-live_${MYPID}-err.err
@@ -143,7 +168,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 3.30 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 3.52 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -208,7 +233,7 @@ vlc_check() {
             awk -v myport="$MYPORT" '$0 !~ myport' "$TEMP_FILE" > temp_file.tmp && mv temp_file.tmp "$TEMP_FILE"
         fi
         echo
-        echo "*** VLC closed. Timeshift finished."
+        echo "${ICON_OK} VLC closed. Timeshift finished ${ICON_OK}"
         echo
         exit 0
     fi
@@ -228,7 +253,7 @@ get_unique_port() {
 
     # Check if the temporary file exceeds the maximum number of ports
     if [ "$(wc -l < "$TEMP_FILE")" -ge "$max_ports" ]; then
-        echo "Error: Maximum number of ports ($max_ports) reached!"
+        echo "${ICON_ERROR} Error: Maximum number of ports ($max_ports) reached!"
         exit 1
     fi
 
@@ -276,7 +301,7 @@ while [[ $# -gt 0 ]]; do
             if [[ " ${MODEL_LIST[*]} " =~ " $1 " ]]; then
                 MODEL=$1
             else
-                echo ""; echo "*** Invalid model option: $1"; echo ""; usage; exit 1
+                echo ""; echo "${ICON_ERROR} Invalid model option: $1"; echo ""; usage; exit 1
             fi
             ;;
         --language )
@@ -284,19 +309,19 @@ while [[ $# -gt 0 ]]; do
             if [[ " ${LANGUAGES[*]} " =~ " $1 " ]]; then
                 LANGUAGE=$1
             else
-                echo ""; echo "*** Invalid language option: $1"; echo ""; usage; exit 1
+                echo ""; echo "${ICON_ERROR} Invalid language option: $1"; echo ""; usage; exit 1
             fi
             ;;
         --step )
             shift
             STEP_S=$1
             if ! [[ "$STEP_S" =~ ^[0-9]+$ ]]; then
-                echo "Error: Step time must be a numeric value."
+                echo "${ICON_ERROR} Error: Step time must be a numeric value."
                 usage
                 exit 1
             fi
             if [[ "$STEP_S" -gt 60 ]] || [[ "$STEP_S" -lt 0 ]]; then
-                echo "Error: Step time value out of range."
+                echo "${ICON_ERROR} Error: Step time value out of range."
                 usage
                 exit 1
             fi
@@ -309,7 +334,7 @@ while [[ $# -gt 0 ]]; do
             shift
             SEGMENT_TIME=$1
             if ! [[ "$SEGMENT_TIME" =~ ^[0-9]+$ ]]; then
-                echo "Error: Segment Time must be a numeric value."
+                echo "${ICON_ERROR} Error: Segment Time must be a numeric value."
                 usage
                 exit 1
             fi
@@ -318,7 +343,7 @@ while [[ $# -gt 0 ]]; do
             shift
             SEGMENTS=$1
             if ! [[ "$SEGMENTS" =~ ^[0-9]+$ ]]; then
-                echo "Error: Segments must be a numeric value."
+                echo "${ICON_ERROR} Error: Segments must be a numeric value."
                 usage
                 exit 1
             fi
@@ -327,7 +352,7 @@ while [[ $# -gt 0 ]]; do
             shift
             SYNC=$1
             if ! [[ "$SYNC" =~ ^[0-9]+$ ]]; then
-                echo "Error: Sync must be a numeric value."
+                echo "${ICON_ERROR} Error: Sync must be a numeric value."
                 usage
                 exit 1
             fi
@@ -410,19 +435,19 @@ check_requirements
 # Validate Timeshift parameters
 if [ "$TIMESHIFT" = "timeshift" ]; then
     if [ "$SEGMENTS" -lt 2 ] || [ "$SEGMENTS" -gt 99 ]; then
-        echo "Error: Segments should be between 2 and 99."
+        echo "${ICON_ERROR} Error: Segments should be between 2 and 99."
         usage
         exit 1
     fi
 
     if [ "$SEGMENT_TIME" -lt 1 ] || [ "$SEGMENT_TIME" -gt 99 ]; then
-        echo "Error: Segment Time should be between 2 and 99."
+        echo "${ICON_ERROR} Error: Segment Time should be between 2 and 99."
         usage
         exit 1
     fi
 
     if [ $SYNC -lt 0 ] || [ $SYNC -gt $((STEP_S - 3)) ]; then
-        echo "Error: Sync should be between 0 and $((STEP_S - 3))."
+        echo "${ICON_ERROR} Error: Sync should be between 0 and $((STEP_S - 3))."
         usage
         exit 1
     fi
@@ -434,7 +459,7 @@ MYPID=$(ps aux | awk '/livestream_video\.sh/ {pid=$2} END {print pid}')
 if [ -n "$MYPID" ]; then
     if [ -e "/tmp/whisper-live_${MYPID}.wav" ] && ! [ -w "/tmp/whisper-live_${MYPID}.wav" ]; then
       echo ""
-      echo "Error: Permission denied to access files /tmp/whisper-live_${MYPID}.*"
+      echo "${ICON_ERROR} Error: Permission denied to access files /tmp/whisper-live_${MYPID}.*"
       echo ""
       exit 1
     else
@@ -447,7 +472,7 @@ if [ -n "$MYPID" ]; then
     fi
 else
   echo ""
-  echo "An unknown error has occurred."
+  echo "${ICON_ERROR} An unknown error has occurred. ${ICON_ERROR}"
   echo ""
   exit 1
 fi
@@ -490,7 +515,7 @@ if [[ "$PLAYER_ONLY" == "" ]] || [[ $SUBTITLES == "subtitles" ]] ; then
 fi
 
 # if online translate"
-if [[ "$TRANS" == "trans" ]]; then
+if [[ "$TRANS" == "trans" ]] && [[ "$PLAYER_ONLY" == "" ]]; then
     if [[ "$SPEAK" == "speak" ]]; then
         printf "[+] Online translation into language '$TRANS_LANGUAGE', output text: '$OUTPUT_TEXT', Text-to-speech.\n\n"
     else
@@ -502,7 +527,7 @@ fi
 # Error if generating subtitles with remote source.
 if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     echo ""
-    echo "Error: Generate Subtitles only available for local Audio/Video Files."
+    echo "${ICON_ERROR} Error: Generate Subtitles only available for local Audio/Video Files."
     echo ""
     # Remove the used port from the temporary file
     if [ -f "$TEMP_FILE" ]; then
@@ -519,7 +544,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     echo ""
     echo "=========================================="
-    echo "  🚀 Starting Subtitle Generation  🚀"
+    echo "  ${ICON_ROCKET} Starting Subtitle Generation  ${ICON_ROCKET}"
     echo "=========================================="
     echo ""
     # do not stop script on error
@@ -529,169 +554,202 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     skip_transcription=false
     source_srt_file="" # This will hold the path to the SRT file to be used by 'trans'
 
-    # --- Pre-flight Checks: Check for existing files before processing ---
+    # --- Pre-flight Check: Ask about re-running the AI to save processing time ---
 
-    # 1. Determine the destination file for Whisper's output and check if it exists.
-    # This can be either the original language subtitle or a locally translated English subtitle.
-    whisper_dest_file=""
+    # Determine the destination file for Whisper's output
     if [[ "$TRANSLATE" == "--translate" ]]; then
         whisper_dest_file="${url_no_ext}.en.srt"
-        file_description="Whisper AI Translated Subtitle (en)"
+        whisper_file_description="Whisper AI Translated Subtitle (en)"
     else
         whisper_dest_file="${url_no_ext}.${LANGUAGE}.srt"
-        file_description="Whisper AI Original Subtitle (${LANGUAGE})"
+        whisper_file_description="Whisper AI Original Subtitle (${LANGUAGE})"
     fi
 
     if [ -e "$whisper_dest_file" ]; then
-        echo "ATTENTION: A subtitle file from a previous run already exists."
+        echo "ATTENTION: An AI-generated subtitle file already exists."
         echo "  - File: $whisper_dest_file"
-        echo "  - Type: $file_description"
+        echo "  - Type: $whisper_file_description"
         echo ""
-        read -p "Do you want to run the AI and overwrite it? (y/n): " response
-        echo ""
-        if [[ "$response" == "n" ]] || [[ "$response" == "N" ]]; then
-            echo "-> Skipping AI transcription. The existing file will be used for any further steps."
-            skip_transcription=true
-            source_srt_file="$whisper_dest_file" # Use this existing file for online translation
-        elif [[ "$response" != "y" ]] && [[ "$response" != "Y" ]]; then
-            echo ""
-            echo "❌ Invalid response. Aborting. ❌"
-            echo ""
-            exit 1
-        fi
-    fi
+        read -p "Do you want to re-run the AI and overwrite this file? (Answering 'n' will use the existing file) [y/n]: " response
 
-    # 2. If online translation is requested, check if its destination file exists.
-    if [[ $TRANS == "trans" ]]; then
-        trans_dest_file="${url_no_ext}.${TRANS_LANGUAGE}.srt"
-        if [ -e "$trans_dest_file" ]; then
-            echo "ATTENTION: The final translated subtitle file already exists."
-            echo "  - File: $trans_dest_file"
-            echo "  - Type: Online Translated Subtitle (${TRANS_LANGUAGE})"
-            echo ""
-            read -p "Do you want to proceed and overwrite it at the end? (y/n): " response
-            echo ""
-            if [[ "$response" == "n" ]] || [[ "$response" == "N" ]]; then
-                echo "❌ User chose not to overwrite the final translated file. Aborting operation. ❌"
+        # Normalize user input: convert to lowercase and remove leading/trailing whitespace
+        response_clean=$(echo "$response" | tr '[:upper:]' '[:lower:]' | xargs)
+
+        case "$response_clean" in
+            n|no)
+                echo ""
+                echo "-> Skipping AI transcription. The existing file will be used for any further steps."
+                skip_transcription=true
+                source_srt_file="$whisper_dest_file" # Use this existing file for online translation
+                ;;
+            y|yes)
+                echo ""
+                echo "-> OK. The existing file will be overwritten upon completion."
+                # Let the script proceed with skip_transcription=false
+                ;;
+            *)
+                echo ""
+                echo "${ICON_ERROR} Invalid response. Aborting. ${ICON_ERROR}"
                 echo ""
                 exit 1
-            elif [[ "$response" != "y" ]] && [[ "$response" != "Y" ]]; then
-                echo "Invalid response. Aborting."
-                exit 1
-            fi
-        fi
+                ;;
+        esac
     fi
 
     # --- Main Processing ---
 
-    transcription_err=0
+    err=0
     temp_whisper_srt="/tmp/whisper-live_${MYPID}.wav.srt"
+    temp_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt"
 
     if [[ "$skip_transcription" == false ]]; then
         echo ""
         echo "-> Step 1: Converting audio to WAV format..."
         echo ""
         ffmpeg -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le /tmp/whisper-live_${MYPID}.wav
-        transcription_err=$?
+        err=$?
 
-        if [ $transcription_err -eq 0 ]; then
+        if [ $err -eq 0 ]; then
             echo ""
             echo "-> Step 2: Running Whisper AI Transcription/Translation..."
             echo ""
+            echo "----------------------------------------------------"
             # This part remains identical to your original logic.
             if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
                 "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav -osrt 2> /tmp/whisper-live_${MYPID}-err.err
-                transcription_err=$?
+                err=$?
             elif [[ "$WHISPER_EXECUTABLE" == "pwcpp" ]]; then
                 if [[ "$TRANSLATE" == "--translate" ]]; then
                     pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin -osrt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                    transcription_err=$?
+                    err=$?
                 else
                     pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin -osrt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                    transcription_err=$?
+                    err=$?
                 fi
             elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
                 if [[ "$TRANSLATE" == "--translate" ]]; then
                     whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                    transcription_err=$?
+                    err=$?
                 else
                     whisper_lang_opt=""
                     if [[ "$LANGUAGE" != "auto" ]]; then
                         whisper_lang_opt="--language ${LANGUAGE}"
                     fi
                     whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" ${whisper_lang_opt} --threads 4 --model ${MODEL} --model_dir ./models --output_format srt --output_dir /tmp /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err
-                    transcription_err=$?
+                    err=$?
                 fi
                 mv /tmp/whisper-live_${MYPID}.srt "$temp_whisper_srt"
             fi
         fi
 
-        # The source for the next step is the newly generated file.
+        # The source for the next step is the newly generated temporary file.
         source_srt_file="$temp_whisper_srt"
-
     else
         echo ""
         echo "-> Skipping Steps 1 & 2 as requested."
+    fi
+
+    # Perform online translation if requested and no previous errors occurred
+    if [[ $TRANS == "trans" ]] && [[ $err -eq 0 ]]; then
         echo ""
-    fi
-
-
-    # --- Final File Generation & Saving ---
-    err=$transcription_err
-    final_srt_to_move=""
-    final_destination=""
-
-    if [ $err -eq 0 ]; then
-        if [[ $TRANS == "trans" ]]; then
-            echo ""
-            echo "-> Step 3: Starting Online Translation to '${TRANS_LANGUAGE}'..."
-            echo "   (Using source: ${source_srt_file})"
-            echo "----------------------------------------------------"
-            echo ""
-            # The fix for clean subtitles: redirect stderr to /dev/null
-            # Use the correct source SRT, which could be the temp file or an existing one.
-            temp_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt"
-            trans -b :${TRANS_LANGUAGE} -i "$source_srt_file" | tee "$temp_trans_srt" 2>/dev/null
-            echo ""
-            echo "----------------------------------------------------"
-            err=$?
-            final_srt_to_move="$temp_trans_srt"
-            final_destination="${url_no_ext}.${TRANS_LANGUAGE}.srt"
-        else
-            # No online translation, the final file is the one from Whisper AI.
-            # If transcription was skipped, there's nothing new to move.
-            if [[ "$skip_transcription" == false ]]; then
-                final_srt_to_move="$temp_whisper_srt"
-                final_destination="$whisper_dest_file"
-            else
-                echo "-> No new files were generated."
-                # Nothing to move, we can exit cleanly.
-                final_srt_to_move=""
-                echo ""
-                echo "❌ User chose not to overwrite the subtitle file. ❌"
-                echo ""
-                exit 1
-            fi
-        fi
-    fi
-
-    # Move the final generated file to its destination, if any was generated.
-    if [[ -n "$final_srt_to_move" ]] && [ $err -eq 0 ]; then
-        echo "-> Saving final subtitle file to: $final_destination"
-        mv "$final_srt_to_move" "$final_destination"
+        echo "----------------------------------------------------"
+        echo "-> Step 3: Starting Online Translation to '${TRANS_LANGUAGE}'..."
+        echo "   (Using source: ${source_srt_file})"
+        echo "----------------------------------------------------"
+        echo ""
+        trans -b :${TRANS_LANGUAGE} -i "$source_srt_file" | tee "$temp_trans_srt" 2>/dev/null
+        echo ""
         err=$?
     fi
 
+    # --- Final File Saving Logic ---
+
+    # Helper function to manage saving/overwriting files for the online translation
+    save_online_translation_file() {
+        local source_file="$1"
+        local dest_file="$2"
+        local file_desc="$3"
+        local overwrite_response="y"
+
+        if [ -e "$dest_file" ]; then
+            echo ""
+            echo "ATTENTION: The final translated subtitle file already exists."
+            echo "  - File: $dest_file"
+            echo "  - Type: $file_desc"
+            echo ""
+            read -p "Do you want to overwrite it? [y/n]: " response
+
+            overwrite_response=$(echo "$response" | tr '[:upper:]' '[:lower:]' | xargs)
+        fi
+
+        case "$overwrite_response" in
+            y|yes)
+                echo ""
+                echo "-> Saving $file_desc to: $dest_file"
+                mv "$source_file" "$dest_file"
+                if [ $? -ne 0 ]; then
+                    echo ""
+                    echo "${ICON_ERROR} Failed to move file to $dest_file. Temp file is at $source_file ${ICON_ERROR}"
+                    err=1 # Set global error state for a real failure
+                fi
+                ;;
+            n|no)
+                echo ""
+                echo "${ICON_WARN} User chose not to overwrite. The temporary file is available at: '$source_file' ${ICON_WARN}"
+                err=2 # Set state to indicate user-aborted save
+                ;;
+            *)
+                echo ""
+                echo "${ICON_ERROR} Invalid response. The temporary file is available at '$source_file' ${ICON_ERROR}"
+                err=1 # Invalid input is a failure
+                ;;
+        esac
+    }
+
+    if [ $err -eq 0 ]; then
+        echo ""
+        echo "----------------------------------------------------"
+        echo "-> Finalizing Files..."
+        echo "----------------------------------------------------"
+
+        # 1. Save the Whisper AI subtitle file if it was newly generated. No more questions here.
+        if [[ "$skip_transcription" == false ]]; then
+            echo ""
+            echo "-> Saving new Whisper AI subtitle to: $whisper_dest_file"
+            mv "$temp_whisper_srt" "$whisper_dest_file"
+            if [ $? -ne 0 ]; then
+                echo ""
+                echo "${ICON_ERROR} Failed to move file to $whisper_dest_file. Temp file is at $temp_whisper_srt ${ICON_ERROR}"
+                err=1
+            fi
+        else
+            echo ""
+             echo "-> Whisper AI subtitle file was not re-generated, so no new version to save."
+        fi
+
+        # 2. Save the online translated file (if generated), asking for confirmation if needed.
+        # This check is important to only run saving logic if the primary steps were ok.
+        if [[ $err -eq 0 ]] && [[ $TRANS == "trans" ]] && [[ -f "$temp_trans_srt" ]]; then
+            trans_dest_file="${url_no_ext}.${TRANS_LANGUAGE}.srt"
+            trans_file_description="Online Translated Subtitle (${TRANS_LANGUAGE})"
+            save_online_translation_file "$temp_trans_srt" "$trans_dest_file" "$trans_file_description"
+        fi
+    fi
 
     # --- Final Status ---
     if [ $err -eq 0 ]; then
         echo ""
-        echo "✅ Subtitles generated successfully! ✅"
+        echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"
         echo ""
         exit 0
+    elif [ $err -eq 2 ]; then
+        echo ""
+        echo " ${ICON_WARN} Operation finished, but final file was not saved as per user request. ${ICON_WARN}"
+        echo ""
+        exit 0 # Exit cleanly as it was not a script failure
     else
         echo ""
-        echo "❌ An error occurred while generating subtitles. ❌"
+        echo "${ICON_ERROR} An error occurred during the subtitle generation process. ${ICON_ERROR}"
         echo ""
         pkill -f "^ffmpeg.*${MYPID}.*$"
         pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
@@ -801,7 +859,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         sleep 10
         ln -f -s /tmp/whisper-live_${MYPID}_buf000.avi /tmp/whisper-live_${MYPID}_0.avi # symlink first buffer at start
     else
-        printf "Error: ffmpeg failed to capture the stream\n"
+        printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
 
@@ -810,7 +868,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     fi
 
     if ! ps -p $FFMPEG_PID > /dev/null; then
-        printf "Error: ffmpeg failed to capture the stream\n"
+        printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
         exit 1
     fi
 
@@ -822,14 +880,14 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     fi
 
     if [ $? -ne 0 ]; then
-        printf "Error: The player could not play the stream. Please check your input or try again later\n"
+        printf "${ICON_ERROR} Error: The player could not play the stream. Please check your input or try again later\n"
         exit 1
     fi
 
    VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}') # check pidof vlc
     if [ -z "$VLC_PID" ]; then
         VLC_PID=0
-        printf "Error: The player could not be executed.\n"
+        printf "${ICON_ERROR} Error: The player could not be executed.\n"
         exit 1
     fi
 
@@ -850,8 +908,8 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     TIMEPLAYED=0
     acceleration_factor="1.5"
 
-    if [ "$PLAYER_ONLY" != "" ]; then
-      echo "Now recording video buffer /tmp/whisper-live_${MYPID}_$n.avi"
+    if [[ "$PLAYER_ONLY" != "" ]]; then
+      echo "${ICON_OK} -> Now recording video buffer /tmp/whisper-live_${MYPID}_$n.avi"
     fi
 
     while [ $RUNNING -eq 1 ]; do
@@ -880,7 +938,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         n=$((n+1))
   			ln -f -s /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
         if [ "$PLAYER_ONLY" != "" ]; then
-          echo "Now recording video buffer /tmp/whisper-live_${MYPID}_$n.avi"
+          echo "${ICON_OK} -> Now recording video buffer /tmp/whisper-live_${MYPID}_$n.avi"
         fi
   		fi
 
@@ -1046,7 +1104,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
 
               elif [ $tin -eq 1 ]; then
                   echo
-                  echo "!!! Timeshift window reached. Video $FILEPLAY overwritten. You can still watch it, but without transcriptions. Next files may be affected. Adjust Timeshift for more segments/longer times !!!"
+                  echo "${ICON_WARN} Timeshift window reached. Video $FILEPLAY overwritten. You can still watch it, but without transcriptions. Next files may be affected. Adjust Timeshift for more segments/longer times ${ICON_WARN}"
                   echo
                   tin=2
               fi
@@ -1079,14 +1137,14 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
         fi
 
         if [ $? -ne 0 ]; then
-            printf "Error: The player could not play the file. Please check your input.\n"
+            printf "${ICON_ERROR} Error: The player could not play the file. Please check your input.\n"
             exit 1
         fi
 
         VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}') # check pidof vlc
         if [ -z "$VLC_PID" ]; then
             VLC_PID=0
-            printf "Error: The player could not be executed.\n"
+            printf "${ICON_ERROR} Error: The player could not be executed.\n"
             exit 1
         fi
 
@@ -1367,7 +1425,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             # launch player
             nohup $MPV_OPTIONS udp://127.0.0.1:${MYPORT} >/dev/null 2>&1 &
         else
-            printf "Error: ffmpeg failed to capture the stream\n"
+            printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
             exit 1
         fi
 
@@ -1442,7 +1500,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             # launch player
             nohup $MPV_OPTIONS udp://127.0.0.1:${MYPORT} >/dev/null 2>&1 &
         else
-            printf "Error: ffmpeg failed to capture the stream\n"
+            printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
             exit 1
         fi
 
@@ -1509,13 +1567,13 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             # launch player
             $MPV_OPTIONS $URL &>/dev/null &
         else
-            printf "Error: ffmpeg failed to capture the stream\n"
+            printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
             exit 1
         fi
     fi
 
     if [ $? -ne 0 ]; then
-        printf "Error: The player could not play the stream. Please check your input or try again later\n"
+        printf "${ICON_ERROR} Error: The player could not play the stream. Please check your input or try again later\n"
         exit 1
     fi
 
