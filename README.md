@@ -15,6 +15,8 @@ This application includes many options, and while it is commonly used to view, t
 
 - Option to cut video/audio files and then merge their subtitles. Merging only a portion of subtitles is supported. While subtitles are typically high-quality, this option to cut video/audio files can also address the issues that Whisper AI models sometimes present.
 
+- The video and audio file types supported by playlist4whisper include all those supported by the version of ffmpeg installed on your operating system. You can play audio files with subtitles using players like VLC or MPV. For VLC, you need to configure it to display something while playing audio files, such as a spectrometer. For MPV, you can either configure its configuration file or add the MPV option '--force-window' in playlist4whisper (without single quotes) and play the file with 'Player Only' mode to show a window with subtitles for audio files.
+
 - Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application. The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase:
 
 --tabs: Accepts a list of tab names. If a tab name contains spaces, enclose it in double quotes.
@@ -33,9 +35,8 @@ This command will create three tabs with the names "My live recordings", "Online
 
 You can also run different "playlist4whisper" copies in separate directories, each with its own playlist and configuration files.
 
-
-- The video and audio file types supported by playlist4whisper include all those supported by the version of ffmpeg installed on your operating system. You can play audio files with subtitles using players like VLC or MPV. For VLC, you need to configure it to display something while playing audio files, such as a spectrometer. For MPV, you can either configure its configuration file or add the MPV option '--force-window' in playlist4whisper (without single quotes) and play the file with 'Player Only' mode to show a window with subtitles for audio files.
-
+</br>
+</br>
 *Check out the section on livestream_video.sh for help with the available options.
 
 
