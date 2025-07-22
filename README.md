@@ -17,6 +17,8 @@ This application includes many options, and while it is commonly used to view, t
 
 - The video and audio file types supported by playlist4whisper include all those supported by the version of ffmpeg installed on your operating system. You can play audio files with subtitles using players like VLC or MPV. For VLC, you need to configure it to display something while playing audio files, such as a spectrometer. For MPV, you can either configure its configuration file or add the MPV option '--force-window' in playlist4whisper (without single quotes) and play the file with 'Player Only' mode to show a window with subtitles for audio files.
 
+- You can also run multiple instances of "playlist4whisper" in separate directories, each with its own playlist and configuration files. This is very useful not only for organizing your collection of video and audio files in different ways, but also for power users who want to run comparative quality tests for subtitle generation using different settings. It also helps optimize parallel processing speed, since it's possible to use different builds of whisper.cpp — one compiled for the CPU (central processing unit), and others for the GPU (graphics processing unit) and NPU (neural processing unit), if available on the system.
+
 - Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application. The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase:
 
 --tabs: Accepts a list of tab names. If a tab name contains spaces, enclose it in double quotes.
@@ -31,9 +33,6 @@ python playlist4whisper.py --tabs "My live recordings" "Online downloads" "TV re
 ```
 
 This command will create three tabs with the names "My live recordings", "Online downloads", "TV recordings", and the colors red, green, and orange ("#ff7e00"), respectively.
-
-
-You can also run different "playlist4whisper" copies in separate directories, each with its own playlist and configuration files.
 
 </br>
 </br>
