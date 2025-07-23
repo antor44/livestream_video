@@ -3,7 +3,7 @@
 playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
 
-Author: Antonio R. Version: 3.52 License: GPL 3.0
+Author: Antonio R. Version: 3.54 License: GPL 3.0
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
