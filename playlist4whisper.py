@@ -5,7 +5,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.52 License: GPL 3.0
+Author: Antonio R. Version: 3.54 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -168,6 +168,29 @@ def check_player_installed(player):
        return False
 
 
+def perform_startup_checks(results_queue):
+    """
+    Runs all slow, blocking startup checks in a separate thread
+    and puts the results into a queue for the main GUI thread.
+    """
+    terminals = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
+    players = ["none", "smplayer", "mpv"]
+
+    installed_terminals = [term for term in terminals if check_terminal_installed(term)]
+    installed_players = [play for play in players if check_player_installed(play)]
+
+    trans_installed = (subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+    vlc_installed = (subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
+
+    results = {
+        "terminals": installed_terminals,
+        "players": installed_players,
+        "trans": trans_installed,
+        "vlc": vlc_installed
+    }
+    results_queue.put(results)
+
+
 # Default options
 rPadChars = 75
 default_executable_option = "./build/bin/whisper-cli"
@@ -225,79 +248,12 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
           "World": ["ar", "en", "eo", "es", "de", "fr", "pt", "ru", "zh"]}
 
 
-# Array of executable names in priority order
-whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
-
-# Function to find and select executable
-def find_and_select_executable():
-    for exe in whisper_executables:
-        # Check if the executable exists in the PATH
-        full_path = shutil.which(exe)
-        if full_path is not None:
-            # Save the first executable found and exit loop
-            return exe
-    return None
-
-# Call function to find and select executable
-default_executable = find_and_select_executable()
-
-if default_executable is None:
-    print("Whisper executable is required.")
-    exit(1)
-else:
-    print("Found whisper executable:", default_executable, "(", shutil.which(default_executable), ")")
-    current_dir = os.getcwd()
-    models_dir = os.path.join(current_dir, "models")
-    if not os.path.exists(models_dir):
-        os.makedirs(models_dir)
-
-# Determine the path to the quantize executable
-quantize_executable = None  # Initialize to None
-if default_executable is not None: # Proceed only if whisper was found
-    quantize_paths = ["./build/bin/quantize", "./quantize"]
-    for path in quantize_paths:
-        if os.path.exists(path):
-            quantize_executable = path
-            break  # Stop searching once found
-
-    if quantize_executable is None:
-        print("Warning: quantize executable not found.  Quantization will be skipped if attempted.")
-
-
-# Check if ffmpeg is installed
-ffmpeg_process = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-
-if ffmpeg_process.returncode != 0:
-    print(f"Error: ffmpeg command returned non-zero exit status {ffmpeg_process.returncode}")
-
-output = ffmpeg_process.stdout
-if output == "":
-    output = ffmpeg_process.stderr
-    if output == "":
-        print("ffmpeg is required (https://ffmpeg.org).")
-        exit(1)
-
+# Placeholders that will be populated by the startup thread
 terminal_installed = []
-for term in terminal:
-  if check_terminal_installed(term):
-      terminal_installed.append(term)
-
 player_installed = []
-for play in player:
-  if check_player_installed(play):
-      player_installed.append(play)
-
-if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.DEVNULL) == 0:
-  options_frame1_text="Only for translate-shell - Online translation and Text-to-Speech"
-else:
-  options_frame1_text="translate-shell Not installed for online translation and speak!!!"
-
-if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
-                                   stderr=subprocess.DEVNULL) == 0:
-  options_frame3_text="Only for VLC player - Large files will be stored in /tmp directory!!!"
-else:
-  options_frame3_text="VLC player not installed for Timeshift!!!"
+# These texts will be set dynamically once checks are complete
+options_frame1_text = "Checking for translate-shell..."
+options_frame3_text = "Checking for VLC player..."
 
 
 class CustomFileDialog(tk.Toplevel):
@@ -4066,7 +4022,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.52\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.54\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -4080,24 +4036,69 @@ class M3uPlaylistPlayer(tk.Frame):
 class MainApplication:
     """
     The main application for managing M3U playlists.
-
-    This class represents the main application window for managing M3U playlists. It contains
-    tabs for different types of playlists, each with its own playlist player. It also handles
-    error messages during playback and provides functionality for closing the application.
-
-    Attributes:
-        tab_names: The names of the tabs.
-        tab_colors: The colors of the tabs.
-        error_messages: A queue for storing error messages.
-        main_window: The main Tkinter window.
+    This version uses a background thread to perform slow startup checks,
+    making the UI appear instantly.
     """
 
     def __init__(self, tab_names, tab_colors):
         self.error_messages = queue.Queue()
-
         self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
         self.main_window.geometry("1000x800")
+
+        # Store tab info for later use
+        self.tab_names = tab_names
+        self.tab_colors = tab_colors
+
+        # --- Start of lazy loading implementation ---
+        # 1. Show a temporary loading message
+        self.loading_label = tk.Label(self.main_window, text="Loading, please wait...", font=("TkDefaultFont", 16))
+        self.loading_label.pack(expand=True)
+
+        # 2. Prepare a queue and start the background checks
+        self.startup_results_queue = queue.Queue()
+        threading.Thread(target=perform_startup_checks, args=(self.startup_results_queue,), daemon=True).start()
+
+        # 3. Schedule a function to check the queue for results
+        self.main_window.after(100, self.process_startup_results)
+        # --- End of lazy loading implementation ---
+
+        self.playlist_players = []
+        self.main_window.protocol("WM_DELETE_WINDOW", self.on_close)
+        check_error_thread = threading.Thread(target=self.check_error_messages)
+        check_error_thread.daemon = True
+        check_error_thread.start()
+
+    def process_startup_results(self):
+        """Checks the queue for results from the startup thread and builds the UI when done."""
+        try:
+            results = self.startup_results_queue.get(block=False)
+
+            # --- Update global variables with the results ---
+            global terminal_installed, player_installed, options_frame1_text, options_frame3_text
+            terminal_installed = results["terminals"]
+            player_installed = results["players"]
+
+            if results["trans"]:
+                options_frame1_text="Only for translate-shell - Online translation and Text-to-Speech"
+            else:
+                options_frame1_text="translate-shell Not installed for online translation and speak!!!"
+
+            if results["vlc"]:
+                options_frame3_text="Only for VLC player - Large files will be stored in /tmp directory!!!"
+            else:
+                options_frame3_text="VLC player not installed for Timeshift!!!"
+
+            # Now that checks are done, build the main UI
+            self.loading_label.destroy()
+            self.finish_ui_setup()
+
+        except queue.Empty:
+            # If no results yet, check again in 100ms
+            self.main_window.after(100, self.process_startup_results)
+
+    def finish_ui_setup(self):
+        """Creates the main notebook and tabs after startup checks are complete."""
 
         icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
                 "/xhBQAAAYRpQ0NQSUNDIHByb2ZpbGUAACiRfZE9SMNAHMVfv1C04mAHEYcM1cmCaBHdtApFqBBqhVYdTC79giYNSYqLo" \
@@ -4126,31 +4127,20 @@ class MainApplication:
         self.main_window.iconphoto(True, PhotoImage(data=icon))
 
         bash_script = "./livestream_video.sh"
-
         tab_control = ttk.Notebook(self.main_window)
-
         tabs = []
         label_font = tkfont.Font(family="TkDefaultFont", size=10)
 
-        for name, color in zip(tab_names, tab_colors):
+        for name, color in zip(self.tab_names, self.tab_colors):
             tab = ttk.Frame(tab_control)
-            # We add the tab to the notebook with the original name
             tab_control.add(tab, text=name, compound="left")
             tabs.append(tab)
-
             text_color = self.get_text_color(color)
-
-            # Add a space to the beginning of the string that will be drawn.
             padded_name = " " + name
-
-            # Measure the new padded name to size the canvas correctly
             canvas_height = label_font.measure(padded_name) + 20
             canvas_width = label_font.metrics("linespace") + 4
-
             canvas = tk.Canvas(tab, width=canvas_width, height=canvas_height, bg=color, highlightthickness=0)
             canvas.pack(side=tk.LEFT, fill=tk.Y, expand=False)
-
-            # Draw the padded name. The clipped pixel will now be on the invisible space.
             canvas.create_text(
                 canvas_width / 2, canvas_height / 2, text=padded_name, angle=90,
                 fill=text_color, font=label_font, anchor='center'
@@ -4158,18 +4148,11 @@ class MainApplication:
 
         tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
-        playlist_players = []
-        for tab, spec in zip(tabs, tab_names):
+        for tab, spec in zip(tabs, self.tab_names):
             spec_lower = spec.lower().replace(" ", "_")
-            playlist_player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages, self.main_window)
-            playlist_player.pack(fill=tk.BOTH, expand=True)
-            playlist_players.append(playlist_player)
-        self.playlist_players = playlist_players
-
-        self.main_window.protocol("WM_DELETE_WINDOW", self.on_close)
-        check_error_thread = threading.Thread(target=self.check_error_messages)
-        check_error_thread.daemon = True
-        check_error_thread.start()
+            player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages, self.main_window)
+            player.pack(fill=tk.BOTH, expand=True)
+            self.playlist_players.append(player)
 
     def on_close(self):
         self.main_window.destroy()
@@ -4184,45 +4167,119 @@ class MainApplication:
             while not self.error_messages.empty():
                 error_message = self.error_messages.get(block=False)
                 error_messages.add(error_message)
-            # Call show_error_messages with the callback to remove labels
             show_error_messages(error_messages, self.remove_all_drag_labels)
             time.sleep(3)
 
     def hex_to_rgb(self, hex_color):
-        """Convert hex color to RGB."""
         hex_color = hex_color.lstrip('#')
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
     def get_rgb(self, color):
-        """Get the RGB tuple for a color name or hex value."""
         if color.startswith('#'):
             return self.hex_to_rgb(color)
         else:
-            # Use Tkinter's winfo_rgb to get RGB values for color names
             r, g, b = self.main_window.winfo_rgb(color)
-            return (r // 256, g // 256, b // 256)  # Convert to 8-bit RGB
+            return (r // 256, g // 256, b // 256)
 
     def get_luminance(self, color):
-        """Calculate the luminance of a given color."""
         r, g, b = self.get_rgb(color)
         return 0.299 * r + 0.587 * g + 0.114 * b
 
     def get_text_color(self, bg_color):
-        """Determine text color (black or white) based on the luminance of the background color."""
         luminance = self.get_luminance(bg_color)
         return 'black' if luminance > 128 else 'white'
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Application for managing M3U playlists to play and transcribe with Whisper AI.")
 
-    parser.add_argument('--tabs', nargs='+', default=["IPTV", "YouTube", "Twitch", "streamlink", "yt-dlp"],
-                        help='List of tab names')
+    class ProfessionalHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+        """A formatter that creates clean, professional help messages."""
+        def _format_action_invocation(self, action):
+            if not action.option_strings or action.nargs == 0:
+                return super()._format_action_invocation(action)
+            # Combine the flags like '-t, --tabs'
+            flags = ', '.join(action.option_strings)
+            # Get the metavar like 'NAME [NAME ...]'
+            metavar = self._format_args(action, action.dest.upper())
+            # Return the combined, professional-looking string
+            return f'{flags} {metavar}'
 
-    parser.add_argument('--colors', nargs='+', default=["black", "#ff0000", "#9146ff", "#2c7ef2", "#ff7e00"],
-                        help='List of tab colors')
+    parser = argparse.ArgumentParser(
+        description="Application for managing M3U playlists to play and transcribe with Whisper AI.",
+        formatter_class=ProfessionalHelpFormatter
+    )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        '-t', '--tabs',
+        nargs='+',
+        default=["IPTV", "YouTube", "Twitch", "streamlink", "yt-dlp"],
+        metavar='NAME',
+        help='List of tab names. (default: %(default)s)'
+    )
+
+    parser.add_argument(
+        '-c', '--colors',
+        nargs='+',
+        default=["black", "#ff0000", "#9146ff", "#2c7ef2", "#ff7e00"],
+        metavar='COLOR',
+        help='List of tab colors. (default: %(default)s)'
+    )
+
+    args = parser.parse_args() # This line exits the script if -h or --help is used
+
+
+    # Array of executable names in priority order
+    whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
+
+    # Function to find and select executable
+    def find_and_select_executable():
+        for exe in whisper_executables:
+            # Check if the executable exists in the PATH
+            full_path = shutil.which(exe)
+            if full_path is not None:
+                # Save the first executable found and exit loop
+                return exe
+        return None
+
+    # Call function to find and select executable
+    default_executable = find_and_select_executable()
+
+    if default_executable is None:
+        print("Whisper executable is required.")
+        exit(1)
+    else:
+        print("Found whisper executable:", default_executable, "(", shutil.which(default_executable), ")")
+        current_dir = os.getcwd()
+        models_dir = os.path.join(current_dir, "models")
+        if not os.path.exists(models_dir):
+            os.makedirs(models_dir)
+
+    # Determine the path to the quantize executable
+    quantize_executable = None  # Initialize to None
+    if default_executable is not None: # Proceed only if whisper was found
+        quantize_paths = ["./build/bin/quantize", "./quantize"]
+        for path in quantize_paths:
+            if os.path.exists(path):
+                quantize_executable = path
+                break  # Stop searching once found
+
+        if quantize_executable is None:
+            print("Warning: quantize executable not found. Quantization will be skipped if attempted.")
+
+
+    # Check if ffmpeg is installed
+    ffmpeg_process = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+
+    if ffmpeg_process.returncode != 0:
+        print(f"Error: ffmpeg command returned non-zero exit status {ffmpeg_process.returncode}")
+
+    output = ffmpeg_process.stdout
+    if output == "":
+        output = ffmpeg_process.stderr
+        if output == "":
+            print("ffmpeg is required (https://ffmpeg.org).")
+            exit(1)
+
 
     app = MainApplication(args.tabs, args.colors)
     app.main_window.mainloop()
