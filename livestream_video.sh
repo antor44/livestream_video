@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 3.52 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 3.54 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -168,7 +168,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 3.52 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 3.54 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -774,13 +774,39 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
 
     case $URL in
         pulse )
-            ffmpeg -loglevel quiet -y -f pulse -i "$AUDIO_INDEX" -threads 2 -f segment -segment_time $SEGMENT_TIME /tmp/whisper-live_${MYPID}_buf%03d.avi &
-            FFMPEG_PID=$!
-            ;;
-        avfoundation )
-            ffmpeg -loglevel quiet -y -f avfoundation -i :"${AUDIO_INDEX}" -threads 2 -f segment -segment_time $SEGMENT_TIME /tmp/whisper-live_${MYPID}_buf%03d.avi &
-            FFMPEG_PID=$!
-            ;;
+             filename_base="whisper-live_${MYPID}_buf%03d"
+             # The dynamic timestamp is handled directly by the ffmpeg filter
+             filter_complex="[0:a]showspectrum=s=854x480:mode=separate:color=intensity:legend=disabled:fps=25,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='PID\: ${MYPID} | %{pts\:gmtime\:$(date +%s)\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}':fontcolor=white:x=10:y=10"
+
+             ffmpeg -loglevel quiet -y \
+             -f pulse -i "$AUDIO_INDEX" \
+             -filter_complex "$filter_complex" \
+             -c:v mjpeg -q:v 2 -c:a pcm_s16le \
+             -threads 2 \
+             -f segment \
+             -segment_time $SEGMENT_TIME \
+             -reset_timestamps 1 \
+             -segment_format avi \
+             /tmp/${filename_base}.avi &
+             FFMPEG_PID=$!
+             ;;
+         avfoundation )
+             filename_base="whisper-live_${MYPID}_buf%03d"
+             # The dynamic timestamp is handled directly by the ffmpeg filter
+             filter_complex="[0:a]showspectrum=s=854x480:mode=separate:color=intensity:legend=disabled:fps=25,drawtext=fontfile=/System/Library/Fonts/Supplemental/Arial.ttf:text='PID\: ${MYPID} | %{pts\:gmtime\:$(date +%s)\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}':fontcolor=white:x=10:y=10"
+
+             ffmpeg -loglevel quiet -y \
+             -f avfoundation -i :"${AUDIO_INDEX}" \
+             -filter_complex "$filter_complex" \
+             -c:v mjpeg -q:v 2 -c:a pcm_s16le \
+             -threads 2 \
+             -f segment \
+             -segment_time $SEGMENT_TIME \
+             -reset_timestamps 1 \
+             -segment_format avi \
+             /tmp/${filename_base}.avi &
+             FFMPEG_PID=$!
+             ;;
         *youtube* | *youtu.be* )
             if ! command -v yt-dlp &>/dev/null; then
                 echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
