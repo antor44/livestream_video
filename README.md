@@ -5,6 +5,13 @@ playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio
 
 Author: Antonio R. Version: 3.52 License: GPL 3.0
 
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
+#
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
+#
+
 # Specialized functions for journalists, content creators, and researchers:
 
 This application includes many options, and while it is commonly used to view, transcribe, and translate online video streams, it is especially valuable for journalists, content creators, researchers, etc., who need a solution to categorize many video and audio files by topic with integrated subtitle transcriptions and translations.
@@ -526,8 +533,6 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 #
 
 ## playlist4whisper Screenshots:
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
-#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
