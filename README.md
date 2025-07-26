@@ -9,6 +9,8 @@ Author: Antonio R. Version: 3.54 License: GPL 3.0
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
 #
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
+#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
 #
 
@@ -540,8 +542,6 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV7.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
-#
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV11.jpg)
 #
