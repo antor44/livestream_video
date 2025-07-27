@@ -296,7 +296,7 @@ playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files
 python3 playlist4whisper.py
 ```
 
-Please note that on macOS, only the xterm terminal and the mpv video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
+Please note that on macOS, only the xterm terminal and the mpv/vlc video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
 
 #
 # Detailed installation for Windows 10/11
