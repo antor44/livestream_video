@@ -52,7 +52,7 @@ This command will create three tabs with the names "My live recordings", "Online
 
 Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
-This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhiperLive, an implementation of OpenAI Whisper different from whisper-cpp. This browser extension is a fork of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
+This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhiperLive, an implementation of OpenAI Whisper different from whisper.cpp. This browser extension is a fork of a WhisperLive extension (https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the README file in its directory.
 
 In this release, we have added various options for text output manipulation and improved the server configuration options that allow you to customize the server IP address and port.
 
@@ -62,7 +62,7 @@ In this release, we have added various options for text output manipulation and 
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, imageio, imageio-ffmpeg, Pillow, bc, and xterm are installed. 
 
-To install whisper-cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
+To install whisper.cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
 pip3 install pywhispercpp
 ```
@@ -74,32 +74,37 @@ or for OpenAI's Whisper (not fully supported, except for generating subtitles fo
 ```
 pip3 install openai-whisper
 ```
-For the latest version of whisper-cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
+For the latest version of whisper.cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
+Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
+```
+python3 playlist4whisper.py
+```
+*Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
 
-The required model files must be stored in the subdirectory ./models. They can be automatically downloaded using playlist4whisper (this feature is only supported for the compiled version of whisper-cpp), or you can follow the instructions provided at https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
+*The required model files must be stored in the subdirectory ./models. They can be automatically downloaded using playlist4whisper (this feature is only supported for the compiled version of whisper.cpp), or you can follow the instructions provided at https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
 
-Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper-cpp.
+*Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper.cpp.
 
-OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper-cpp model.
+*OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper.cpp model.
 
 
 #
 # Detailed installation for linux
 
 
-1. Download and build whisper-cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
+1. Download and build whisper.cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
 
-Download the source code of whisper-cpp from your home directory:
+Download the source code of whisper.cpp from your home directory:
 
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Change the default directory to the whisper-cpp directory, which is whisper.cpp:
+Change the default directory to the whisper.cpp directory, which is whisper.cpp:
 ```
 cd whisper.cpp
 ```
-Compile whisper-cpp for CPU mode:
+Compile whisper.cpp for CPU mode:
 ```
 make
 ```
@@ -121,7 +126,7 @@ Stay where you executed the command, move all to whisper.cpp directory:
 ```
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp.
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper.cpp.
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
@@ -255,17 +260,17 @@ In this example, the settings modify the background color to black, the foregrou
 The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
 
 
-5. Compile whisper-cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
+5. Compile whisper.cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
 
-From your base user directory (/Users/[user]) download the source code for whisper-cpp:
+From your base user directory (/Users/[user]) download the source code for whisper.cpp:
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Change the default directory to the whisper-cpp directory:
+Change the default directory to the whisper.cpp directory:
 ```
 cd whisper.cpp
 ```
-Compile whisper-cpp for CPU mode:
+Compile whisper.cpp for CPU mode:
 ```
 make
 ```
@@ -288,7 +293,7 @@ Stay where you executed the command, move all to whisper.cpp directory:
 ```
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp and its subdirectory ./build/bin/ with its 'whisper-cli' executable.
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper.cpp and its subdirectory ./build/bin/ with its 'whisper-cli' executable.
 
 
 6. Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
@@ -301,7 +306,7 @@ Please note that on macOS, only the xterm terminal and the mpv/vlc video player 
 #
 # Detailed installation for Windows 10/11
 
-playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. When using the VLC player, which is required for one of the main features, you might run into audio issues with the default settings. Nevertheless, you can also compile whisper-cpp with GPU acceleration or install a whisper-cpp Docker image, which also supports GPU acceleration.
+playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. When using the VLC player, which is required for one of the main features, you might run into audio issues with the default settings. Nevertheless, you can also compile whisper.cpp with GPU acceleration.
 
 Open PowerShell or Windows Command Prompt in administrator mode by right-clicking and selecting "Run as administrator", and install WSL2:
 
@@ -367,16 +372,16 @@ pipx upgrade yt-dlp
 pipx upgrade streamlink
 ```
 
-Download the source code of whisper-cpp:
+Download the source code of whisper.cpp:
 
 ```
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Change the default directory to the whisper-cpp directory:
+Change the default directory to the whisper.cpp directory:
 ```
 cd whisper.cpp
 ```
-Compile whisper-cpp for CPU mode:
+Compile whisper.cpp for CPU mode:
 ```
 make
 ```
@@ -398,7 +403,7 @@ Stay where you executed the command, move all to whisper.cpp directory:
 ```
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, whisper.cpp
+playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper.cpp
 
 Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
 ```
@@ -565,7 +570,7 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
-A: This program is based on whisper-cpp, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams or media files even on low-end or old PCs, even those that are at least 10 years old. You can easily configure the application with models such as small.en or base.en, which offer excellent transcriptions for the English language. Even the tiny.en model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
+A: This program is based on whisper.cpp, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams or media files even on low-end or old PCs, even those that are at least 10 years old. You can easily configure the application with models such as small.en or base.en, which offer excellent transcriptions for the English language. Even the tiny.en model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
 
 **Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
 
@@ -775,7 +780,7 @@ There should be no issues running the program on Apple computers with ARM proces
 
 https://github.com/ggerganov/whisper.cpp#core-ml-support
 
-The accelerated versions of whisper-cpp require specific model versions to achieve better performance.
+The accelerated versions of whisper.cpp require specific model versions to achieve better performance.
 
 **Q: How much data is needed to fine-tune a model?**
 
