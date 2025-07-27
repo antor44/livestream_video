@@ -210,7 +210,7 @@ mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
-Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
+Finally:
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
@@ -336,7 +336,7 @@ mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
-Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
+Finally:
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
