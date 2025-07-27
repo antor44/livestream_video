@@ -169,7 +169,7 @@ pipx upgrade yt-dlp
 pipx upgrade streamlink
 ```
 
-3. Finally, you can launch the app by entering the following command in the terminal:
+3. Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
 ```
 python3 playlist4whisper.py
 ```
@@ -210,7 +210,7 @@ mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
-And finally:
+Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
@@ -291,7 +291,7 @@ mv livestream_video/* ~/whisper.cpp
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp and its subdirectory ./build/bin/ with its 'whisper-cli' executable.
 
 
-6. Finally, you can launch the app by entering the following command in the terminal:
+6. Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
 ```
 python3 playlist4whisper.py
 ```
@@ -336,7 +336,7 @@ mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
-And finally:
+Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
 ```
 pip3 install imageio imageio-ffmpeg Pillow
 ```
@@ -400,7 +400,7 @@ mv livestream_video/* ~/whisper.cpp
 ```
 playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper-cpp, whisper.cpp
 
-Finally, you can launch the app by entering the following command in the terminal:
+Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
 ```
 python3 playlist4whisper.py
 ```
@@ -415,7 +415,7 @@ MPV player is not working on Windows, potentially due to the need for additional
 
 **Ensure that your installed yt-dlp and streamlink are up-to-date.**
 
-Make sure that you are in the same directory as whisper-cpp, playlist4whisper.py, and livestream_video.sh:
+Make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and also ensure that the Python environment for playlist4whisper is active. Then:
 
 ```
 python3 playlist4whisper.py
@@ -621,7 +621,9 @@ Some applications use a trick to achieve a near-live result during the first tra
 
 **Q: Why is the program not working?**
 
-A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the ./build/bin/whisper-cli executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper-cpp. The ./build/bin/whisper-cli executable from whisper.cpp needs to be placed in the subdirectory of the directory of playlist4whisper.py and the script livestream_video.sh. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. These tasks can be accomplished using terminal commands:
+A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the ./build/bin/whisper-cli executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper.cpp. The ./build/bin/whisper-cli executable from whisper.cpp needs to be placed in the subdirectory of the directory of playlist4whisper.py and the script livestream_video.sh. Before lauch playlist4whisper.py, make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and eventually too the python environment for playlist4whisper is active. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. 
+
+The whsiper.cpp installation can be accomplished using terminal commands:
 
 First clone the repository:
 ```
@@ -664,7 +666,7 @@ A: There could be various reasons for this error. The "whisper-cli" executable, 
 
 **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
 
-A: Yes, you can run it with the command "python" followed by the full path of playlist4whisper.py, or if you are using an Anaconda environment: "/home/[user]/anaconda3/bin/conda run python /home/[user]/[app directory]/playlist4whisper.py". In both cases, provide the working directory where the program is located.
+A: Yes, you can run it with the command "python" followed by the full path of playlist4whisper.py. In this case, before launching playlist4whisper.py, make sure that the Python environment for playlist4whisper is active. You can alternatively launch a bash script that first includes a command like 'source ~/python-environments/whisper/bin/activate'. If you are using an Anaconda environment, use the command '/home/[user]/anaconda3/bin/conda run python /home/[user]/[app directory]/playlist4whisper.py'. In both cases, provide the working directory where the program is located.
 
 **Q: How can I change the size of the transcribed text snippets?**
 
