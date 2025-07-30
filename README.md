@@ -222,7 +222,7 @@ pip3 install imageio imageio-ffmpeg Pillow
 Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
 
 
-3. playlist4whisper has been successfully tested on the macOS Ventura Intel version, also macOS versions for M1 or ARM should work without issues, and can also run on Big Sur with some extra adjustments.
+3. playlist4whisper has been successfully tested on the macOS Ventura Intel version, also macOS versions for Mx or ARM should work without issues, and can also run on older versions such as Big Sur with some extra adjustments.
 
 For all versions of macOS, Homebrew has introduced significant changes in recent versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version. Please follow the instructions provided in the terminal when installing Python3.
 
