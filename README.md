@@ -222,11 +222,11 @@ pip3 install imageio imageio-ffmpeg Pillow
 Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
 
 
-3. playlist4whisper has been successfully tested on the macOS Ventura Intel version and can also run on Big Sur with some extra adjustments.
-  
-Homebrew has introduced significant changes and issues in the latest versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version. Please follow the instructions provided in the terminal when installing Python3.
+3. playlist4whisper has been successfully tested on the macOS Ventura Intel version, also macOS versions for M1 or ARM should work without issues, and can also run on Big Sur with some extra adjustments.
 
-Additionally, for older macOS version, like Big Sur, due to misconfigurations, outdated default libraries in older macOS versions, or conflicts between Homebrew and macOS, you might encounter issues when installing Homebrew applications. Alternatively, you can install older version of applications like FFmpeg (separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources, downloading them individually. If you trust the source, just copy the executable packaged as a .app file to the Applications folder and then link the path to /usr/local/bin/[executable]. Make sure to use the executable name in lowercase for the /usr/local/bin/ part:
+For all versions of macOS, Homebrew has introduced significant changes in recent versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version. Please follow the instructions provided in the terminal when installing Python3.
+
+Additionally, for older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp due to outdated default libraries or conflicts between Homebrew and macOS. Alternatively, you can install an older version of whisper.cpp, and older versions of applications such as FFmpeg (separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources, downloading them individually. If you trust the source, just copy the executable packaged as a .app file to the Applications folder and then link the path to /usr/local/bin/[executable]. Make sure to use the executable name in lowercase for the /usr/local/bin/ part:
 ```
 ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
 ```
