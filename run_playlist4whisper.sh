@@ -12,6 +12,7 @@
 # ==============================================================================
 
 echo "Navigating to the whisper.cpp directory..."
+
 # Change to the working directory. The script will exit if this directory doesn't exist.
 # Using '~' makes this path absolute from your home directory, so it works from anywhere.
 cd ~/whisper.cpp || exit 1
@@ -21,10 +22,12 @@ cd ~/whisper.cpp || exit 1
 # Adjust the path if your 'python-environments' folder is located elsewhere.
 #
 echo "Activating Python virtual environment..."
+
 source ~/python-environments/whisper/bin/activate
 
 
 echo "Launching the Python script: playlist4whisper.py..."
+
 # Runs the script. Using 'python3' ensures better compatibility.
 python3 playlist4whisper.py
 
