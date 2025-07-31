@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 3.54 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 3.56 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -168,7 +168,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 3.54 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 3.56 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -270,6 +270,99 @@ get_unique_port() {
 
     # Return the generated unique port
     echo "$random_port"
+}
+
+
+# Processes a single audio chunk with Whisper and handles translation/TTS.
+# Takes the path to the temporary WAV file as its first argument.
+process_audio_chunk() {
+    local wav_file="$1"
+
+    # The processing pipe is designed to be robust across whisper.cpp versions:
+    # 1. tr '\r' '\n': Converts carriage returns to newlines to normalize output from all versions.
+    # 2. grep '^\[': Isolates ALL lines that start with a timestamp.
+    # 3. sed 's/^\[.*\] *//': Strips the timestamp from EACH of those lines.
+    # 4. paste -s -d ' ': Joins all the cleaned lines back into a single line, separated by spaces.
+    # 5. tr -d ...: Cleans up potential garbage characters.
+    # 6. tee ...: Prints to screen and saves to a file.
+
+    if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
+        "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
+        err=$?
+    elif [[ "$WHISPER_EXECUTABLE" == "pwcpp" ]]; then
+        if [[ "$TRANSLATE" == "--translate" ]]; then
+            pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
+            err=$?
+        else
+            pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
+            err=$?
+        fi
+    elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
+        # The python version of whisper has a different, more stable output format and is not affected.
+        if [[ "$TRANSLATE" == "--translate" ]]; then
+            if [[ "$LANGUAGE" == "auto" ]]; then
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
+                err=$?
+            else
+                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
+                err=$?
+            fi
+        else
+            if [[ "$LANGUAGE" == "auto" ]]; then
+                  whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
+                  err=$?
+            else
+                  whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${LANGUAGE} --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
+                  err=$?
+            fi
+        fi
+        sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
+    fi
+
+    # --- El resto de la función (traducción, etc.) no necesita cambios ---
+    # Print original/translated text to console
+    if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]] || [[ $TRANS == "" ]]; then
+        cat /tmp/output-whisper-live_${MYPID}.txt | tee -a /tmp/transcription-whisper-live_${MYPID}.txt
+    else
+        cat /tmp/output-whisper-live_${MYPID}.txt >> /tmp/transcription-whisper-live_${MYPID}.txt
+    fi
+
+    # Handle online translation and TTS
+    if [[ $TRANS == "trans" ]]; then
+        if [[ $(wc -m < /tmp/output-whisper-live_${MYPID}.txt) -ge 3 ]] && [[ $SPEAK == "speak" ]]; then
+            if [[ $OUTPUT_TEXT == "translation" ]]; then
+                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
+            elif [[ $OUTPUT_TEXT == "both" ]]; then
+                tput rev
+                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
+                tput sgr0
+            else
+                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt >/dev/null
+            fi
+            if [ -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 ]; then
+                # ... (TTS logic remains the same)
+                duration=$(ffprobe -i /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
+                if [ -n "$duration" ]; then
+                    if [[ $(echo "$duration > ($STEP_S - ( $STEP_S / 8 ))" | bc -l) == 1 ]]; then
+                        acceleration_factor=$(echo "scale=2; $duration / ($STEP_S - ( $STEP_S / 8 ))" | bc -l)
+                    fi
+                    if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
+                        acceleration_factor="1.5"
+                    fi
+                    mv -f "/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3" "/tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3"
+                    ffmpeg -i /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
+                    mpv /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 &>/dev/null &
+                fi
+            fi
+        # SYNTAX FIX: The elifs now correctly follow a single if structure
+        elif [[ $OUTPUT_TEXT == "translation" ]]; then
+            trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
+        elif [[ $OUTPUT_TEXT == "both" ]]; then
+            tput rev
+            trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
+            tput sgr0
+        fi
+    fi
 }
 
 
@@ -1045,88 +1138,8 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
 
                   fi
 
-                  if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
-                      "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                      err=$?
-                  elif [[ "$WHISPER_EXECUTABLE" == "pwcpp" ]]; then
-                      if [[ "$TRANSLATE" == "--translate" ]]; then
-                          pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin -otxt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                          err=$?
-                      else
-                          pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin -otxt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                          err=$?
-                      fi
-                  elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
-                      if [[ "$TRANSLATE" == "--translate" ]]; then
-                          if [[ "$LANGUAGE" == "auto" ]]; then
-                              whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                              err=$?
-                          else
-                              whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                              err=$?
-                          fi
-                      else
-                          if [[ "$LANGUAGE" == "auto" ]]; then
-                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                                err=$?
-                          else
-                                whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${LANGUAGE} --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                                err=$?
-                          fi
-                      fi
-                      sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
-                  fi
-
-                  if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]] || [[ $TRANS == "" ]]; then
-                      cat /tmp/output-whisper-live_${MYPID}.txt | tee -a /tmp/transcription-whisper-live_${MYPID}.txt
-                  else
-                      cat /tmp/output-whisper-live_${MYPID}.txt >> /tmp/transcription-whisper-live_${MYPID}.txt
-                  fi
-
-                  if [[ $TRANS == "trans" ]]; then
-                      if [[ $SPEAK == "speak" ]]; then
-
-                          if [ $(wc -m < /tmp/output-whisper-live_${MYPID}.txt) -ge 3 ] && [[ $SPEAK == "speak" ]]; then
-                              if [[ $OUTPUT_TEXT == "translation" ]]; then
-                                  trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                              elif [[ $OUTPUT_TEXT == "both" ]]; then
-                                  tput rev
-                                  trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                                  tput sgr0
-                              else
-                                  trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt >/dev/null
-                              fi
-                              if [ -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 ]; then
-
-                                  # Get duration of input audio file in seconds
-                                  duration=$(ffprobe -i /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
-
-                                  # Check if duration exceeds maximum time
-                                  if [ -n "$duration" ]; then
-
-                                      if [[ $(echo "$duration > ($STEP_S - ( $STEP_S / 8 ))" | bc -l) == 1 ]]; then
-                                          acceleration_factor=$(echo "scale=2; $duration / ($STEP_S - ( $STEP_S / 8 ))" | bc -l)
-                                      fi
-                                      if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
-                                          acceleration_factor="1.5"
-                                      fi
-                                      # Use FFmpeg to speed up the audio file
-                                      mv -f "/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3" "/tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3"
-                                      ffmpeg -i /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
-                                      # Play the modified audio
-                                      mpv /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 &>/dev/null &
-                                  fi
-                              fi
-                          fi
-
-                      elif [[ $OUTPUT_TEXT == "translation" ]]; then
-                          trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                      elif [[ $OUTPUT_TEXT == "both" ]]; then
-                          tput rev
-                          trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                          tput sgr0
-                      fi
-                  fi
+                  # Call the function to process the audio chunk
+                  process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
 
               elif [ $tin -eq 1 ]; then
                   echo
@@ -1257,89 +1270,8 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
 
                         fi
 
-                        if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
-                            "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                            err=$?
-                        elif [[ "$WHISPER_EXECUTABLE" == "pwcpp" ]]; then
-                            if [[ "$TRANSLATE" == "--translate" ]]; then
-                                pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin -otxt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                                err=$?
-                            else
-                                pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin -otxt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                                err=$?
-                            fi
-                        elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
-                            if [[ "$TRANSLATE" == "--translate" ]]; then
-                                if [[ "$LANGUAGE" == "auto" ]]; then
-                                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                                    err=$?
-                                else
-                                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                                    err=$?
-                                fi
-                            else
-                                if [[ "$LANGUAGE" == "auto" ]]; then
-                                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                                      err=$?
-                                else
-                                      whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${LANGUAGE} --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                                      err=$?
-                                fi
-                            fi
-                            sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
-                        fi
-
-                        if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]] || [[ $TRANS == "" ]]; then
-                            cat /tmp/output-whisper-live_${MYPID}.txt | tee -a /tmp/transcription-whisper-live_${MYPID}.txt
-                        else
-                            cat /tmp/output-whisper-live_${MYPID}.txt >> /tmp/transcription-whisper-live_${MYPID}.txt
-                        fi
-
-                        if [[ $TRANS == "trans" ]]; then
-                            if [[ $SPEAK == "speak" ]]; then
-
-                                if [ $(wc -m < /tmp/output-whisper-live_${MYPID}.txt) -ge 3 ] && [[ $SPEAK == "speak" ]]; then
-                                    if [[ $OUTPUT_TEXT == "translation" ]]; then
-                                        trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                                    elif [[ $OUTPUT_TEXT == "both" ]]; then
-                                        tput rev
-                                        trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                                        tput sgr0
-                                    else
-                                        trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt >/dev/null
-                                    fi
-                                    if [ -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 ]; then
-
-                                        # Get duration of input audio file in seconds
-                                        duration=$(ffprobe -i /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
-
-                                        # Check if duration exceeds maximum time
-                                        if [ -n "$duration" ]; then
-
-                                            if [[ $(echo "$duration > ($STEP_S - ( $STEP_S / 8 ))" | bc -l) == 1 ]]; then
-                                                acceleration_factor=$(echo "scale=2; $duration / ($STEP_S - ( $STEP_S / 8 ))" | bc -l)
-                                            fi
-                                            if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
-                                                acceleration_factor="1.5"
-                                            fi
-                                            # Use FFmpeg to speed up the audio file
-                                            mv -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3
-                                            ffmpeg -i /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
-
-                                            # Play the modified audio
-                                            mpv /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 &>/dev/null &
-                                        fi
-                                    fi
-                                fi
-
-                            elif [[ $OUTPUT_TEXT == "translation" ]]; then
-                                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                            elif [[ $OUTPUT_TEXT == "both" ]]; then
-                                tput rev
-                                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                                tput sgr0
-                            fi
-                        fi
+                        # Call the function to process the audio chunk
+                        process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
 
                     fi
                 else
@@ -1628,84 +1560,8 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             sleep 0.5
         done
 
-        if  [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
-            "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav --no-timestamps -otxt 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-            err=$?
-        elif [[ "$WHISPER_EXECUTABLE" == "pwcpp" ]]; then
-            if [[ "$TRANSLATE" == "--translate" ]]; then
-                pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin -otxt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                err=$?
-            else
-                pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin -otxt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
-                err=$?
-            fi
-        elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
-            if [[ "$TRANSLATE" == "--translate" ]]; then
-                if [[ "$LANGUAGE" == "auto" ]]; then
-                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                    err=$?
-                else
-                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                    err=$?
-                fi
-            else
-              if [[ "$LANGUAGE" == "auto" ]]; then
-                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                    err=$?
-              else
-                    whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --language ${LANGUAGE} --threads 4 --model ${MODEL} --model_dir ./models --output_dir /tmp --output_format txt /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
-                    err=$?
-              fi
-            fi
-            sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
-        fi
-
-        if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]] || [[ $TRANS == "" ]]; then
-            cat /tmp/output-whisper-live_${MYPID}.txt | tee -a /tmp/transcription-whisper-live_${MYPID}.txt
-        else
-            cat /tmp/output-whisper-live_${MYPID}.txt >> /tmp/transcription-whisper-live_${MYPID}.txt
-        fi
-
-        if [[ $TRANS == "trans" ]]; then
-            if [ $(wc -m < /tmp/output-whisper-live_${MYPID}.txt) -ge 3 ] && [[ $SPEAK == "speak" ]]; then
-                if [[ $OUTPUT_TEXT == "translation" ]]; then
-                    trans -i "/tmp/output-whisper-live_${MYPID}.txt" -no-warn -b ":${TRANS_LANGUAGE}" -download-audio-as "/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3" | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                elif [[ $OUTPUT_TEXT == "both" ]]; then
-                    tput rev
-                    trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                    tput sgr0
-                else
-                    trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt >/dev/null
-                fi
-                if [ -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 ]; then
-
-                    # Get duration of input audio file in seconds
-                    duration=$(ffprobe -i /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
-
-                    # Check if duration exceeds maximum time
-                    if [ -n "$duration" ]; then
-                        if [[ $(echo "$duration > ($STEP_S - ( $STEP_S / 8 ))" | bc -l) == 1 ]]; then
-                            acceleration_factor=$(echo "scale=2; $duration / ($STEP_S - ( $STEP_S / 8 ))" | bc -l)
-                        fi
-                        if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
-                            acceleration_factor="1.5"
-                        fi
-                        # Use FFmpeg to speed up the audio file
-                        mv -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3
-                        ffmpeg -i /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
-
-                        # Play the modified audio
-                        mpv /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 &>/dev/null &
-                    fi
-                fi
-            elif [[ $OUTPUT_TEXT == "translation" ]]; then
-                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-            elif [[ $OUTPUT_TEXT == "both" ]]; then
-                tput rev
-                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                tput sgr0
-            fi
-        fi
+        # Call the function to process the audio chunk
+        process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
 
         while [ $SECONDS -lt $((($i+1)*$STEP_S)) ]; do
             sleep 0.1
