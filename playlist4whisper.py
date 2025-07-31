@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 play4whisper - displays a playlist for "livestream_video.sh" and plays audio/video files or video streams,
 transcribing the audio using AI technology. The application supports a fully configurable timeshift feature,
@@ -5,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.54 License: GPL 3.0
+Author: Antonio R. Version: 3.56 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -170,19 +171,55 @@ def check_player_installed(player):
 
 def perform_startup_checks(results_queue):
     """
-    Runs all slow, blocking startup checks in a separate thread
-    and puts the results into a queue for the main GUI thread.
+    Runs ALL slow, blocking startup checks in a separate thread.
+    Uses global configuration lists (whisper_executables, terminal, player).
+    Signals critical errors if essential programs are missing.
     """
-    terminals = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
-    players = ["none", "smplayer", "mpv"]
+    # --- Check for critical executables first ---
+    # Uses the global 'whisper_executables' list
+    found_default_executable = None
+    for exe in whisper_executables:
+        if shutil.which(exe):
+            found_default_executable = exe
+            break
 
-    installed_terminals = [term for term in terminals if check_terminal_installed(term)]
-    installed_players = [play for play in players if check_player_installed(play)]
+    if found_default_executable is None:
+        results_queue.put({"critical_error": "Whisper executable is required. The program cannot continue."})
+        return
+
+    ffmpeg_process = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True)
+    if ffmpeg_process.returncode != 0 or (ffmpeg_process.stdout == "" and ffmpeg_process.stderr == ""):
+        results_queue.put({"critical_error": "ffmpeg is required (https://ffmpeg.org). The program cannot continue."})
+        return
+
+    # --- Perform non-critical checks ---
+    print("Found whisper executable:", found_default_executable, "(", shutil.which(found_default_executable), ")")
+    current_dir = os.getcwd()
+    models_dir = os.path.join(current_dir, "models")
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+
+    found_quantize_executable = None
+    quantize_paths = ["./build/bin/quantize", "./quantize"]
+    for path in quantize_paths:
+        if os.path.exists(path):
+            found_quantize_executable = path
+            break
+    if found_quantize_executable is None:
+        print("Warning: quantize executable not found. Quantization will be skipped if attempted.")
+
+    # Uses the global 'terminal' and 'player' lists
+    installed_terminals = [term for term in terminal if check_terminal_installed(term)]
+    installed_players = [play for play in player if check_player_installed(play)]
 
     trans_installed = (subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
     vlc_installed = (subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0)
 
+    # --- Send all results back to the main thread ---
     results = {
+        "critical_error": None,
+        "default_executable": found_default_executable,
+        "quantize_executable": found_quantize_executable,
         "terminals": installed_terminals,
         "players": installed_players,
         "trans": trans_installed,
@@ -204,6 +241,10 @@ default_mpv_options = ""
 default_online_translation_option = False
 default_trans_options = "en both speak"
 default_override_option = False
+
+# Array of executable names in priority order
+whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
+
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"]
@@ -251,6 +292,8 @@ regions = {"Africa": ["af", "am", "ar", "ha", "sn", "so", "sw", "yo", "xh", "zu"
 # Placeholders that will be populated by the startup thread
 terminal_installed = []
 player_installed = []
+default_executable = None
+quantize_executable = None
 # These texts will be set dynamically once checks are complete
 options_frame1_text = "Checking for translate-shell..."
 options_frame3_text = "Checking for VLC player..."
@@ -2810,7 +2853,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 "Missing Dependency",
                 "The 'imageio' and 'Pillow' libraries are required for the video preview feature.\n\n"
                 "Please install them by running:\n"
-                "pip install imageio[ffmpeg] Pillow"
+                "pip install imageio imageio-ffmpeg Pillow"
             )
             return
         VideoSaverDialog(self.main_window)
@@ -3261,7 +3304,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 "Missing Dependency",
                 "The 'imageio' and 'Pillow' libraries are required for this feature.\n\n"
                 "Please install them by running:\n"
-                "pip install imageio[ffmpeg] Pillow"
+                "pip install imageio imageio-ffmpeg Pillow"
             )
             return
 
@@ -4022,7 +4065,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.54\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.56\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -4074,10 +4117,22 @@ class MainApplication:
         try:
             results = self.startup_results_queue.get(block=False)
 
+            # --- CRITICAL ERROR HANDLING ---
+            if results.get("critical_error"):
+                error_msg = results["critical_error"]
+                print(f"FATAL STARTUP ERROR: {error_msg}") # Message in terminal
+                self.loading_label.destroy() # Remove loading label before showing error
+                messagebox.showerror("Startup Error", error_msg) # Message in GUI
+                self.main_window.destroy() # Close the application
+                return
+
             # --- Update global variables with the results ---
-            global terminal_installed, player_installed, options_frame1_text, options_frame3_text
+            global terminal_installed, player_installed, options_frame1_text, options_frame3_text, default_executable, quantize_executable
+
             terminal_installed = results["terminals"]
             player_installed = results["players"]
+            default_executable = results["default_executable"]
+            quantize_executable = results["quantize_executable"]
 
             if results["trans"]:
                 options_frame1_text="Only for translate-shell - Online translation and Text-to-Speech"
@@ -4091,13 +4146,13 @@ class MainApplication:
 
             # Now that checks are done, build the main UI
             self.loading_label.destroy()
-            self.finish_ui_setup()
+            self.build_main_ui()
 
         except queue.Empty:
             # If no results yet, check again in 100ms
             self.main_window.after(100, self.process_startup_results)
 
-    def finish_ui_setup(self):
+    def build_main_ui(self):
         """Creates the main notebook and tabs after startup checks are complete."""
 
         icon = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC" \
@@ -4197,11 +4252,8 @@ if __name__ == "__main__":
         def _format_action_invocation(self, action):
             if not action.option_strings or action.nargs == 0:
                 return super()._format_action_invocation(action)
-            # Combine the flags like '-t, --tabs'
             flags = ', '.join(action.option_strings)
-            # Get the metavar like 'NAME [NAME ...]'
             metavar = self._format_args(action, action.dest.upper())
-            # Return the combined, professional-looking string
             return f'{flags} {metavar}'
 
     parser = argparse.ArgumentParser(
@@ -4225,61 +4277,9 @@ if __name__ == "__main__":
         help='List of tab colors. (default: %(default)s)'
     )
 
-    args = parser.parse_args() # This line exits the script if -h or --help is used
+    args = parser.parse_args()
 
-
-    # Array of executable names in priority order
-    whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
-
-    # Function to find and select executable
-    def find_and_select_executable():
-        for exe in whisper_executables:
-            # Check if the executable exists in the PATH
-            full_path = shutil.which(exe)
-            if full_path is not None:
-                # Save the first executable found and exit loop
-                return exe
-        return None
-
-    # Call function to find and select executable
-    default_executable = find_and_select_executable()
-
-    if default_executable is None:
-        print("Whisper executable is required.")
-        exit(1)
-    else:
-        print("Found whisper executable:", default_executable, "(", shutil.which(default_executable), ")")
-        current_dir = os.getcwd()
-        models_dir = os.path.join(current_dir, "models")
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir)
-
-    # Determine the path to the quantize executable
-    quantize_executable = None  # Initialize to None
-    if default_executable is not None: # Proceed only if whisper was found
-        quantize_paths = ["./build/bin/quantize", "./quantize"]
-        for path in quantize_paths:
-            if os.path.exists(path):
-                quantize_executable = path
-                break  # Stop searching once found
-
-        if quantize_executable is None:
-            print("Warning: quantize executable not found. Quantization will be skipped if attempted.")
-
-
-    # Check if ffmpeg is installed
-    ffmpeg_process = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-
-    if ffmpeg_process.returncode != 0:
-        print(f"Error: ffmpeg command returned non-zero exit status {ffmpeg_process.returncode}")
-
-    output = ffmpeg_process.stdout
-    if output == "":
-        output = ffmpeg_process.stderr
-        if output == "":
-            print("ffmpeg is required (https://ffmpeg.org).")
-            exit(1)
-
-
+    # All checks have been moved to the background thread.
+    # We can now create and run the application directly.
     app = MainApplication(args.tabs, args.colors)
     app.main_window.mainloop()
