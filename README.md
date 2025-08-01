@@ -1,9 +1,15 @@
-# playlist4whisper and Audio Transcription for Chrome/Chromium/Microsoft Edge
+# playlist4whisper/livestream_video.sh and Audio Transcription for Chrome/Chromium/Microsoft Edge
 
-playlist4whisper - displays a playlist for 'livestream_video.sh' and plays audio/video files or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell, and audio device inputs. All of these tasks can be performed efficiently even with low-level processors. Additionally, it generates subtitles from audio/video files.
+## playlist4whisper & livestream_video.sh
 
+Playlist4whisper is a GUI (Graphical User Interface) that displays a playlist whose functions are launched in the bash script 'livestream_video.sh'. Both play audio/video files, soundcard inputs, or video streams, transcribing the audio using AI technology. The application supports a fully configurable timeshift feature, multi-instance and multi-user execution, allows for changing options per channel and global options, online translation and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently even with low-level processors. 
 
+Additionally, it generates standard subtitle files from audio/video files. Users can utilize enhanced cut and merge functions to edit their video/audio files and generate subtitles only in selected parts or differentiate subtitle parts by language.
+
+</br>
 Author: Antonio R. Version: 3.56 License: GPL 3.0
+</br>
+</br>
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
@@ -14,7 +20,7 @@ Author: Antonio R. Version: 3.56 License: GPL 3.0
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
 #
 
-# Specialized functions for journalists, content creators, and researchers:
+## Specialized functions for journalists, content creators, and researchers:
 
 This application includes many options, and while it is commonly used to view, transcribe, and translate online video streams, it is especially valuable for journalists, content creators, researchers, etc., who need a solution to categorize many video and audio files by topic with integrated subtitle transcriptions and translations.
 
@@ -48,7 +54,7 @@ This command will create three tabs with the names "My live recordings", "Online
 *Check out the section on livestream_video.sh for help with the available options.
 
 
-# Audio Transcription
+## Audio Transcription
 
 Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
 
@@ -58,7 +64,7 @@ In this release, we have added various options for text output manipulation and 
 
 
 #
-# playlist4whisper Quick start
+## playlist4whisper Quick start
 
 playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, imageio, imageio-ffmpeg, Pillow, bc, and xterm are installed. 
 
@@ -90,7 +96,7 @@ python3 playlist4whisper.py
 
 
 #
-# Detailed installation for linux
+## Detailed installation for linux
 
 
 1. Download and build whisper.cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
@@ -182,7 +188,7 @@ Before using VLC go to Tools->Preferences and Show setting: All. Then Interface-
 
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 #
-# Detailed Installation for macOS
+## Detailed Installation for macOS
 
 You can run playlist4whisper.py on macOS by following these steps:
 
@@ -304,7 +310,7 @@ python3 playlist4whisper.py
 Please note that on macOS, only the xterm terminal and the mpv/vlc video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
 
 #
-# Detailed installation for Windows 10/11
+## Detailed installation for Windows 10/11
 
 playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. When using the VLC player, which is required for one of the main features, you might run into audio issues with the default settings. Nevertheless, you can also compile whisper.cpp with GPU acceleration.
 
@@ -412,7 +418,7 @@ python3 playlist4whisper.py
 MPV player is not working on Windows, potentially due to the need for additional configuration and/or installation of packages.
 
 #
-# Usage: 
+## Usage: 
 
 **Warning: When updating from an old version, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
@@ -457,7 +463,7 @@ Before using VLC go to Tools->Preferences and Show setting: All. Then Interface-
 For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
 
 #
-# livestream_video.sh
+## livestream_video.sh
 
 This is a command-line program with the same transcription functions as playlist4whisper and can be run independently of this GUI/frontend, options are set via parameters in a terminal or create a shortcut on your desktop for each TV channel.
 
@@ -556,7 +562,7 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV4.jpg)
 
 #
-# To-Do List
+## To-Do List
 
 - Advanced audio chunk processing to avoid transcriptions out of context.
 - Voice activity detection (VAD) for splitting audio into chunks.
@@ -566,7 +572,7 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 - ...
 
 #
-# FAQ
+## FAQ
 
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
