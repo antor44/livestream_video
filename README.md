@@ -20,7 +20,7 @@ Author: Antonio R. Version: 3.56 License: GPL 3.0
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
 #
 
-## Specialized functions for journalists, content creators, and researchers:
+## Specialized functions for journalists, content creators, and researchers
 
 This application includes many options, and while it is commonly used to view, transcribe, and translate online video streams, it is especially valuable for journalists, content creators, researchers, etc., who need a solution to categorize many video and audio files by topic with integrated subtitle transcriptions and translations.
 
@@ -418,7 +418,7 @@ python3 playlist4whisper.py
 MPV player is not working on Windows, potentially due to the need for additional configuration and/or installation of packages.
 
 #
-## Usage: 
+## Usage 
 
 **Warning: When updating from an old version, you may need to delete your previous configuration files in the installation directory: config_iptv.json, config_youtube.json, config_twitch.json and others config_xxx.json.**
 
@@ -545,7 +545,7 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 
 #
 
-## playlist4whisper Screenshots:
+## playlist4whisper Screenshots
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
