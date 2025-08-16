@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.56 License: GPL 3.0
+Author: Antonio R. Version: 3.60 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -234,7 +234,7 @@ default_executable_option = "./build/bin/whisper-cli"
 default_terminal_option = "xterm"
 default_bash_options = "8 base auto raw"
 default_timeshiftactive_option = False
-default_timeshift_options = "4 4 10"
+default_timeshift_options = "5 4 10"
 default_playeronly_option = False
 default_player_option = "mpv"
 default_mpv_options = ""
@@ -2980,20 +2980,26 @@ class M3uPlaylistPlayer(tk.Frame):
 
         if name and url:
             selection = self.tree.selection()
-            # Update list number for new item
             if selection:
-                index = self.tree.index(selection[0])
-                index += 1
+                index = self.tree.index(selection[0]) + 1
             else:
-                index = len(self.tree.get_children()) + 1
+                index = "end"
 
-            # Add the channel to the list
-            self.tree.insert("", index, values=(index, name, url))
+            # Insert the new item and capture its unique ID
+            new_item_id = self.tree.insert("", index, values=(0, name, url))
+
             self.update_list_numbers()
+
+            # Set the selection and focus to the newly added item
+            if new_item_id:
+                self.tree.selection_set(new_item_id)
+                self.tree.focus(new_item_id)
+                self.tree.see(new_item_id) # Ensures the new item is visible
 
             messagebox.showinfo("Success", "Channel added successfully. Don't forget to save the playlist.")
         else:
             messagebox.showerror("Error", "Both name and URL are required.")
+
 
     # Function to add a file channel
     def add_file_channel(self):
@@ -3008,24 +3014,33 @@ class M3uPlaylistPlayer(tk.Frame):
         )
 
         if file_paths:
+            first_new_item_id = None
+
+            selection = self.tree.selection()
+            if selection:
+                index = self.tree.index(selection[0]) + 1
+            else:
+                index = "end"
+
             for file_path in file_paths:
-                # Extract the file name without extension
                 name = os.path.splitext(os.path.basename(file_path))[0]
 
-                selection = self.tree.selection()
-                if selection:
-                    index = self.tree.index(selection[0])
-                    index += 1
-                else:
-                    index = len(self.tree.get_children()) + 1
+                # Insert the new item and capture its ID
+                current_item_id = self.tree.insert("", index, values=(0, name, file_path))
 
-                # Add file to the list
-                self.tree.insert("", index, values=(index, name, file_path))
-                self.update_list_numbers()
+                # Store the ID of only the first new item
+                if first_new_item_id is None:
+                    first_new_item_id = current_item_id
+
+            self.update_list_numbers()
+
+            # After adding all files, select and focus on the first one that was added
+            if first_new_item_id:
+                self.tree.selection_set(first_new_item_id)
+                self.tree.focus(first_new_item_id)
+                self.tree.see(first_new_item_id)
 
             messagebox.showinfo("Success", "File(s) added successfully. Don't forget to save the playlist.")
-        else:
-            messagebox.showerror("Error", "No file selected.")
 
 
     def get_input_sources(self):
@@ -3238,20 +3253,25 @@ class M3uPlaylistPlayer(tk.Frame):
                 if test:
                     selection = self.tree.selection()
                     if selection:
-                        index = self.tree.index(selection[0])
-                        index += 1
+                        index = self.tree.index(selection[0]) + 1
                     else:
-                        index = len(self.tree.get_children()) + 1
+                        index = "end"
 
-                    # Add audio source to the list
-                    self.tree.insert("", index, values=(index, name, audio_path))
+                    # Insert the new item and capture its ID
+                    new_item_id = self.tree.insert("", index, values=(0, name, audio_path))
+
                     self.update_list_numbers()
+
+                    # Set the selection and focus to the newly added item
+                    if new_item_id:
+                        self.tree.selection_set(new_item_id)
+                        self.tree.focus(new_item_id)
+                        self.tree.see(new_item_id)
+
                     messagebox.showinfo("Success", "Audio source added successfully. Don't forget to save the playlist.")
                     print(f"Selected sound card: {name}")
-
             else:
                 messagebox.showerror("Error", "No audio source selected.")
-
         else:
             messagebox.showerror("Error", "No audio source selected.")
 
@@ -4065,7 +4085,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.56\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 3.60\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
