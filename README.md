@@ -66,7 +66,7 @@ In this release, we have added various options for text output manipulation and 
 #
 ## playlist4whisper Quick start
 
-playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, imageio, imageio-ffmpeg, Pillow, bc, and xterm are installed. 
+playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, imageio, imageio-ffmpeg, Pillow, jq, curl, bc, and xterm are installed. 
 
 To install whisper.cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
 ```
@@ -136,7 +136,7 @@ playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files
 
 This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip jq curl bc xterm
 ```
 
 You need to install some libraries via pip. One option is to install a python virtualenv:
@@ -210,6 +210,7 @@ brew install smplayer
 brew install translate-shell
 brew install yt-dlp
 brew install streamlink
+brew install jq
 ```
 You need to install some libraries via pip. One option is to install a python virtualenv:
 ```
@@ -334,7 +335,7 @@ sudo apt upgrade
 ```
 Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
 ```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip bc gnome-terminal xterm
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip jq curl bc gnome-terminal xterm
 ```
 
 You need to install some libraries via pip. One option is to install a python virtualenv:
