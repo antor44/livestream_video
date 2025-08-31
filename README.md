@@ -623,10 +623,16 @@ auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az 
 
 --subtitles:      Generate subtitles from an audio/video file, with support for language selection, Whisper AI translation, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source file.
 
- --trans:          Online translation and Text-to-Speech with translate-shell (https://github.com/soimort/translate-shell). 
-    trans_language: Translation language for translate-shell. 
-    output_text: Choose the output text during translation with translate-shell: original, translation, both, none. 
-    speak: Online Text-to-Speech using translate-shell.
+ --trans         Enables online translation. Must be followed by a language code.
+                  Default engine is translate-shell. Use --gemini-trans to switch to the Gemini API.
+    trans_language: Translation language (e.g., es, fr, de).
+    output_text: (Optional) Output text: original, translation, both, none.
+    speak: (Optional) Online Text-to-Speech.
+
+  --gemini-trans  Use the Google Gemini API for higher quality translation (replaces translate-shell).
+                  Requires the '--trans' flag to be set with a language.
+                  Requires the 'GEMINI_API_KEY' environment variable to be set.
+    gemini_model: (Optional) Specify a Gemini model. Defaults to 'gemini-2.5-flash-lite'.
 
 --timeshift:      Timeshift feature, only VLC player is supported.
 
