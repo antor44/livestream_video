@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 3.60 License: GPL 3.0
+Author: Antonio R. Version: 4.00 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -241,12 +241,16 @@ default_mpv_options = ""
 default_online_translation_option = False
 default_trans_options = "en both speak"
 default_override_option = False
+default_engine_model_option = "Google Translate"
+default_gemini_api_key = ""
+default_gemini_model = "gemini-2.5-flash-lite"
 
 # Array of executable names in priority order
 whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcpp", "whisper"]
 
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
+gemini_models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"]
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 model_path = "./models/ggml-{}.bin"
@@ -1574,6 +1578,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.populate_playlist()
         self.load_options()
 
+
     def create_widgets(self):
 
         # Search box frame
@@ -1588,7 +1593,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.search_entry.bind("<KeyRelease>", self.filter_playlist)
         self.search_entry.bind("<Button-3>", self.show_popup_menu)
 
-        # Label to display the search match count, now positioned after the entry box.
         self.search_count_label = tk.Label(self.search_frame, text="0/0")
         self.search_count_label.pack(side=tk.LEFT, padx=(0, 5))
 
@@ -1610,7 +1614,6 @@ class M3uPlaylistPlayer(tk.Frame):
         self.tree.column("name", width=200, stretch=True, minwidth=50)
         self.tree.column("url", width=400, stretch=True, minwidth=50)
         self.tree.bind('<Double-Button-1>', self.play_channel)
-        # Bind mouse dragging events for drag-and-drop
         self.tree.bind('<ButtonPress-1>', self.on_treeview_button_press)
         self.tree.bind('<B1-Motion>', self.on_treeview_motion)
         self.tree.bind('<ButtonRelease-1>', self.on_treeview_button_release)
@@ -1624,257 +1627,186 @@ class M3uPlaylistPlayer(tk.Frame):
         self.container_frame = tk.Frame(self)
         self.container_frame.pack(side=tk.LEFT)
 
-        # First Down Frame
+        # --- First Down Frame ---
         self.options_frame0 = tk.Frame(self.container_frame)
         self.options_frame0.pack(side=tk.TOP, anchor=tk.W)
 
         # Terminal
-
         self.terminal_label = tk.Label(self.options_frame0, text="Terminal", padx=10)
         self.terminal_label.pack(side=tk.LEFT)
-
         self.terminal_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.terminal_frame.pack(side=tk.LEFT)
-
         self.terminal = tk.StringVar(value="gnome-terminal")
-
         def update_terminal_button():
-            selected_option = self.terminal.get()
-            self.terminal_option_menu.configure(text=selected_option)
+            self.terminal_option_menu.configure(text=self.terminal.get())
             self.save_options()
-
-        self.terminal_option_menu = tk.Menubutton(self.terminal_frame, textvariable=self.terminal, indicatoron=True,
-                                                  relief="raised")
+        self.terminal_option_menu = tk.Menubutton(self.terminal_frame, text=self.terminal.get(), indicatoron=True, relief="raised")
         self.terminal_option_menu.pack(side=tk.LEFT)
-
         terminal_menu = tk.Menu(self.terminal_option_menu, tearoff=0)
         self.terminal_option_menu.configure(menu=terminal_menu)
-
         for term in terminal:
-            if term in terminal_installed:
-                terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
-                                              command=update_terminal_button)
-                default_terminal_option = term
-            else:
-                terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal,
-                                              command=update_terminal_button, state="disabled")
-
-        self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: update_terminal_button())
+            state = "normal" if term in terminal_installed else "disabled"
+            terminal_menu.add_radiobutton(label=term, value=term, variable=self.terminal, command=update_terminal_button, state=state)
 
         # Executable selector
         self.executable_label = tk.Label(self.options_frame0, text="Executable", padx=10)
         self.executable_label.pack(side=tk.LEFT)
-
         self.executable_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.executable_frame.pack(side=tk.LEFT)
-
         self.executable = tk.StringVar(value=default_executable)
-
         def update_executable_button():
-            selected_option = self.executable.get()
-            self.executable_option_menu.configure(text=selected_option)
+            self.executable_option_menu.configure(text=self.executable.get())
             self.save_options()
-
-        self.executable_option_menu = tk.Menubutton(self.executable_frame, textvariable=self.executable, indicatoron=True,
-                                                  relief="raised")
+        self.executable_option_menu = tk.Menubutton(self.executable_frame, text=self.executable.get(), indicatoron=True, relief="raised")
         self.executable_option_menu.pack(side=tk.LEFT)
-
         executable_menu = tk.Menu(self.executable_option_menu, tearoff=0)
         self.executable_option_menu.configure(menu=executable_menu)
-
         for exe in whisper_executables:
-            if shutil.which(exe) is not None:
-                executable_menu.add_radiobutton(label=exe, value=exe, variable=self.executable,
-                                              command=update_executable_button)
-            else:
-                executable_menu.add_radiobutton(label=exe, value=exe, variable=self.executable,
-                                              command=update_executable_button, state="disabled")
-
-        self.executable_option_menu.bind("<<MenuSelect>>", lambda e: update_executable_button())
+            state = "normal" if shutil.which(exe) else "disabled"
+            executable_menu.add_radiobutton(label=exe, value=exe, variable=self.executable, command=update_executable_button, state=state)
 
         # Step_s
         self.step_s_label = tk.Label(self.options_frame0, text="Step(sec)", padx=4)
         self.step_s_label.pack(side=tk.LEFT)
-
         self.step_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.step_frame.pack(side=tk.LEFT)
-
         self.save_options_id = None
         self.step_s = tk.StringVar(value="4")
-        self.step_s_spinner = tk.Spinbox(self.step_frame, from_=3, to=60, width=2, textvariable=self.step_s,
-                                         command=self.schedule_save_options)
+        self.step_s_spinner = tk.Spinbox(self.step_frame, from_=3, to=60, width=2, textvariable=self.step_s, command=self.schedule_save_options)
         self.step_s_spinner.pack(side=tk.LEFT)
-
         self.step_s_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
         # Whisper models
         self.models_installed = []
         self.update_installed_models()
-
         self.model_label = tk.Label(self.options_frame0, text="Model", padx=4)
         self.model_label.pack(side=tk.LEFT)
-
         self.model_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.model_frame.pack(side=tk.LEFT)
-
         self.model = tk.StringVar(value="base")
         self.model_option_menu = tk.Menubutton(self.model_frame, textvariable=self.model, indicatoron=True, relief="raised")
         self.model_option_menu.pack(side=tk.LEFT)
-
         self.model_menu = tk.Menu(self.model_option_menu, tearoff=0)
         self.model_option_menu.configure(menu=self.model_menu)
+        self.update_model_menu()
 
-        self.update_model_menu()  # Initialize the model menu
-
-
-        # Regions and their languages
+        # Language
         self.language_label = tk.Label(self.options_frame0, text="Language", padx=4)
         self.language_label.pack(side=tk.LEFT)
-
         self.language_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.language_frame.pack(side=tk.LEFT)
-
         self.language = tk.StringVar(value="auto (Autodetect)")
-
         def update_language_button():
-            selected_option = self.language.get()
-            self.language_option_menu.configure(text=selected_option)
+            self.language_option_menu.configure(text=self.language.get())
             self.save_options()
-
-        self.language_option_menu = tk.Menubutton(self.language_frame, textvariable=self.language, indicatoron=True,
-                                                  relief="raised")
+        self.language_option_menu = tk.Menubutton(self.language_frame, text=self.language.get(), indicatoron=True, relief="raised")
         self.language_option_menu.pack(side=tk.LEFT)
-
         language_menu = tk.Menu(self.language_option_menu, tearoff=0)
         self.language_option_menu.configure(menu=language_menu)
-
-        language_menu.add_radiobutton(label="auto (Autodetect)", value="auto (Autodetect)", variable=self.language,
-                                      command=update_language_button)
-
+        language_menu.add_radiobutton(label="auto (Autodetect)", value="auto (Autodetect)", variable=self.language, command=update_language_button)
         for region, langs in regions.items():
             sublanguage_menu = tk.Menu(language_menu, tearoff=0)
             for lang in langs:
-                lang_name = lang_codes.get(lang)
-                full_language_name = f"{lang} ({lang_name})"
-                sublanguage_menu.add_radiobutton(label=full_language_name, value=full_language_name,
-                                                 variable=self.language, command=update_language_button)
+                full_language_name = f"{lang} ({lang_codes.get(lang)})"
+                sublanguage_menu.add_radiobutton(label=full_language_name, value=full_language_name, variable=self.language, command=update_language_button)
             language_menu.add_cascade(label=region, menu=sublanguage_menu)
-
-        self.language_option_menu["menu"] = language_menu
-
-        self.language_option_menu.bind("<<MenuSelect>>", lambda e: update_language_button())
 
         # Translate
         self.translate_label = tk.Label(self.options_frame0, text="Translate", padx=4)
         self.translate_label.pack(side=tk.LEFT)
-
         self.translate_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.translate_frame.pack(side=tk.LEFT)
-
         self.translate = tk.BooleanVar(value=False)
-        self.translate_checkbox = tk.Checkbutton(self.translate_frame, variable=self.translate, onvalue=True,
-                                                 offvalue=False, command=self.save_options)
+        self.translate_checkbox = tk.Checkbutton(self.translate_frame, variable=self.translate, onvalue=True, offvalue=False, command=self.save_options)
         self.translate_checkbox.pack(side=tk.LEFT)
 
-        # Second Down Frame
-
+        # --- Second Down Frame ---
+        options_frame1_text = "Online translation with Google Translate or Gemini AI"
         self.options_frame1 = tk.LabelFrame(self.container_frame, text=options_frame1_text, padx=10, pady=2)
-
         self.options_frame1.pack(fill="both", expand=True, padx=10, pady=2)
 
-        # Online translation
-        self.online_translation_label = tk.Label(self.options_frame1, text="Online translation", padx=10)
+        # Online translation checkbox
+        self.online_translation_label = tk.Label(self.options_frame1, text="Online", padx=5)
         self.online_translation_label.pack(side=tk.LEFT)
-
         self.online_translation_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
         self.online_translation_frame.pack(side=tk.LEFT)
-
         self.online_translation = tk.BooleanVar(value=False)
-        self.online_translation_checkbox = tk.Checkbutton(self.online_translation_frame, variable=self.online_translation, onvalue=True,
-                                                 offvalue=False, command=self.save_options)
+        self.online_translation_checkbox = tk.Checkbutton(self.online_translation_frame, variable=self.online_translation, onvalue=True, offvalue=False, command=self.save_options)
         self.online_translation_checkbox.pack(side=tk.LEFT)
 
+        # Combined Engine and Model Selector
+        self.engine_label = tk.Label(self.options_frame1, text="Engine", padx=10, pady=2)
+        self.engine_label.pack(side=tk.LEFT)
+        self.engine_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
+        self.engine_frame.pack(side=tk.LEFT)
+        self.engine_model = tk.StringVar(value=default_engine_model_option)
+        def update_engine_model_selection():
+            self.engine_model_option_menu.config(text=self.engine_model.get())
+            self.save_options()
+        self.engine_model_option_menu = tk.Menubutton(self.engine_frame, text=self.engine_model.get(), indicatoron=True, relief="raised", anchor="w")
+        self.engine_model_option_menu.pack(side=tk.LEFT)
+        engine_menu = tk.Menu(self.engine_model_option_menu, tearoff=0)
+        self.engine_model_option_menu.configure(menu=engine_menu)
+        engine_menu.add_radiobutton(label="Google Translate", value="Google Translate", variable=self.engine_model, command=update_engine_model_selection)
+        gemini_submenu = tk.Menu(engine_menu, tearoff=0)
+        for model in gemini_models:
+            gemini_submenu.add_radiobutton(label=model, value=model, variable=self.engine_model, command=update_engine_model_selection)
+        engine_menu.add_cascade(label="Gemini AI", menu=gemini_submenu)
+
+        # API Key Button
+        self.api_key_button = tk.Button(self.options_frame1, text="API Key", command=self.set_gemini_api_key)
+        self.api_key_button.pack(side=tk.LEFT, padx=(5, 10))
+
         # Translation language
-
-        # Regions and their languages
-        self.trans_language_label = tk.Label(self.options_frame1, text="Language translation", padx=4)
+        self.trans_language_label = tk.Label(self.options_frame1, text="Lang", padx=2)
         self.trans_language_label.pack(side=tk.LEFT)
-
         self.trans_language_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
         self.trans_language_frame.pack(side=tk.LEFT)
-
         self.trans_language = tk.StringVar(value="en (English)")
-
         def update_trans_language_button():
-            selected_option = self.trans_language.get()
-            self.trans_language_option_menu.configure(text=selected_option)
+            self.trans_language_option_menu.configure(text=self.trans_language.get())
             self.save_options()
-
-        self.trans_language_option_menu = tk.Menubutton(self.trans_language_frame, textvariable=self.trans_language, indicatoron=True,
-                                                  relief="raised")
+        self.trans_language_option_menu = tk.Menubutton(self.trans_language_frame, text=self.trans_language.get(), indicatoron=True, relief="raised")
         self.trans_language_option_menu.pack(side=tk.LEFT)
-
         trans_language_menu = tk.Menu(self.trans_language_option_menu, tearoff=0)
         self.trans_language_option_menu.configure(menu=trans_language_menu)
-
         for region, langs in regions.items():
             sublanguage_menu = tk.Menu(trans_language_menu, tearoff=0)
             for lang in langs:
-                lang_name = lang_codes.get(lang)
-                full_language_name = f"{lang} ({lang_name})"
-                sublanguage_menu.add_radiobutton(label=full_language_name, value=full_language_name,
-                                                 variable=self.trans_language, command=update_trans_language_button)
+                full_language_name = f"{lang} ({lang_codes.get(lang)})"
+                sublanguage_menu.add_radiobutton(label=full_language_name, value=full_language_name, variable=self.trans_language, command=update_trans_language_button)
             trans_language_menu.add_cascade(label=region, menu=sublanguage_menu)
 
-        self.trans_language_option_menu["menu"] = trans_language_menu
-
-        self.trans_language_option_menu.bind("<<MenuSelect>>", lambda e: update_trans_language_button())
-
         # Output text
-        output_text = ["original", "translation", "both", "none"]
-
-        self.output_text_label = tk.Label(self.options_frame1, text="Output text", padx=10)
+        self.output_text_label = tk.Label(self.options_frame1, text="Output", padx=10, pady=2)
         self.output_text_label.pack(side=tk.LEFT)
-
         self.output_text_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
         self.output_text_frame.pack(side=tk.LEFT)
-
         self.output_text = tk.StringVar(value="original")
-
         def update_output_text_button():
-            selected_option = self.output_text.get()
-            self.output_text_option_menu.configure(text=selected_option)
+            self.output_text_option_menu.configure(text=self.output_text.get())
             self.save_options()
-
-        self.output_text_option_menu = tk.Menubutton(self.output_text_frame, textvariable=self.output_text, indicatoron=True,
-                                                 relief="raised")
+        self.output_text_option_menu = tk.Menubutton(self.output_text_frame, text=self.output_text.get(), indicatoron=True, relief="raised")
         self.output_text_option_menu.pack(side=tk.LEFT)
-
         output_text_menu = tk.Menu(self.output_text_option_menu, tearoff=0)
         self.output_text_option_menu.configure(menu=output_text_menu)
+        for out_text in ["original", "translation", "both", "none"]:
+            output_text_menu.add_radiobutton(label=out_text, value=out_text, variable=self.output_text, command=update_output_text_button)
 
-        for qua in output_text:
-            output_text_menu.add_radiobutton(label=qua, value=qua, variable=self.output_text, command=update_output_text_button)
-
-        self.output_text_option_menu.bind("<<MenuSelect>>", lambda e: update_output_text_button())
-
-        # text-to-speech
-        self.speak_label = tk.Label(self.options_frame1, text="Text-to-Speech", padx=10)
+        # Text-to-speech
+        self.speak_label = tk.Label(self.options_frame1, text="TTS", padx=10, pady=2)
         self.speak_label.pack(side=tk.LEFT)
-
         self.speak_frame = tk.Frame(self.options_frame1, highlightthickness=1, highlightbackground="black")
         self.speak_frame.pack(side=tk.LEFT)
-
         self.speak = tk.BooleanVar(value=False)
-        self.speak_checkbox = tk.Checkbutton(self.speak_frame, variable=self.speak, onvalue=True,
-                                                 offvalue=False, command=self.save_options)
+        self.speak_checkbox = tk.Checkbutton(self.speak_frame, variable=self.speak, onvalue=True, offvalue=False, command=self.save_options)
         self.speak_checkbox.pack(side=tk.LEFT)
 
+        # Save texts button
         self.save_text_button = tk.Button(self.options_frame1, text="Save texts", command=self.select_files)
         self.save_text_button.pack(side=tk.RIGHT, padx=10)
 
-
-        # Third Down Frame
+        # --- Third Down Frame ---
 
         self.options_frame2 = tk.Frame(self.container_frame)
         self.options_frame2.pack(side=tk.TOP, anchor=tk.W)
@@ -1966,7 +1898,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_bg = self.mpv_options_entry.cget("bg")
 
 
-        # Fourth Down Frame
+        # --- Fourth Down Frame ---
 
         self.options_frame3 = tk.LabelFrame(self.container_frame, text=options_frame3_text, padx=10, pady=2)
 
@@ -2036,7 +1968,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_videos_button.pack(side=tk.RIGHT, padx=10)
 
 
-        # Buttons
+        # --- Buttons ---
 
         # Bottom options frame with Global Options and Playlist buttons
         self.bottom_frame = tk.Frame(self.container_frame)
@@ -2130,6 +2062,20 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.about_button = tk.Button(self.options_frame7, text="About", command=self.show_about_window, padx=4)
         self.about_button.pack(side=tk.LEFT)
+
+
+    def set_gemini_api_key(self):
+        """Opens a dialog to set the Gemini API Key."""
+        self.load_config() # Load the most recent config
+        current_key = self.current_options.get("gemini_api_key", "")
+
+        dialog = EnhancedStringDialog(self.main_window, "Set Google Gemini API Key", "Enter your API Key:", initial_value=current_key, width=50)
+
+        if dialog.result is not None:
+            # The API key is always global
+            self.current_options["gemini_api_key"] = dialog.result
+            self.save_config()
+            messagebox.showinfo("API Key Saved", "Gemini API Key has been saved globally.")
 
 
     def populate_playlist(self, filename=None):
@@ -2427,35 +2373,28 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
     def widgets_updates(self):
-        executable_option = self.current_options["executable_option"]
-        terminal_option = self.current_options["terminal_option"]
-        bash_options = self.current_options["bash_options"]
-        playeronly_option = self.current_options["playeronly_option"]
-        player_option = self.current_options["player_option"]
-        mpv_options = self.current_options["mpv_options"]
-        timeshiftactive_option = self.current_options["timeshiftactive_option"]
-        timeshift_options = self.current_options["timeshift_options"]
-        online_translation_option = self.current_options["online_translation_option"]
-        trans_options = self.current_options["trans_options"]
+        # Load global settings from the current options dictionary
+        executable_option = self.current_options.get("executable_option", default_executable_option)
+        terminal_option = self.current_options.get("terminal_option", default_terminal_option)
+        bash_options = self.current_options.get("bash_options", default_bash_options)
+        playeronly_option = self.current_options.get("playeronly_option", default_playeronly_option)
+        player_option = self.current_options.get("player_option", default_player_option)
+        mpv_options = self.current_options.get("mpv_options", default_mpv_options)
+        timeshiftactive_option = self.current_options.get("timeshiftactive_option", default_timeshiftactive_option)
+        timeshift_options = self.current_options.get("timeshift_options", default_timeshift_options)
+        online_translation_option = self.current_options.get("online_translation_option", default_online_translation_option)
+        trans_options = self.current_options.get("trans_options", default_trans_options)
+        engine_model_option = self.current_options.get("engine_model_option", default_engine_model_option)
 
-        self.executable_frame.config(highlightthickness=1, highlightbackground="black")
-        self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
-        self.step_frame.config(highlightthickness=1, highlightbackground="black")
-        self.model_frame.config(highlightthickness=1, highlightbackground="black")
-        self.language_frame.config(highlightthickness=1, highlightbackground="black")
-        self.translate_frame.config(highlightthickness=1, highlightbackground="black")
-        self.quality_frame.config(highlightthickness=1, highlightbackground="black")
-        self.playeronly_frame.config(highlightthickness=1, highlightbackground="black")
-        self.player_frame.config(highlightthickness=1, highlightbackground="black")
+        # Reset all frames to black border
+        for frame in [self.executable_frame, self.terminal_frame, self.step_frame, self.model_frame, self.language_frame,
+                      self.translate_frame, self.quality_frame, self.playeronly_frame, self.player_frame,
+                      self.timeshiftactive_frame, self.sync_frame, self.segments_frame, self.segment_time_frame,
+                      self.online_translation_frame, self.engine_frame, self.trans_language_frame,
+                      self.output_text_frame, self.speak_frame]:
+            frame.config(highlightthickness=1, highlightbackground="black")
         self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
-        self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="black")
-        self.sync_frame.config(highlightthickness=1, highlightbackground="black")
-        self.segments_frame.config(highlightthickness=1, highlightbackground="black")
-        self.segment_time_frame.config(highlightthickness=1, highlightbackground="black")
-        self.online_translation_frame.config(highlightthickness=1, highlightbackground="black")
-        self.trans_language_frame.config(highlightthickness=1, highlightbackground="black")
-        self.output_text_frame.config(highlightthickness=1, highlightbackground="black")
-        self.speak_frame.config(highlightthickness=1, highlightbackground="black")
+
 
         if not self.override_options.get():
             self.mpv_options_entry.config(fg=self.mpv_fg, bg=self.mpv_bg, insertbackground=self.mpv_fg)
@@ -2463,161 +2402,97 @@ class M3uPlaylistPlayer(tk.Frame):
             if selection:
                 url = self.tree.item(selection, "values")[2]
                 if url in self.current_options:
-                    executable_option = self.current_options[url].get("executable_option", "")
-                    terminal_option = self.current_options[url].get("terminal_option", "")
-                    bash_options = self.current_options[url].get("bash_options", "")
-                    playeronly_option = self.current_options[url].get("playeronly_option", "")
-                    player_option = self.current_options[url].get("player_option", "")
-                    mpv_options = self.current_options[url].get("mpv_options", "")
-                    timeshiftactive_option = self.current_options[url].get("timeshiftactive_option", "")
-                    timeshift_options = self.current_options[url].get("timeshift_options", "")
-                    online_translation_option = self.current_options[url].get("online_translation_option", "")
-                    trans_options = self.current_options[url].get("trans_options", "")
+                    # If per-channel options exist, override the global ones
+                    channel_opts = self.current_options[url]
+                    executable_option = channel_opts.get("executable_option", executable_option)
+                    terminal_option = channel_opts.get("terminal_option", terminal_option)
+                    bash_options = channel_opts.get("bash_options", bash_options)
+                    playeronly_option = channel_opts.get("playeronly_option", playeronly_option)
+                    player_option = channel_opts.get("player_option", player_option)
+                    mpv_options = channel_opts.get("mpv_options", mpv_options)
+                    timeshiftactive_option = channel_opts.get("timeshiftactive_option", timeshiftactive_option)
+                    timeshift_options = channel_opts.get("timeshift_options", timeshift_options)
+                    online_translation_option = channel_opts.get("online_translation_option", online_translation_option)
+                    trans_options = channel_opts.get("trans_options", trans_options)
+                    engine_model_option = channel_opts.get("engine_model_option", engine_model_option)
 
-                    self.executable_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.step_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.model_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.language_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.translate_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.quality_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.playeronly_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.player_frame.config(highlightthickness=1, highlightbackground="red")
+                    # Set borders to red for all configurable options
+                    for frame in [self.executable_frame, self.terminal_frame, self.step_frame, self.model_frame,
+                                  self.language_frame, self.translate_frame, self.quality_frame, self.playeronly_frame,
+                                  self.player_frame, self.timeshiftactive_frame, self.sync_frame, self.segments_frame,
+                                  self.segment_time_frame, self.online_translation_frame, self.engine_frame,
+                                  self.trans_language_frame, self.output_text_frame, self.speak_frame]:
+                        frame.config(highlightthickness=1, highlightbackground="red")
                     self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
-                    self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.sync_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.segments_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.segment_time_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.online_translation_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.trans_language_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.output_text_frame.config(highlightthickness=1, highlightbackground="red")
-                    self.speak_frame.config(highlightthickness=1, highlightbackground="red")
         else:
             self.mpv_options_entry.config(fg=self.mpv_bg, bg=self.mpv_fg, insertbackground=self.mpv_bg)
 
-        self.terminal_option_menu.unbind("<<MenuSelect>>")
+        # Update all UI elements with the final values
         self.terminal.set(terminal_option)
-        self.terminal_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-
+        self.terminal_option_menu.config(text=terminal_option)
         if not terminal_option in terminal_installed:
-            err_message = ("Terminal Not Installed", f"Warning: Terminal {terminal_option} was not found. Please install it" \
-                          f" or choose other terminal.")
-            self.error_messages.put(err_message)
+            self.error_messages.put(("Terminal Not Installed", f"Warning: Terminal {terminal_option} not found."))
 
-        # Set executable with error checking
-        self.executable_option_menu.unbind("<<MenuSelect>>")
         self.executable.set(executable_option)
-        self.executable_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-
+        self.executable_option_menu.config(text=executable_option)
         if shutil.which(executable_option) is None:
-            err_message = ("Whisper executable Not Installed", f"Warning: Whisper executable {executable_option} was not found. Please install it" \
-                          f" or choose other.")
-            self.error_messages.put(err_message)
+            self.error_messages.put(("Whisper executable Not Installed", f"Warning: Whisper executable {executable_option} not found."))
 
         self.translate.set(False)
-
-        options_list = bash_options.split()
-        while options_list:
-            option = options_list.pop(0)
+        temp_bash_options = bash_options.split()
+        # Parse bash_options
+        for option in temp_bash_options:
             if option.isdigit() and (3 <= int(option) <= 60):
                 self.step_s.set(option)
-                self.step_s_spinner.update()
             elif option == "translate":
                 self.translate.set(True)
             elif option in ["raw", "upper", "lower"]:
-                self.quality_option_menu.unbind("<<MenuSelect>>")
                 self.quality.set(option)
-                self.quality_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+                self.quality_option_menu.config(text=option)
             elif option in model_list:
-                self.model_option_menu.unbind("<<MenuSelect>>")
                 self.model.set(option)
+                self.model_option_menu.config(text=option)
                 self.selected_model_old = self.model.get()
-                self.model_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
                 if not option in self.models_installed:
-                    model_path = "./models/ggml-{}.bin".format(option)
-                    err_message = ("Model Not Installed", f"Warning: File for model {option} was not found. " \
-                                  f"Please install it in {model_path} or choose other model.")
-                    self.error_messages.put(err_message)
+                    self.error_messages.put(("Model Not Installed", f"Warning: Model file for {option} not found."))
             elif option in lang_codes:
-                self.language_option_menu.unbind("<<MenuSelect>>")
-                lang_name = lang_codes.get(option)
-                full_language_name = f"{option} ({lang_name})"
+                full_language_name = f"{option} ({lang_codes.get(option)})"
                 self.language.set(full_language_name)
-                self.language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
-            else:
-                err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
-                                                    f" config_{self.spec}.json file")
-                self.error_messages.put(err_message)
+                self.language_option_menu.config(text=full_language_name)
 
-        options_list = timeshift_options.split()
-        option = options_list.pop(0)
+        # Parse timeshift_options
+        temp_timeshift_options = timeshift_options.split()
+        self.sync.set(temp_timeshift_options[0])
+        self.segments.set(temp_timeshift_options[1])
+        self.segment_time.set(temp_timeshift_options[2])
 
-        step_s_str = self.step_s.get()
-        if step_s_str.isdigit():
-            step_s_value = int(step_s_str)
-        else:
-            step_s_value = 0
-
-        if option.isdigit() and (0 <= int(option) <= step_s_value - 3) and (step_s_value >= 3):
-            self.sync.set(option)
-            self.sync_spinner.update()
-        else:
-            err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
-                                                    f" config_{self.spec}.json file")
-            self.error_messages.put(err_message)
-
-        option = options_list.pop(0)
-        if option.isdigit() and (2 <= int(option) <= 99):
-            self.segments.set(option)
-            self.segments_spinner.update()
-        else:
-            err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
-                                                f" config_{self.spec}.json file")
-            self.error_messages.put(err_message)
-
-        option = options_list.pop(0)
-        if option.isdigit() and (1 <= int(option) <= 99):
-            self.segment_time.set(option)
-            self.segment_time_spinner.update()
-        else:
-            err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
-                                                    f" config_{self.spec}.json file")
-            self.error_messages.put(err_message)
-
-        options_list = trans_options.split()
+        # Parse trans_options
         self.speak.set(False)
-        while options_list:
-            option = options_list.pop(0)
+        temp_trans_options = trans_options.split()
+        for option in temp_trans_options:
             if option in lang_codes:
-                self.trans_language_option_menu.unbind("<<MenuSelect>>")
-                lang_name = lang_codes.get(option)
-                full_language_name = f"{option} ({lang_name})"
+                full_language_name = f"{option} ({lang_codes.get(option)})"
                 self.trans_language.set(full_language_name)
-                self.trans_language_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+                self.trans_language_option_menu.config(text=full_language_name)
             elif option in ["original", "translation", "both", "none"]:
-                self.output_text_option_menu.unbind("<<MenuSelect>>")
                 self.output_text.set(option)
-                self.output_text_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+                self.output_text_option_menu.config(text=option)
             elif option == "speak":
                 self.speak.set(True)
-            else:
-                err_message=("Wrong option",f"Wrong option {option} found, try again after deleting"
-                                                    f" config_{self.spec}.json file")
-                self.error_messages.put(err_message)
 
         self.playeronly.set(playeronly_option)
-        self.player_option_menu.unbind("<<MenuSelect>>")
         self.player.set(player_option)
-        self.player_option_menu.bind("<<MenuSelect>>", lambda e: self.save_options())
+        self.player_option_menu.config(text=player_option)
         if not player_option in player_installed:
-            err_message = ("Video Player Not Installed", f"Warning: Video player {player_option} was not found. Please install it " \
-                          f"or choose other video player.")
-            self.error_messages.put(err_message)
+            self.error_messages.put(("Video Player Not Installed", f"Warning: Video player {player_option} not found."))
 
         self.mpv_options_entry.delete(0, tk.END)
         self.mpv_options_entry.insert(0, mpv_options)
         self.timeshiftactive.set(timeshiftactive_option)
         self.online_translation.set(online_translation_option)
+        
+        self.engine_model.set(engine_model_option)
+        self.engine_model_option_menu.config(text=engine_model_option)
 
 
     def play_channel(self, event=None):
@@ -2706,19 +2581,32 @@ class M3uPlaylistPlayer(tk.Frame):
                 bash_options = bash_options + " --yt-dlp"
             if self.subtitles == "subtitles":
                 bash_options = bash_options + " --subtitles"
-
+            
+            # --- Online Translation Logic ---
+            env = None
             if self.online_translation.get():
-                if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL,
-                                                     stderr=subprocess.DEVNULL) == 0:
+                if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
                     trans_language_text = self.trans_language.get()
                     trans_language_cleaned = trans_language_text.split('(')[0].strip()
-                    if self.speak.get():
-                        speak_value = " speak"
-                    else:
-                        speak_value = ""
+                    speak_value = " speak" if self.speak.get() else ""
+                    bash_options += f" --trans {trans_language_cleaned} {self.output_text.get()}{speak_value}"
+                    
+                    selected_engine = self.engine_model.get()
 
-                    bash_options = bash_options + " --trans " + trans_language_cleaned + " " + self.output_text.get() + speak_value
-                    print("Online translation active.")
+                    if selected_engine != "Google Translate":
+                        # Get API key from the main config dictionary
+                        self.load_config() # Ensure config is up-to-date
+                        api_key = self.current_options.get("gemini_api_key", "")
+                        
+                        if not api_key:
+                            messagebox.showwarning("API Key Missing", f"A Gemini model ('{selected_engine}') is selected, but the API key is not set. Translation will fall back to Google Translate.")
+                        else:
+                            bash_options += f" --gemini-trans {selected_engine}"
+                            env = os.environ.copy()
+                            env["GEMINI_API_KEY"] = api_key
+                            print(f"Online translation active with Gemini model: {selected_engine}.")
+                    else:
+                        print("Online translation active with Google Translate.")
                 else:
                     err_message = ("translate-shell Not Installed", f"Warning: Online translation program 'trans' was not found. Please install it.")
                     self.error_messages.put(err_message)
@@ -2748,35 +2636,32 @@ class M3uPlaylistPlayer(tk.Frame):
                     messagebox.showerror("Error", err_message)
 
                 if os.path.exists(self.bash_script):
-                    print("Script Options:", f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}")
+                    command_to_run = f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}"
+                    print("Script Options:", command_to_run)
                     try:
+                        popen_kwargs = {"env": env} if env else {}
+
                         if terminal == "gnome-terminal" and subprocess.run(
                                 ["gnome-terminal", "--version"]).returncode == 0:
                             subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c",
-                                              f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}; exec /bin/bash -i"])
+                                              f"{command_to_run}; exec /bin/bash -i"], **popen_kwargs)
                         elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
-                            subprocess.Popen(["konsole", "--noclose", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                            f"{executable_option} {mpv_options}"])
+                            subprocess.Popen(["konsole", "--noclose", "-e", command_to_run], **popen_kwargs)
                         elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["lxterm", "-hold", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                       f"{executable_option} {mpv_options}"])
+                            subprocess.Popen(["lxterm", "-hold", "-e", command_to_run], **popen_kwargs)
                         elif terminal == "mate-terminal" and subprocess.run(
                                 ["mate-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["mate-terminal", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                     f"{executable_option} {mpv_options}"])
+                            subprocess.Popen(["mate-terminal", "-e", command_to_run], **popen_kwargs)
                         elif terminal == "mlterm":
                             result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
                             mlterm_output = result.stdout
                             if "mlterm" in mlterm_output:
-                                subprocess.Popen(["bash", "-c", f"mlterm -e {self.bash_script} {url} {bash_options} "
-                                                                f"{executable_option} {mpv_options} & sleep 2 ; disown"])
+                                subprocess.Popen(["bash", "-c", f"mlterm -e {command_to_run} & sleep 2 ; disown"], **popen_kwargs)
                         elif terminal == "xfce4-terminal" and subprocess.run(
                                 ["xfce4-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["xfce4-terminal", "--hold", "-e", f"{self.bash_script} {url} "
-                                                                                f"{bash_options} {executable_option} {mpv_options}"])
+                            subprocess.Popen(["xfce4-terminal", "--hold", "-e", command_to_run], **popen_kwargs)
                         elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["xterm", "-e", f"{self.bash_script} {url} {bash_options} "
-                                                                      f"{executable_option} {mpv_options}"])
+                            subprocess.Popen(["xterm", "-e", command_to_run], **popen_kwargs)
                         else:
                             err_message= "No compatible terminal found."
                             print(err_message)
@@ -3932,24 +3817,34 @@ class M3uPlaylistPlayer(tk.Frame):
     def load_config(self):
         try:
             config_file = f'config_{self.spec}.json'
-            self.current_options["executable_option"] = default_executable_option
-            self.current_options["terminal_option"] = default_terminal_option
-            self.current_options["bash_options"] = default_bash_options
-            self.current_options["playeronly_option"] = default_playeronly_option
-            self.current_options["player_option"] = default_player_option
-            self.current_options["mpv_options"] = default_mpv_options
-            self.current_options["override_option"] = default_override_option
-            self.current_options["timeshiftactive_option"] = default_timeshiftactive_option
-            self.current_options["timeshift_options"] = default_timeshift_options
-            self.current_options["online_translation_option"] = default_online_translation_option
-            self.current_options["trans_options"] = default_trans_options
+            
+            # Start with a full set of default values
+            defaults = {
+                "executable_option": default_executable_option,
+                "terminal_option": default_terminal_option,
+                "bash_options": default_bash_options,
+                "playeronly_option": default_playeronly_option,
+                "player_option": default_player_option,
+                "mpv_options": default_mpv_options,
+                "override_option": default_override_option,
+                "timeshiftactive_option": default_timeshiftactive_option,
+                "timeshift_options": default_timeshift_options,
+                "online_translation_option": default_online_translation_option,
+                "trans_options": default_trans_options,
+                "engine_model_option": default_engine_model_option,
+                "gemini_api_key": default_gemini_api_key
+            }
 
             if os.path.exists(config_file):
                 with open(config_file, "r") as file:
-                    self.current_options = json.load(file)
-        except:
-            err_message=("Wrong option",f"Wrong option found, try again after deleting"
-                                        f" config_{self.spec}.json file")
+                    loaded_options = json.load(file)
+                    # Update defaults with loaded options, preserving all keys
+                    defaults.update(loaded_options)
+            
+            self.current_options = defaults
+
+        except Exception as e:
+            err_message=("Config Error", f"Error loading {config_file}: {e}. Try deleting it.")
             self.error_messages.put(err_message)
 
     def schedule_save_options(self, event=None):
@@ -3958,114 +3853,42 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_options_id = self.after(1000, self.save_options)
 
     def save_options(self, event=None):
-        self.executable_frame.config(highlightthickness=1, highlightbackground="black")
-        self.terminal_frame.config(highlightthickness=1, highlightbackground="black")
-        self.step_frame.config(highlightthickness=1, highlightbackground="black")
-        self.model_frame.config(highlightthickness=1, highlightbackground="black")
-        self.language_frame.config(highlightthickness=1, highlightbackground="black")
-        self.translate_frame.config(highlightthickness=1, highlightbackground="black")
-        self.quality_frame.config(highlightthickness=1, highlightbackground="black")
-        self.playeronly_frame.config(highlightthickness=1, highlightbackground="black")
-        self.player_frame.config(highlightthickness=1, highlightbackground="black")
-        self.mpv_options_entry.config(highlightthickness=1, highlightbackground="black")
-        self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="black")
-        self.sync_frame.config(highlightthickness=1, highlightbackground="black")
-        self.segments_frame.config(highlightthickness=1, highlightbackground="black")
-        self.segment_time_frame.config(highlightthickness=1, highlightbackground="black")
-        self.online_translation_frame.config(highlightthickness=1, highlightbackground="black")
-        self.trans_language_frame.config(highlightthickness=1, highlightbackground="black")
-        self.output_text_frame.config(highlightthickness=1, highlightbackground="black")
-        self.speak_frame.config(highlightthickness=1, highlightbackground="black")
-
-        executable_option = self.executable.get()
-        terminal_option = self.terminal.get()
-
-        language_text = self.language.get()
-        language_cleaned = language_text.split('(')[0].strip()
-        if self.translate.get():
-            translate_value = " translate"
-        else:
-            translate_value = ""
-
-        bash_options = self.step_s.get() + " " + self.model.get() + " " + language_cleaned + \
-                       translate_value + " " + self.quality.get()
-
-        playeronly_option = self.playeronly.get()
-        player_option = self.player.get()
-        mpv_options = self.mpv_options_entry.get()
-        timeshiftactive_option = self.timeshiftactive.get()
-
-        sync_str = self.sync.get()
-        step_s_str = self.step_s.get()
-        if sync_str.isdigit() and step_s_str.isdigit():
-            sync_value = int(sync_str)
-            step_s_value = int(step_s_str)
-            if sync_value > step_s_value - 3:
-                self.sync.set(step_s_value - 3)
-        else:
-            messagebox.showerror("Invalid Integer", f"The value is not a valid integer.")
-
-        timeshift_options = self.sync.get() + " " + self.segments.get() + " " + self.segment_time.get()
-
-        trans_language_text = self.trans_language.get()
-        trans_language_cleaned = trans_language_text.split('(')[0].strip()
-        if self.speak.get():
-            speak_value = " speak"
-        else:
-            speak_value = ""
-
-        online_translation_option = self.online_translation.get()
-
-        trans_options = trans_language_cleaned + " " + self.output_text.get() + speak_value
+        # Gather all current UI values into a dictionary
+        settings_to_save = {
+            "executable_option": self.executable.get(),
+            "terminal_option": self.terminal.get(),
+            "bash_options": f"{self.step_s.get()} {self.model.get()} {self.language.get().split('(')[0].strip()} {'translate' if self.translate.get() else ''} {self.quality.get()}".strip(),
+            "playeronly_option": self.playeronly.get(),
+            "player_option": self.player.get(),
+            "mpv_options": self.mpv_options_entry.get(),
+            "timeshiftactive_option": self.timeshiftactive.get(),
+            "timeshift_options": f"{self.sync.get()} {self.segments.get()} {self.segment_time.get()}",
+            "online_translation_option": self.online_translation.get(),
+            "trans_options": f"{self.trans_language.get().split('(')[0].strip()} {self.output_text.get()} {'speak' if self.speak.get() else ''}".strip(),
+            "engine_model_option": self.engine_model.get()
+        }
 
         if self.override_options.get():
-            self.current_options["executable_option"] = executable_option
-            self.current_options["terminal_option"] = terminal_option
-            self.current_options["bash_options"] = bash_options
-            self.current_options["playeronly_option"] = playeronly_option
-            self.current_options["player_option"] = player_option
-            self.current_options["mpv_options"] = mpv_options
-            self.current_options["timeshiftactive_option"] = timeshiftactive_option
-            self.current_options["timeshift_options"] = timeshift_options
-            self.current_options["online_translation_option"] = online_translation_option
-            self.current_options["trans_options"] = trans_options
+            # GLOBAL MODE: Update the main keys in current_options
+            for key, value in settings_to_save.items():
+                self.current_options[key] = value
+            # Ensure the override flag itself is saved
             self.current_options["override_option"] = True
         else:
+            # PER-CHANNEL MODE
             selection = self.tree.focus()
             if selection:
-                self.executable_frame.config(highlightthickness=1, highlightbackground="red")
-                self.terminal_frame.config(highlightthickness=1, highlightbackground="red")
-                self.step_frame.config(highlightthickness=1, highlightbackground="red")
-                self.model_frame.config(highlightthickness=1, highlightbackground="red")
-                self.language_frame.config(highlightthickness=1, highlightbackground="red")
-                self.translate_frame.config(highlightthickness=1, highlightbackground="red")
-                self.quality_frame.config(highlightthickness=1, highlightbackground="red")
-                self.playeronly_frame.config(highlightthickness=1, highlightbackground="red")
-                self.player_frame.config(highlightthickness=1, highlightbackground="red")
-                self.mpv_options_entry.config(highlightthickness=1, highlightbackground="red")
-                self.timeshiftactive_frame.config(highlightthickness=1, highlightbackground="red")
-                self.sync_frame.config(highlightthickness=1, highlightbackground="red")
-                self.segments_frame.config(highlightthickness=1, highlightbackground="red")
-                self.segment_time_frame.config(highlightthickness=1, highlightbackground="red")
-                self.online_translation_frame.config(highlightthickness=1, highlightbackground="red")
-                self.trans_language_frame.config(highlightthickness=1, highlightbackground="red")
-                self.output_text_frame.config(highlightthickness=1, highlightbackground="red")
-                self.speak_frame.config(highlightthickness=1, highlightbackground="red")
-
                 url = self.tree.item(selection, "values")[2]
-                self.current_options[url] = {}
-                self.current_options[url]["executable_option"] = executable_option
-                self.current_options[url]["terminal_option"] = terminal_option
-                self.current_options[url]["bash_options"] = bash_options
-                self.current_options[url]["playeronly_option"] = playeronly_option
-                self.current_options[url]["player_option"] = player_option
-                self.current_options[url]["mpv_options"] = mpv_options
-                self.current_options[url]["timeshiftactive_option"] = timeshiftactive_option
-                self.current_options[url]["timeshift_options"] = timeshift_options
-                self.current_options[url]["online_translation_option"] = online_translation_option
-                self.current_options[url]["trans_options"] = trans_options
-
+                if url not in self.current_options:
+                    self.current_options[url] = {}
+                # Update the specific dictionary for the URL
+                for key, value in settings_to_save.items():
+                    self.current_options[url][key] = value
+        
+        # Save the entire updated configuration
         self.save_config()
+        # Refresh UI to show borders correctly
+        self.widgets_updates()
 
     def save_config(self):
         config_file = f'config_{self.spec}.json'
@@ -4085,7 +3908,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 3.60\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 4.00\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
