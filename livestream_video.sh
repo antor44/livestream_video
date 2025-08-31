@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 3.56 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.00 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -21,6 +21,7 @@
 #
 # https://github.com/antor44/livestream_video
 
+
 # --- Configuration and Constants ---
 
 # Default URL to use if none is provided
@@ -31,6 +32,7 @@ readonly TEMP_FILE="/tmp/used_ports-livestream_video.txt"
 # --- Default Parameter Values ---
 
 FMT="mp3"               # Audio format
+TRANS_ENGINE="google"   # Default engine for translate-shell ("google", "bing", "yandex")
 LOCAL_FILE=0            # Flag for local file (0 = false, 1 = true)
 STEP_S=8                # Step size in seconds for audio processing
 MODEL="base"            # Default Whisper model
@@ -43,16 +45,21 @@ STREAMLINK_FORCE=""     # Force usage of Streamlink
 YTDLP_FORCE=""          # Force usage of yt-dlp
 SEGMENT_TIME=10         # Time for each segment file (minutes) in timeshift
 SEGMENTS=4              # Number of segment files for timeshift
-SYNC=4                  # Transcription/video sync time (seconds)
+SYNC=5                  # Transcription/video sync time (seconds)
 SPEAK=""                # Enable Text-to-Speech
 TRANS=""                # Enable online translation
 OUTPUT_TEXT="both"      # Output text during translation (original, translation, both, none)
 TRANS_LANGUAGE="en"     # Default translation language
+GEMINI_TRANS_MODEL=""   # Use Google's Gemini for translation with the specified model
 SUBTITLES=""            # Generate subtitles flag
 AUDIO_SOURCE=""         # Audio source (pulse:index or avfoundation:index)
 AUDIO_INDEX="0"         # Default audio index
 WHISPER_EXECUTABLE=""   # Path to the Whisper executable
 
+#GEMINI_API_KEY=""      # Optional variable for the Gemni API Key
+
+# Context window for the final translated text
+declare -a translated_context_window=()
 
 # --- Style Configuration ---
 # Auto-detect terminal capabilities for styled output.
@@ -105,6 +112,16 @@ build_model_list() {
 # Get the complete model list.
 readonly MODEL_LIST=( $(build_model_list) ) # Populate model list
 readonly OUTPUT_TEXT_LIST=( "original" "translation" "both" "none" )
+
+# Available Gemini models for translation
+AVAILABLE_GEMINI_MODELS=(
+    "gemini-2.5-pro"
+    "gemini-2.5-flash"
+    "gemini-2.5-flash-lite"
+    "gemma-3-27b-it"
+    "gemma-3-12b-it"
+    "gemma-3-4b-it"
+)
 
 # --- Function Definitions ---
 
@@ -161,14 +178,16 @@ check_requirements() {
 # Prints usage instructions and exits.
 usage() {
     cat <<EOF
-Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [player player_options]
+Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] --trans trans_language [output_text speak] [--gemini-trans [gemini_model]] [player player_options]
 
 Example:
   $0 https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
+  $0 ./my_video.mp4 --subtitles --trans es --gemini-trans
+  $0 ./my_video.mp4 --subtitles --trans fr --gemini-trans gemini-2.5-pro
 
 Help:
 
-  livestream_video.sh v. 3.56 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.00 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -203,10 +222,17 @@ Help:
 
   --subtitles     Generate subtitles (.srt) from audio/video, with language, Whisper AI translation, and online translation.
 
-  --trans         Online translation and Text-to-Speech (translate-shell: https://github.com/soimort/translate-shell).
-    trans_language: Translation language.
-    output_text: Output text: original, translation, both, none.
-    speak: Online Text-to-Speech.
+  --trans         Enables online translation. Must be followed by a language code.
+                  Default engine is translate-shell. Use --gemini-trans to switch to the Gemini API.
+    trans_language: Translation language (e.g., es, fr, de).
+    output_text: (Optional) Output text: original, translation, both, none.
+    speak: (Optional) Online Text-to-Speech.
+
+  --gemini-trans  Use the Google Gemini API for higher quality translation (replaces translate-shell).
+                  Requires the '--trans' flag to be set with a language.
+                  Requires the 'GEMINI_API_KEY' variable to be set.
+    gemini_model: (Optional) Specify a Gemini model. Defaults to 'gemini-2.5-flash-lite'.
+                  Available models: ${AVAILABLE_GEMINI_MODELS[@]}
 
   --timeshift     Timeshift feature (VLC player only).
 
@@ -319,48 +345,120 @@ process_audio_chunk() {
         sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
     fi
 
-    # --- El resto de la función (traducción, etc.) no necesita cambios ---
-    # Print original/translated text to console
-    if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]] || [[ $TRANS == "" ]]; then
-        cat /tmp/output-whisper-live_${MYPID}.txt | tee -a /tmp/transcription-whisper-live_${MYPID}.txt
-    else
-        cat /tmp/output-whisper-live_${MYPID}.txt >> /tmp/transcription-whisper-live_${MYPID}.txt
+    # --- Translation and Output Logic ---
+
+    # Get the raw transcribed text from whisper.
+    local original_text
+    original_text=$(< "/tmp/output-whisper-live_${MYPID}.txt")
+
+    # Safety guard: if transcription is empty or too short, do nothing.
+    if [[ $(wc -m <<< "$original_text") -lt 3 ]]; then
+        return
     fi
 
-    # Handle online translation and TTS
-    if [[ $TRANS == "trans" ]]; then
-        if [[ $(wc -m < /tmp/output-whisper-live_${MYPID}.txt) -ge 3 ]] && [[ $SPEAK == "speak" ]]; then
-            if [[ $OUTPUT_TEXT == "translation" ]]; then
-                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-            elif [[ $OUTPUT_TEXT == "both" ]]; then
-                tput rev
-                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-                tput sgr0
-            else
-                trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 | tee -a /tmp/translation-whisper-live_${MYPID}.txt >/dev/null
+    local translated_text=""
+    local use_trans_fallback=true
+    local fallback_indicator=""
+
+    # Attempt translation with the primary engine (Gemini)
+    if [[ -n "$GEMINI_TRANS_MODEL" ]] && [[ -n "$GEMINI_API_KEY" ]]; then
+        # Prepare context payload using previous clean translations
+        local translated_context
+        translated_context=$(printf "%s " "${translated_context_window[@]}")
+
+        # The user-approved prompt. DO NOT CHANGE.
+        local full_prompt="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New English Fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. It is crucial that you translate the full meaning without omitting any information from the original fragment. Your output must be ONLY the new translation.\n\nTranslated Context:\n${translated_context}\n\nNew English Fragment:\n${original_text}"
+
+        local json_payload
+        json_payload=$(jq -n \
+            --arg prompt_text "$full_prompt" \
+            '{
+                "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
+                "generationConfig": { "temperature": 0.2, "maxOutputTokens": 1024 },
+                "safetySettings": [
+                    { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                    { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                    { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                    { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                ]
+            }')
+
+        # API call with a 2-second timeout
+        local api_response_raw
+        api_response_raw=$(curl --silent --no-buffer --max-time 2 -X POST \
+            -H 'Content-Type: application/json' \
+            -d "$json_payload" \
+            "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+
+        if [[ $? -eq 0 ]]; then
+            local extracted_translation
+            extracted_translation=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""' | tr -d '\r\n')
+
+            if [[ -n "$extracted_translation" ]]; then
+                translated_text="$extracted_translation"
+                use_trans_fallback=false
             fi
-            if [ -f /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 ]; then
-                # ... (TTS logic remains the same)
-                duration=$(ffprobe -i /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 -show_entries format=duration -v quiet -of csv="p=0")
-                if [ -n "$duration" ]; then
-                    if [[ $(echo "$duration > ($STEP_S - ( $STEP_S / 8 ))" | bc -l) == 1 ]]; then
-                        acceleration_factor=$(echo "scale=2; $duration / ($STEP_S - ( $STEP_S / 8 ))" | bc -l)
-                    fi
-                    if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
-                        acceleration_factor="1.5"
-                    fi
-                    mv -f "/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3" "/tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3"
-                    ffmpeg -i /tmp/whisper-live_${MYPID}_$(((i+1)%2)).mp3 -filter:a "atempo=$acceleration_factor" /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
-                    mpv /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 &>/dev/null &
+        fi
+    fi
+
+    # Fallback to the secondary translation engine (trans)
+    if [[ "$use_trans_fallback" == true ]]; then
+        if [[ $TRANS == "trans" ]]; then
+            # Set fallback indicator only if Gemini was supposed to run but failed
+            if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
+                fallback_indicator="(*) "
+            fi
+            translated_text=$(echo "$original_text" | trans -no-warn -b :${TRANS_LANGUAGE})
+        fi
+    fi
+
+    # --- Display, Context Update, and TTS Logic ---
+    
+    # Log the raw original text
+    echo "$original_text" >> "/tmp/transcription-whisper-live_${MYPID}.txt"
+
+    # Display original text if enabled
+    if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]]; then
+         echo "$original_text"
+    fi
+
+    # Display translated text if available and enabled
+    if [[ -n "$translated_text" ]] && ([[ $OUTPUT_TEXT == "translation" ]] || [[ $OUTPUT_TEXT == "both" ]]); then
+        if [[ $OUTPUT_TEXT == "both" ]]; then tput rev; fi
+        echo "${fallback_indicator}${translated_text}"
+        if [[ $OUTPUT_TEXT == "both" ]]; then tput sgr0; fi
+
+        # Log the final translation
+        echo "${fallback_indicator}${translated_text}" >> "/tmp/translation-whisper-live_${MYPID}.txt"
+        
+        # Update the context window with the latest clean translation
+        translated_context_window+=("$translated_text")
+        if [ "${#translated_context_window[@]}" -gt 2 ]; then
+            translated_context_window=("${translated_context_window[@]:1}")
+        fi
+    fi
+
+    # Handle Text-to-Speech (TTS)
+    if [[ $SPEAK == "speak" ]] && [[ -n "$translated_text" ]]; then
+        # Always use the final translated text for TTS, regardless of its source
+        echo "$translated_text" | trans -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null
+
+        local audio_file="/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3"
+        if [ -f "$audio_file" ]; then
+            local duration
+            duration=$(ffprobe -i "$audio_file" -show_entries format=duration -v quiet -of csv="p=0")
+            if [ -n "$duration" ]; then
+                local acceleration_factor="1.5"
+                if [[ $(echo "$duration > ($STEP_S - ( $STEP_S / 8 ))" | bc -l) == 1 ]]; then
+                    acceleration_factor=$(echo "scale=2; $duration / ($STEP_S - ( $STEP_S / 8 ))" | bc -l)
                 fi
+                if [[ $(echo "$acceleration_factor < 1.5" | bc -l) == 1 ]]; then
+                    acceleration_factor="1.5"
+                fi
+                local accelerated_audio_file="/tmp/whisper-live_${MYPID}_$(((i+2)%2))_accel.mp3"
+                ffmpeg -y -i "$audio_file" -filter:a "atempo=$acceleration_factor" "$accelerated_audio_file" >/dev/null 2>&1
+                mpv "$accelerated_audio_file" &>/dev/null &
             fi
-        # SYNTAX FIX: The elifs now correctly follow a single if structure
-        elif [[ $OUTPUT_TEXT == "translation" ]]; then
-            trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-        elif [[ $OUTPUT_TEXT == "both" ]]; then
-            tput rev
-            trans -i /tmp/output-whisper-live_${MYPID}.txt -no-warn -b :${TRANS_LANGUAGE} | tee -a /tmp/translation-whisper-live_${MYPID}.txt
-            tput sgr0
         fi
     fi
 }
@@ -495,6 +593,20 @@ while [[ $# -gt 0 ]]; do
                 echo "Warning: Missing language option in the trans options. Default is ${TRANS_LANGUAGE}."
             fi
             ;;
+        --gemini-trans )
+            GEMINI_TRANS_MODEL="gemini-2.5-flash-lite" # Set default model
+
+            # Check for an OPTIONAL model name as the next argument
+            if [[ -n "$2" ]] && [[ "$2" != --* ]]; then
+                shift # Consume optional model argument
+                provided_model=$1
+                if [[ " ${AVAILABLE_GEMINI_MODELS[*]} " =~ " ${provided_model} " ]]; then
+                    GEMINI_TRANS_MODEL=$provided_model
+                else
+                    echo ""; echo "${ICON_ERROR} Invalid Gemini model: ${provided_model}"; echo "Available models: ${AVAILABLE_GEMINI_MODELS[@]}"; echo ""; usage; exit 1
+                fi
+            fi
+            ;;
         --player )
             shift
             MPV_OPTIONS=$1
@@ -504,7 +616,7 @@ while [[ $# -gt 0 ]]; do
             if [[ $# -gt 1 ]]; then
                 while [[ $# -gt 1 ]]; do
                     case $2 in
-                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --trans )
+                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --trans | --gemini-trans )
                             break
                             ;;
                         *)
@@ -521,6 +633,17 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# --- Argument Validation ---
+# Ensure that if --gemini-trans is used, --trans has also been used to set a language.
+if [[ -n "$GEMINI_TRANS_MODEL" ]] && [[ "$TRANS" != "trans" ]]; then
+    echo ""
+    echo "${ICON_ERROR} Error: --gemini-trans requires --trans to be set with a language."
+    echo "       Example: --trans es --gemini-trans"
+    echo ""
+    usage
+    exit 1
+fi
 
 # Ensure required tools are present
 check_requirements
@@ -607,12 +730,19 @@ if [[ "$PLAYER_ONLY" == "" ]] || [[ $SUBTITLES == "subtitles" ]] ; then
     fi
 fi
 
-# if online translate"
+# if online translate
 if [[ "$TRANS" == "trans" ]] && [[ "$PLAYER_ONLY" == "" ]]; then
-    if [[ "$SPEAK" == "speak" ]]; then
-        printf "[+] Online translation into language '$TRANS_LANGUAGE', output text: '$OUTPUT_TEXT', Text-to-speech.\n\n"
+    engine_info=""
+    if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
+        engine_info="via Gemini ('${GEMINI_TRANS_MODEL}')"
     else
-        printf "[+] Online translation into language '$TRANS_LANGUAGE', output text: '$OUTPUT_TEXT'.\n\n"
+        engine_info="via translate-shell (engine: '${TRANS_ENGINE}')"
+    fi
+
+    if [[ "$SPEAK" == "speak" ]]; then
+        printf "[+] Online translation ${engine_info} to '${TRANS_LANGUAGE}', output: '${OUTPUT_TEXT}', Text-to-speech.\n\n"
+    else
+        printf "[+] Online translation ${engine_info} to '${TRANS_LANGUAGE}', output: '${OUTPUT_TEXT}'.\n\n"
     fi
 fi
 
@@ -693,21 +823,23 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     err=0
     temp_whisper_srt="/tmp/whisper-live_${MYPID}.wav.srt"
-    temp_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt"
+    temp_online_trans_srt="/tmp/online_trans_${MYPID}.srt" # Generic temp file for both methods
 
     if [[ "$skip_transcription" == false ]]; then
         echo ""
+        echo "---------------------------------------------------------------------------"
         echo "-> Step 1: Converting audio to WAV format..."
+        echo "---------------------------------------------------------------------------"
         echo ""
         ffmpeg -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le /tmp/whisper-live_${MYPID}.wav
         err=$?
 
         if [ $err -eq 0 ]; then
             echo ""
+            echo "---------------------------------------------------------------------------"
             echo "-> Step 2: Running Whisper AI Transcription/Translation..."
+            echo "---------------------------------------------------------------------------"
             echo ""
-            echo "----------------------------------------------------"
-            # This part remains identical to your original logic.
             if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
                 "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f /tmp/whisper-live_${MYPID}.wav -osrt 2> /tmp/whisper-live_${MYPID}-err.err
                 err=$?
@@ -732,27 +864,238 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     err=$?
                 fi
                 mv /tmp/whisper-live_${MYPID}.srt "$temp_whisper_srt"
+
             fi
+        fi
+
+        # 1. Save the Whisper AI subtitle file if it was newly generated
+
+        echo ""
+        echo "-> Saving new Whisper AI subtitle to: $whisper_dest_file"
+        cp "$temp_whisper_srt" "$whisper_dest_file"
+        if [ $? -ne 0 ]; then
+            echo ""
+            echo "${ICON_ERROR} Failed to create file $whisper_dest_file ${ICON_ERROR}"
+            err=1
         fi
 
         # The source for the next step is the newly generated temporary file.
         source_srt_file="$temp_whisper_srt"
     else
         echo ""
+        echo "---------------------------------------------------------------------------"
         echo "-> Skipping Steps 1 & 2 as requested."
+        echo "---------------------------------------------------------------------------"
+        echo ""
     fi
 
-    # Perform online translation if requested and no previous errors occurred
-    if [[ $TRANS == "trans" ]] && [[ $err -eq 0 ]]; then
-        echo ""
-        echo "----------------------------------------------------"
-        echo "-> Step 3: Starting Online Translation to '${TRANS_LANGUAGE}'..."
-        echo "   (Using source: ${source_srt_file})"
-        echo "----------------------------------------------------"
-        echo ""
-        trans -b :${TRANS_LANGUAGE} -i "$source_srt_file" | tee "$temp_trans_srt" 2>/dev/null
-        echo ""
-        err=$?
+    # --- ONLINE TRANSLATION LOGIC ---
+    # This is the main switch. If --trans was used, we proceed.
+    if [[ "$TRANS" == "trans" ]] && [[ $err -eq 0 ]] && [[ -f "$source_srt_file" ]]; then
+
+        # This is the engine selector. If --gemini-trans was used, its model variable will be set.
+        if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
+            # --- B. Google Gemini API method ---
+            echo ""
+            echo "---------------------------------------------------------------------------"
+            echo "-> Step 3: Starting Online Translation (Gemini AI) to '${TRANS_LANGUAGE}'..."
+            echo ""
+            echo "   Using model: ${GEMINI_TRANS_MODEL}"
+            echo "   Source: ${source_srt_file}"
+            echo ""
+            echo "---------------------------------------------------------------------------"
+            echo ""
+
+            if [[ -z "$GEMINI_API_KEY" ]]; then
+                echo "${ICON_WARN} GEMINI_API_KEY environment variable not set. Skipping Gemini translation."
+                err=1
+            else
+                # -- Deconstruction --
+                echo "--> Deconstructing source SRT file..."
+                mapfile -t srt_numbers < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $1 }' "$source_srt_file")
+                mapfile -t srt_timestamps < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $2 }' "$source_srt_file")
+                mapfile -t text_blocks < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); s=$3; for (i=4; i<=NF; i++) { s = s "_NL_" $i } print s; }' "$source_srt_file")
+                echo "Done."
+
+                # -- Batch Processing with Context Window --
+                temp_text_only_trans="/tmp/translated_text_only_${MYPID}.txt"
+                > "$temp_text_only_trans"
+
+                batch_size=20
+                total_blocks=${#text_blocks[@]}
+
+                # Flag to track if any batch failed during translation
+                any_batch_failed=false
+
+                for (( i=0; i<total_blocks; i+=batch_size )); do
+                    start_index=$i
+                    end_index=$((i + batch_size - 1))
+                    if (( end_index >= total_blocks )); then end_index=$((total_blocks - 1)); fi
+
+                    context_start=$((start_index - 3))
+                    if (( context_start < 0 )); then context_start=0; fi
+                    context_end=$((end_index + 2))
+                    if (( context_end >= total_blocks )); then context_end=$((total_blocks - 1)); fi
+
+                    text_to_translate=""
+                    delimiter="|||SUB|||"
+                    num_prefix_context_lines=$((start_index - context_start))
+                    num_main_lines=$((end_index - start_index + 1))
+                    total_blocks_in_request=$((context_end - context_start + 1))
+
+                    for (( k=context_start; k<=context_end; k++ )); do
+                        text_to_translate+="${text_blocks[k]}${delimiter}"
+                    done
+
+                    echo "--> Translating blocks $((start_index + 1)) to $((end_index + 1)) (with full context)..."
+
+                    full_prompt="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator.\n\n${text_to_translate}"
+                    
+                    json_payload=$(jq -n \
+                        --arg prompt_text "$full_prompt" \
+                        '{
+                            "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
+                            "safetySettings": [
+                                { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                                { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                                { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                                { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                            ]
+                        }')
+
+                    max_retries=6
+                    retry_count=0
+                    batch_successful=false
+
+                    while [[ $retry_count -lt $max_retries && "$batch_successful" == false ]]; do
+                        ((retry_count++))
+                        
+                        api_response_raw=$(curl --silent --no-buffer --connect-timeout 15 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                        api_error=$(echo "$api_response_raw" | jq -r '.error.message // ""')
+
+                        if [[ -n "$api_error" ]] || [[ -z "$api_response_raw" ]]; then
+                            if [[ -z "$api_error" ]]; then api_error="cURL request timed out or returned empty response."; fi
+                            echo "${ICON_ERROR} API Error: ${api_error}"
+                            if [[ $retry_count -lt $max_retries ]]; then
+                                if [[ "$api_error" == *"quota"* ]]; then
+                                    echo "    Quota limit hit. Waiting 61s... ($((retry_count))/$((max_retries - 1)))"
+                                    sleep 61
+                                else
+                                    delay=$((retry_count * 10))
+                                    echo "    Retrying in ${delay}s... ($((retry_count))/$((max_retries - 1)))"
+                                    sleep $delay
+                                fi
+                            fi
+                            continue
+                        fi
+
+                        translated_text_block=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
+                        mapfile -t all_translations_in_batch < <(printf "%s" "$translated_text_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
+                        
+                        if [ "${#all_translations_in_batch[@]}" -ne "$total_blocks_in_request" ]; then
+                            echo "${ICON_ERROR} Translation Alignment Error: Expected ${total_blocks_in_request} total blocks, got ${#all_translations_in_batch[@]}."
+                            if [[ $retry_count -lt $max_retries ]]; then
+                                delay=$((retry_count * 10))
+                                echo "    Retrying in ${delay}s... ($((retry_count))/$((max_retries - 1)))"
+                                sleep $delay
+                            fi
+                        else
+                            main_translations=("${all_translations_in_batch[@]:$num_prefix_context_lines:$num_main_lines}")
+                            batch_successful=true
+                        fi
+                    done
+
+                    if [[ "$batch_successful" == true ]]; then
+                        for (( j=0; j<num_main_lines; j++ )); do
+                            current_block_index=$((start_index + j))
+                            printf "%s\n" "${main_translations[j]}" >> "$temp_text_only_trans"
+                            echo -e "Block $((current_block_index + 1)) translated:\n${main_translations[j]}\n"
+                        done
+                    else
+                        # --- EMERGENCY FALLBACK: TRANSLATE IN MINI-BATCHES ---
+                        echo "${ICON_WARN} Main batch failed. Activating emergency translation in smaller sub-batches..."
+                        any_batch_failed=true
+                        mini_batch_size=5
+
+                        for (( j=start_index; j<=end_index; j+=mini_batch_size )); do
+                            mini_start=$j
+                            mini_end=$((j + mini_batch_size - 1))
+                            if (( mini_end > end_index )); then mini_end=$end_index; fi
+                            
+                            echo "    --> Translating sub-batch (lines $((mini_start + 1)) to $((mini_end + 1)))..."
+                            
+                            mini_text_to_translate=""
+                            for (( l=mini_start; l<=mini_end; l++ )); do
+                                mini_text_to_translate+="${text_blocks[l]}${delimiter}"
+                            done
+
+                            mini_prompt="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator exactly. Output only the translated blocks.\n\n${mini_text_to_translate}"
+                            mini_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts": [ { "text": $prompt_text } ] } ], "safetySettings": [ { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" } ] }')
+                            mini_response_raw=$(curl --silent --no-buffer --connect-timeout 10 -X POST -H 'Content-Type: application/json' -d "$mini_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                            
+                            translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
+                            mapfile -t translated_mini_lines < <(printf "%s" "$translated_mini_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
+
+                            num_lines_in_mini_batch=$((mini_end - mini_start + 1))
+                            if [ "${#translated_mini_lines[@]}" -ne "$num_lines_in_mini_batch" ]; then
+                                echo "        ${ICON_ERROR} Sub-batch failed. Falling back to original text for these ${num_lines_in_mini_batch} lines:"
+                                any_minibatch_failed=true # Set the flag here
+                                for (( l=mini_start; l<=mini_end; l++ )); do
+                                    # Show the original text being used as fallback
+                                    echo -e "Block $((l + 1)) original:\n${text_blocks[l]}\n" | sed 's/_NL_/\n/g'
+                                    printf "%s\n" "${text_blocks[l]}" >> "$temp_text_only_trans"
+                                done
+                            else
+                                # Show the successful translations
+                                for k in "${!translated_mini_lines[@]}"; do
+                                    current_block_index=$((mini_start + k))
+                                    echo -e "Block $((current_block_index + 1)) translated (emergency mode):\n${translated_mini_lines[k]}\n"
+                                    printf "%s\n" "${translated_mini_lines[k]}" >> "$temp_text_only_trans"
+                                done
+                            fi
+                        done
+                        echo "${ICON_WARN} Finished emergency handling for the problematic block."
+                    fi
+                done
+
+                if [[ "$any_batch_failed" == true ]]; then
+                    FINAL_STATUS_MESSAGE=" ${ICON_WARN} The operation completed, but some translation blocks failed and may require special handling. ${ICON_WARN}"
+                fi
+
+                mapfile -t all_translated_lines < "$temp_text_only_trans"
+                rm "$temp_text_only_trans"
+
+                echo "--> Reconstructing final SRT file..."
+                > "$temp_online_trans_srt"
+                for (( k=0; k<total_blocks; k++ )); do
+                    line_number="${srt_numbers[k]}"
+                    timestamp="${srt_timestamps[k]}"
+                    translated_text="${all_translated_lines[k]:-${text_blocks[k]}}"
+                    translated_text_final=$(printf "%s" "$translated_text" | sed 's/_NL_/\n/g')
+                    echo -e "${line_number}\n${timestamp}\n${translated_text_final}\n" >> "$temp_online_trans_srt"
+                done
+                echo "Done."
+            fi
+        else
+            # --- A. Translate-shell (trans) method ---
+            echo ""
+            echo "---------------------------------------------------------------------------"
+            echo "-> Step 3: Starting Online Translation (translate-shell / Simple Method)..."
+            echo ""
+            echo "   Using engine: ${TRANS_ENGINE}"
+            echo "   Source: ${source_srt_file}"
+            echo ""
+            echo "---------------------------------------------------------------------------"
+            echo ""
+
+            trans -b -e "${TRANS_ENGINE}" :"${TRANS_LANGUAGE}" -i "$source_srt_file" | tee "$temp_online_trans_srt"
+            err=${PIPESTATUS[0]}
+
+            if [[ $err -ne 0 ]]; then
+                echo "${ICON_ERROR} translate-shell failed."
+            fi
+            echo ""
+        fi
     fi
 
     # --- Final File Saving Logic ---
@@ -801,18 +1144,15 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     if [ $err -eq 0 ]; then
         echo ""
-        echo "----------------------------------------------------"
-        echo "-> Finalizing Files..."
-        echo "----------------------------------------------------"
+        echo "=========================================="
+        echo "-> Finalizing File..."
+        echo "=========================================="
 
         # 1. Save the Whisper AI subtitle file if it was newly generated. No more questions here.
         if [[ "$skip_transcription" == false ]]; then
-            echo ""
-            echo "-> Saving new Whisper AI subtitle to: $whisper_dest_file"
-            mv "$temp_whisper_srt" "$whisper_dest_file"
-            if [ $? -ne 0 ]; then
+            if [ ! -e "$whisper_dest_file" ]; then
                 echo ""
-                echo "${ICON_ERROR} Failed to move file to $whisper_dest_file. Temp file is at $temp_whisper_srt ${ICON_ERROR}"
+                echo "${ICON_ERROR} Failed to create file to $whisper_dest_file ${ICON_ERROR}"
                 err=1
             fi
         else
@@ -820,32 +1160,32 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
              echo "-> Whisper AI subtitle file was not re-generated, so no new version to save."
         fi
 
-        # 2. Save the online translated file (if generated), asking for confirmation if needed.
-        # This check is important to only run saving logic if the primary steps were ok.
-        if [[ $err -eq 0 ]] && [[ $TRANS == "trans" ]] && [[ -f "$temp_trans_srt" ]]; then
-            trans_dest_file="${url_no_ext}.${TRANS_LANGUAGE}.srt"
-            trans_file_description="Online Translated Subtitle (${TRANS_LANGUAGE})"
-            save_online_translation_file "$temp_trans_srt" "$trans_dest_file" "$trans_file_description"
-        fi
-    fi
+        # CORRECTED: This check now correctly handles both cases
+        if [[ $err -eq 0 ]] && [[ "$TRANS" == "trans" ]] && [[ -f "$temp_online_trans_srt" ]]; then
+             trans_dest_file="${url_no_ext}.${TRANS_LANGUAGE}.srt"
+             trans_file_description="Online Translated Subtitle (${TRANS_LANGUAGE})"
+
+             save_online_translation_file "$temp_online_trans_srt" "$trans_dest_file" "$trans_file_description"
+
+             set +x
+         fi
+     fi
 
     # --- Final Status ---
     if [ $err -eq 0 ]; then
-        echo ""
-        echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"
-        echo ""
+        if [[ "$any_minibatch_failed" == true ]]; then
+            echo ""; echo " ${ICON_WARN} Process completed, but some parts could not be translated and the original text was used instead. ${ICON_WARN}"; echo ""
+        else
+            echo ""; echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"; echo ""
+        fi
         exit 0
     elif [ $err -eq 2 ]; then
-        echo ""
-        echo " ${ICON_WARN} Operation finished, but final file was not saved as per user request. ${ICON_WARN}"
-        echo ""
-        exit 0 # Exit cleanly as it was not a script failure
+        echo ""; echo " ${ICON_WARN} Operation finished, but final file was not saved as per user request. ${ICON_WARN}"; echo ""
+        exit 0
     else
-        echo ""
-        echo "${ICON_ERROR} An error occurred during the subtitle generation process. ${ICON_ERROR}"
-        echo ""
+        echo ""; echo "${ICON_ERROR} An error occurred during the subtitle generation process. ${ICON_ERROR}"; echo ""
         pkill -f "^ffmpeg.*${MYPID}.*$"
-        pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
+        pkill -f "^${WHISPER_EXECUTABLE}.*${MY_PID}.*$"
         pkill -f "^trans.*${MYPID}.*$"
         exit 1
     fi
@@ -868,303 +1208,160 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     case $URL in
         pulse )
              filename_base="whisper-live_${MYPID}_buf%03d"
-             # The dynamic timestamp is handled directly by the ffmpeg filter
              filter_complex="[0:a]showspectrum=s=854x480:mode=separate:color=intensity:legend=disabled:fps=25,drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:text='PID\: ${MYPID} | %{pts\:gmtime\:$(date +%s)\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}':fontcolor=white:x=10:y=10"
-
-             ffmpeg -loglevel quiet -y \
-             -f pulse -i "$AUDIO_INDEX" \
-             -filter_complex "$filter_complex" \
-             -c:v mjpeg -q:v 2 -c:a pcm_s16le \
-             -threads 2 \
-             -f segment \
-             -segment_time $SEGMENT_TIME \
-             -reset_timestamps 1 \
-             -segment_format avi \
-             /tmp/${filename_base}.avi &
+             ffmpeg -loglevel quiet -y -f pulse -i "$AUDIO_INDEX" -filter_complex "$filter_complex" -c:v mjpeg -q:v 2 -c:a pcm_s16le -threads 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 -segment_format avi /tmp/${filename_base}.avi &
              FFMPEG_PID=$!
              ;;
          avfoundation )
              filename_base="whisper-live_${MYPID}_buf%03d"
-             # The dynamic timestamp is handled directly by the ffmpeg filter
              filter_complex="[0:a]showspectrum=s=854x480:mode=separate:color=intensity:legend=disabled:fps=25,drawtext=fontfile=/System/Library/Fonts/Supplemental/Arial.ttf:text='PID\: ${MYPID} | %{pts\:gmtime\:$(date +%s)\:%Y-%m-%d %H\\\\\:%M\\\\\:%S}':fontcolor=white:x=10:y=10"
-
-             ffmpeg -loglevel quiet -y \
-             -f avfoundation -i :"${AUDIO_INDEX}" \
-             -filter_complex "$filter_complex" \
-             -c:v mjpeg -q:v 2 -c:a pcm_s16le \
-             -threads 2 \
-             -f segment \
-             -segment_time $SEGMENT_TIME \
-             -reset_timestamps 1 \
-             -segment_format avi \
-             /tmp/${filename_base}.avi &
+             ffmpeg -loglevel quiet -y -f avfoundation -i :"${AUDIO_INDEX}" -filter_complex "$filter_complex" -c:v mjpeg -q:v 2 -c:a pcm_s16le -threads 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 -segment_format avi /tmp/${filename_base}.avi &
              FFMPEG_PID=$!
              ;;
         *youtube* | *youtu.be* )
-            if ! command -v yt-dlp &>/dev/null; then
-                echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
-                exit 1
-            fi
+            if ! command -v yt-dlp &>/dev/null; then echo "yt-dlp is required" && exit 1; fi
             ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $URL) -bufsize 44M -acodec ${FMT} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
             FFMPEG_PID=$!
             ;;
         * )
             if [[ "$STREAMLINK_FORCE" = "streamlink" || "$URL" = *twitch* ]]; then
-                if ! command -v streamlink >/dev/null 2>&1; then
-                    echo "streamlink is required (https://streamlink.github.io)"
-                    exit 1
-                fi
+                if ! command -v streamlink >/dev/null 2>&1; then echo "streamlink is required" && exit 1; fi
                 streamlink $URL best -O 2>/dev/null | ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i - -bufsize 44M -acodec ${FMT} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
                 FFMPEG_PID=$!
             elif [[ "$YTDLP_FORCE" = "yt-dlp" ]]; then
-                if ! command -v yt-dlp &>/dev/null; then
-                    echo "yt-dlp is required (https://github.com/yt-dlp/yt-dlp)"
-                    exit 1
-                fi
+                if ! command -v yt-dlp &>/dev/null; then echo "yt-dlp is required" && exit 1; fi
                 ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $(yt-dlp -i -f b -g $URL) -bufsize 44M -acodec ${FMT} -threads 2 -vcodec libx264 -map 0:v:0 -map 0:a:0 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
                 FFMPEG_PID=$!
             else
                 if [[ $QUALITY == "lower" ]]; then
-                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $URL -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a:0? -map 0:a:1? -map 0:a:2? -map 0:a:3? -map 0:a:4? -map 0:a:5? -map 0:a:6? -map 0:a:7? -map 0:a:8? -map 0:a:9? -acodec ${FMT} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $URL -bufsize 44M -map_metadata 0 -map 0:v:0? -map 0:v:1? -map 0:v:2? -map 0:v:3? -map 0:v:4? -map 0:v:5? -map 0:v:6? -map 0:v:7? -map 0:v:8? -map 0:v:9? -map 0:a? -acodec ${FMT} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
                     FFMPEG_PID=$!
                 else
-                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $URL -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a:9? -map 0:a:8? -map 0:a:7? -map 0:a:6? -map 0:a:5? -map 0:a:4? -map 0:a:3? -map 0:a:2? -map 0:a:1? -map 0:a:0? -acodec ${FMT} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
+                    ffmpeg -loglevel quiet -accurate_seek -y -probesize 32 -i $URL -bufsize 44M -map_metadata 0 -map 0:v:9? -map 0:v:8? -map 0:v:7? -map 0:v:6? -map 0:v:5? -map 0:v:4? -map 0:v:3? -map 0:v:2? -map 0:v:1? -map 0:v:0? -map 0:a? -acodec ${FMT} -vcodec libx264 -threads 2 -preset ultrafast -movflags +faststart -vsync 2 -f segment -segment_time $SEGMENT_TIME -reset_timestamps 1 /tmp/whisper-live_${MYPID}_buf%03d.avi &
                     FFMPEG_PID=$!
                 fi
             fi
             ;;
     esac
 
-
-    # build m3u playlist
     arg='#EXTM3U'
-		x=0
-		while [ $x -lt $SEGMENTS ]; do
-			arg="$arg"'\n/tmp/whisper-live_'"${MYPID}"'_'"$x"'.avi'
-			x=$((x+1))
-		done
-		echo -e $arg > /tmp/playlist_whisper-live_${MYPID}.m3u
+	x=0
+	while [ $x -lt $SEGMENTS ]; do
+		arg="$arg"'\n/tmp/whisper-live_'"${MYPID}"'_'"$x"'.avi'
+		x=$((x+1))
+	done
+	echo -e $arg > /tmp/playlist_whisper-live_${MYPID}.m3u
 
-    # Define the maximum time to wait in seconds
     max_wait_time=20
-
-    # Define the file path pattern
     file_path="/tmp/whisper-live_${MYPID}_buf000.avi"
-
-    # Get the start time
     start_time=$(date +%s)
-
-    # Loop until the file exists or the maximum wait time is reached
     while [ ! -f "$file_path" ]; do
-        # Get the current time
         current_time=$(date +%s)
-
-        # Calculate the elapsed time
         elapsed_time=$((current_time - start_time))
-
-        # Check if the maximum wait time is exceeded
-        if [ "$elapsed_time" -ge "$max_wait_time" ]; then
-            echo "Maximum wait time exceeded."
-            break
-        fi
-
-        # Wait for a short interval before checking again
+        if [ "$elapsed_time" -ge "$max_wait_time" ]; then echo "Maximum wait time exceeded." && break; fi
         sleep 0.1
     done
 
-    # Check if the file exists after the loop
     if [ -f "$file_path" ]; then
-        # launch player
         sleep 10
-        ln -f -s /tmp/whisper-live_${MYPID}_buf000.avi /tmp/whisper-live_${MYPID}_0.avi # symlink first buffer at start
+        ln -f -s /tmp/whisper-live_${MYPID}_buf000.avi /tmp/whisper-live_${MYPID}_0.avi
     else
-        printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
-        exit 1
+        printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n" && exit 1
     fi
 
-    if [[ "$PLAYER_ONLY" == "" ]]; then
-        printf "Buffering audio. Please wait...\n\n"
-    fi
+    if [[ "$PLAYER_ONLY" == "" ]]; then printf "Buffering audio. Please wait...\n\n"; fi
+    if ! ps -p $FFMPEG_PID > /dev/null; then printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n" && exit 1; fi
 
-    if ! ps -p $FFMPEG_PID > /dev/null; then
-        printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n"
-        exit 1
-    fi
-
-    sleep $(($STEP_S+$SYNC))
+    sleep 2
     if [[ $MPV_OPTIONS == "true" ]]; then
         vlc -I http --http-host 127.0.0.1 --http-port "$MYPORT" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${MYPID}.m3u >/dev/null 2>&1 &
     else
         vlc --extraintf=http --http-host 127.0.0.1 --http-port "$MYPORT" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${MYPID}.m3u >/dev/null 2>&1 &
     fi
 
-    if [ $? -ne 0 ]; then
-        printf "${ICON_ERROR} Error: The player could not play the stream. Please check your input or try again later\n"
-        exit 1
-    fi
+    if [ $? -ne 0 ]; then printf "${ICON_ERROR} Error: The player could not play the stream\n" && exit 1; fi
+    VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}')
+    if [ -z "$VLC_PID" ]; then printf "${ICON_ERROR} Error: The player could not be executed.\n" && exit 1; fi
 
-   VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}') # check pidof vlc
-    if [ -z "$VLC_PID" ]; then
-        VLC_PID=0
-        printf "${ICON_ERROR} Error: The player could not be executed.\n"
-        exit 1
-    fi
-
-    # do not stop script on error
     set +e
-
-    # handle buffers, repeat until player closes
-
-    n=0
-    tbuf=0
-  	abuf="000"
-    xbuf=1
-    nbuf="001"
-
-    i=-1
-    SECONDS=0
-    FILEPLAYED=""
-    TIMEPLAYED=0
-    acceleration_factor="1.5"
-
-    if [[ "$PLAYER_ONLY" != "" ]]; then
-      echo "${ICON_OK} -> Now recording video buffer /tmp/whisper-live_${MYPID}_$n.avi"
-    fi
+    n=0; tbuf=0; abuf="000"; xbuf=1; nbuf="001"
+    FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
+    TIMEPLAYED=0; tin=0
 
     while [ $RUNNING -eq 1 ]; do
-
-  		if [ -f /tmp/whisper-live_${MYPID}_buf$nbuf.avi ]; then # check split
+  		if [ -f /tmp/whisper-live_${MYPID}_buf$nbuf.avi ]; then
   			mv -f /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
-  			if [ $n -eq $((SEGMENTS-1)) ]; then # restart buffer value when last buffer reached
-  				n=-1
-  			fi
+  			if [ $n -eq $((SEGMENTS-1)) ]; then n=-1; fi
   			tbuf=$((tbuf+1))
-  			if [ $tbuf -lt 10 ]; then # split number, character value
-  				abuf="00"$tbuf""
-  			elif [ $tbuf -lt 100 ]; then
-  				abuf="0"$tbuf""
-  			else
-  				abuf="$tbuf"
-  			fi
-        xbuf=$((xbuf+1))
-        if [ $xbuf -lt 10 ]; then # split number, character value
-          nbuf="00"$xbuf""
-        elif [ $xbuf -lt 100 ]; then
-          nbuf="0"$xbuf""
-        else
-  				nbuf="$xbuf"
-  			fi
-        n=$((n+1))
+  			if [ $tbuf -lt 10 ]; then abuf="00"$tbuf""; elif [ $tbuf -lt 100 ]; then abuf="0"$tbuf""; else abuf="$tbuf"; fi
+            xbuf=$((xbuf+1))
+            if [ $xbuf -lt 10 ]; then nbuf="00"$xbuf""; elif [ $xbuf -lt 100 ]; then nbuf="0"$xbuf""; else nbuf="$xbuf"; fi
+            n=$((n+1))
   			ln -f -s /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
-        if [ "$PLAYER_ONLY" != "" ]; then
-          echo "${ICON_OK} -> Now recording video buffer /tmp/whisper-live_${MYPID}_$n.avi"
-        fi
   		fi
 
-      while [ $SECONDS -lt $((($i+1)*$STEP_S)) ]; do
-          sleep 0.1
-      done
+        vlc_check
+        curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
+        FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
+        POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
-      vlc_check
+        if [[ "$PLAYER_ONLY" == "" ]] && [[ -f "/tmp/$FILEPLAY" ]]; then
+            if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
+                FILEPLAYED="$FILEPLAY"
+                TIMEPLAYED=$(date +%s -r "/tmp/$FILEPLAY")
+                translated_context_window=()
+                transcribed_until=0; last_pos=0; tin=0
+                segment_duration=$(ffprobe -i "/tmp/$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
+                if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=$SEGMENT_TIME; fi
+                
+                # Proactive "kickstart" for the first chunk of a new segment
+                if (( $(echo "$segment_duration > 1" | bc -l) )); then
+                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
+                    process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                    transcribed_until=$STEP_S
+                fi
+            elif [ "$(date +%s -r "/tmp/$FILEPLAY")" -gt "$((TIMEPLAYED + SEGMENT_TIME + 6))" ] && [ $tin -eq 0 ]; then
+                tin=1
+            fi
 
-      curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
+            if [ $tin -eq 0 ]; then
+                pos_diff=$(echo "$POSITION - $last_pos" | bc)
+                seek_threshold=$(echo "2 * $STEP_S" | bc)
+                if (( $(echo "$pos_diff > $seek_threshold" | bc -l) )) || (( $(echo "$pos_diff < -$seek_threshold" | bc -l) )); then
+                    transcribed_until=$POSITION
+                fi
+                last_pos=$POSITION
 
-            FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
+                if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
+                    chunk_start=$transcribed_until
+                    chunk_duration=$STEP_S
 
-            POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
+                    if (( $(echo "$chunk_start + $chunk_duration > $segment_duration" | bc -l) )); then
+                        chunk_duration=$(echo "$segment_duration - $chunk_start" | bc)
+                    fi
 
-
-      if [[ "$POSITION" =~ ^[0-9]+$ ]] && [[ "$PLAYER_ONLY" == "" ]]; then
-
-          if [ $POSITION -ge 2 ]; then
-
-              if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
-                  FILEPLAYED="$FILEPLAY"
-                  TIMEPLAYED=$(date -r /tmp/"$FILEPLAY" +%s)
-                  if [ $(echo "$POSITION < $STEP_S" | bc -l) -eq 1 ]; then
-                      in=0
-                  else
-                      in=2
-                      ((SECONDS=SECONDS+STEP_S))
-                  fi
-                  tin=0
-              elif [ "$(date -r /tmp/"$FILEPLAY" +%s)" -gt "$((TIMEPLAYED + SEGMENT_TIME + 6))" ] && [ $tin -eq 0 ]; then
-                  tin=1
-              fi
-
-              if [ $tin -eq 0 ]; then
-                  err=1
-
-                  segment_played=$(echo ffprobe -i /tmp/"$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p')
-
-                  if ! [[ "$segment_played" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-                      segment_played="$SEGMENT_TIME"
-                  fi
-
-                  rest=$(echo "$segment_played - $POSITION - $SYNC" | bc -l)
-                  tryed=0
-                  if [ $(echo "$rest < $STEP_S" | bc -l) -eq 1 ] && [ $(echo "$rest > 0" | bc -l) -eq 1 ]; then
-
-                      while [ $err -ne 0 ] && [ $tryed -lt 10 ]; do
-                          sleep 0.4
-                          ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $SYNC - 0.8" | bc -l) -t $(echo "$rest + 0.8" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-                          ((tryed=tryed+1))
-                          err=$(cat /tmp/whisper-live_${MYPID}.err | wc -l)
-                      done
-                      in=3
-
-                  else
-
-                      while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                          if [ $in -eq 0 ]; then
-                              if [ $(echo "$((POSITION)) < $(((STEP_S+SYNC)*2))" | bc -l) -eq 1 ]; then
-                                  ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $SYNC - 0.8" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-                                  in=1
-                              else
-                                  in=1
-                              fi
-                          else
-                              ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $SYNC - 0.8" | bc -l) -t $(echo "$STEP_S + 0.0" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-                              in=2
-                          fi
-                          err=$(cat /tmp/whisper-live_${MYPID}.err | wc -l)
-                          ((tryed=tryed+1))
-                          sleep 0.4
-                      done
-
-                      if [ $in -eq 1 ]; then
-                          ((SECONDS=SECONDS+STEP_S))
-                      fi
-
-                  fi
-
-                  # Call the function to process the audio chunk
-                  process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-
-              elif [ $tin -eq 1 ]; then
-                  echo
-                  echo "${ICON_WARN} Timeshift window reached. Video $FILEPLAY overwritten. You can still watch it, but without transcriptions. Next files may be affected. Adjust Timeshift for more segments/longer times ${ICON_WARN}"
-                  echo
-                  tin=2
-              fi
-
-          else
-            in=0
-          fi
-      fi
-      ((i=i+1))
-
+                    if (( $(echo "$chunk_duration > 1" | bc -l) )); then
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
+                        process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                    fi
+                    
+                    transcribed_until=$((transcribed_until + STEP_S))
+                fi
+            elif [ $tin -eq 1 ]; then
+                echo
+                echo "${ICON_WARN} Timeshift window reached. Video $FILEPLAY overwritten. Transcription may be affected. ${ICON_WARN}"
+                echo
+                tin=2
+            fi
+        fi
+        sleep 0.5
     done
 
     pkill -f "^ffmpeg.*${MYPID}.*$"
     pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
-    # Remove the used port from the temporary file
-    if [ -f "$TEMP_FILE" ]; then
-        awk -v myport="$MYPORT" '$0 !~ myport' "$TEMP_FILE" > temp_file.tmp && mv temp_file.tmp "$TEMP_FILE"
-    fi
+    if [ -f "$TEMP_FILE" ]; then awk -v myport="$myport" '$0 !~ myport' "$TEMP_FILE" > temp_file.tmp && mv temp_file.tmp "$TEMP_FILE"; fi
 
 elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local video file with vlc
-
     if [[ "$PLAYER_ONLY" == "" ]]; then
         arg="#EXTM3U\n${URL}"
         echo -e $arg > /tmp/playlist_whisper-live_${MYPID}.m3u
@@ -1174,125 +1371,67 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
         else
             vlc --extraintf=http --http-host 127.0.0.1 --http-port "$MYPORT" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${MYPID}.m3u >/dev/null 2>&1 &
         fi
+        
+        if [ $? -ne 0 ]; then printf "${ICON_ERROR} Error: The player could not play the file.\n" && exit 1; fi
+        VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}')
+        if [ -z "$VLC_PID" ]; then printf "${ICON_ERROR} Error: The player could not be executed.\n" && exit 1; fi
 
-        if [ $? -ne 0 ]; then
-            printf "${ICON_ERROR} Error: The player could not play the file. Please check your input.\n"
-            exit 1
-        fi
-
-        VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}') # check pidof vlc
-        if [ -z "$VLC_PID" ]; then
-            VLC_PID=0
-            printf "${ICON_ERROR} Error: The player could not be executed.\n"
-            exit 1
-        fi
-
-        # do not stop script on error
         set +e
+        FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
 
-       FILEPLAYED=""
-       TIMEPLAYED=0
-       SECONDS=0
-       i=-1
-       acceleration_factor="1.5"
-
-        # repeat until player closes
         while [ $RUNNING -eq 1 ]; do
-
-
-            while [ $SECONDS -lt $((($i+1)*$STEP_S)) ]; do
-                sleep 0.1
-            done
-
             vlc_check
-
             curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
+            FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
+            POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
-                  FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
-
-                  POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
-
-
-            if [[ "$POSITION" =~ ^[0-9]+$ ]]; then
-
-                if [ $POSITION -ge 2 ]; then
-
-                    if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
-                        FILEPLAYED="$FILEPLAY"
-                        if [ $(echo "$POSITION < $STEP_S" | bc -l) -eq 1 ]; then
-                            in=0
-                        else
-                            in=2
-                            ((SECONDS=SECONDS+STEP_S))
-                        fi
-                    fi
-
-                    err=1
-
-                    segment_played=$(echo ffprobe -i "${URL}" -show_format -v quiet | sed -n 's/duration=//p')
-
-                    if ! [[ "$segment_played" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-
-                        rest=$(echo "$segment_played - $POSITION - $SYNC" | bc -l)
-                        tryed=0
-                        if [ $(echo "$rest < $STEP_S" | bc -l) -eq 1 ] && [ $(echo "$rest > 0" | bc -l) -eq 1 ]; then
-
-                            while [ $err -ne 0 ] && [ $tryed -lt 10 ]; do
-                                sleep 0.4
-                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $SYNC - 1" | bc -l) -t $(echo "$rest + 0.5" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-                                ((tryed=tryed+1))
-                                err=$(cat /tmp/whisper-live_${MYPID}.err | wc -l)
-                            done
-                            in=3
-
-                        else
-
-                            while [ $err -ne 0 ] && [ $tryed -lt 5 ]; do
-                                if [ $in -eq 0 ]; then
-                                    if [ $(echo "$((POSITION)) < $(((STEP_S+SYNC)*2))" | bc -l) -eq 1 ]; then
-                                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/"$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$POSITION + $SYNC - 0.8" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-                                        in=1
-                                    else
-                                        in=1
-                                    fi
-                                else
-                                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$POSITION + $SYNC - 1" | bc -l) -t $(echo "$STEP_S + 0.0" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-                                    in=2
-                                fi
-                                err=$(cat /tmp/whisper-live_${MYPID}.err | wc -l)
-                                ((tryed=tryed+1))
-                                sleep 0.4
-                            done
-
-                            if [ $in -eq 1 ]; then
-                                ((SECONDS=SECONDS+STEP_S))
-                            fi
-
-                        fi
-
-                        # Call the function to process the audio chunk
+            if [[ -n "$FILEPLAY" ]]; then
+                if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
+                    FILEPLAYED="$FILEPLAY"
+                    translated_context_window=()
+                    transcribed_until=0; last_pos=0
+                    segment_duration=$(ffprobe -i "${URL}" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
+                    if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=999999; fi
+                
+                    # Proactive "kickstart" for the first chunk of the local file
+                    if (( $(echo "$segment_duration > 1" | bc -l) )); then
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-
+                        transcribed_until=$STEP_S
                     fi
-                else
-                  in=0
+                fi
+
+                pos_diff=$(echo "$POSITION - $last_pos" | bc)
+                seek_threshold=$(echo "2 * $STEP_S" | bc)
+                if (( $(echo "$pos_diff > $seek_threshold" | bc -l) )) || (( $(echo "$pos_diff < -$seek_threshold" | bc -l) )); then
+                    transcribed_until=$POSITION
+                fi
+                last_pos=$POSITION
+
+                if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
+                    chunk_start=$transcribed_until
+                    chunk_duration=$STEP_S
+
+                    if (( $(echo "$chunk_start + $chunk_duration > $segment_duration" | bc -l) )); then
+                        chunk_duration=$(echo "$segment_duration - $chunk_start" | bc)
+                    fi
+
+                    if (( $(echo "$chunk_duration > 1" | bc -l) )); then
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
+                        process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                    fi
+                    
+                    transcribed_until=$((transcribed_until + STEP_S))
                 fi
             fi
-            ((i=i+1))
-
+            sleep 0.5
         done
 
-    pkill -f "^ffmpeg.*${MYPID}.*$"
-    pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
-    # Remove the used port from the temporary file
-    if [ -f "$TEMP_FILE" ]; then
-        awk -v myport="$MYPORT" '$0 !~ myport' "$TEMP_FILE" > temp_file.tmp && mv temp_file.tmp "$TEMP_FILE"
-    fi
-
+        pkill -f "^ffmpeg.*${MYPID}.*$"
+        pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
+        if [ -f "$TEMP_FILE" ]; then awk -v myport="$myport" '$0 !~ myport' "$TEMP_FILE" > temp_file.tmp && mv temp_file.tmp "$TEMP_FILE"; fi
     else
-
       $MPV_OPTIONS "${URL}" &>/dev/null &
-
     fi
 
 elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
@@ -1549,6 +1688,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
         # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
         err=1
         tryed=0
+        
         while [ $err -ne 0 ] && [ $tryed -lt $STEP_S ]; do
             if [ $i -gt 0 ]; then
                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.${FMT} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $STEP_S - 1" | bc -l) -t $(echo "$STEP_S" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
