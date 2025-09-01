@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.02 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.04 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -34,7 +34,7 @@ readonly TEMP_FILE="/tmp/used_ports-livestream_video.txt"
 FMT="mp3"               # Audio format
 TRANS_ENGINE="google"   # Default engine for translate-shell ("google", "bing", "yandex")
 LOCAL_FILE=0            # Flag for local file (0 = false, 1 = true)
-STEP_S=8                # Step size in seconds for audio processing
+STEP_S=9                # Step size in seconds for audio processing
 MODEL="base"            # Default Whisper model
 LANGUAGE="auto"         # Default language for Whisper
 TRANSLATE=""            # Translate to English flag
@@ -45,7 +45,7 @@ STREAMLINK_FORCE=""     # Force usage of Streamlink
 YTDLP_FORCE=""          # Force usage of yt-dlp
 SEGMENT_TIME=10         # Time for each segment file (minutes) in timeshift
 SEGMENTS=4              # Number of segment files for timeshift
-SYNC=5                  # Transcription/video sync time (seconds)
+SYNC=6                  # Transcription/video sync time (seconds)
 SPEAK=""                # Enable Text-to-Speech
 TRANS=""                # Enable online translation
 OUTPUT_TEXT="both"      # Output text during translation (original, translation, both, none)
@@ -187,7 +187,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.02 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.04 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
