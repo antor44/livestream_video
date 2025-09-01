@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.04 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.06 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -187,7 +187,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.04 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.06 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -1306,21 +1306,28 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
         if [[ "$PLAYER_ONLY" == "" ]] && [[ -f "/tmp/$FILEPLAY" ]]; then
+            
+            file_mod_time=0
+            if [[ "$(uname)" == "Darwin" ]]; then # macOS compatible command
+                file_mod_time=$(stat -f %m "/tmp/$FILEPLAY")
+            else # GNU/Linux command
+                file_mod_time=$(date +%s -r "/tmp/$FILEPLAY")
+            fi
+            
             if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
                 FILEPLAYED="$FILEPLAY"
-                TIMEPLAYED=$(date +%s -r "/tmp/$FILEPLAY")
+                TIMEPLAYED=$file_mod_time
                 translated_context_window=()
                 transcribed_until=0; last_pos=0; tin=0
                 segment_duration=$(ffprobe -i "/tmp/$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                 if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=$SEGMENT_TIME; fi
                 
-                # Proactive "kickstart" for the first chunk of a new segment
                 if (( $(echo "$segment_duration > 1" | bc -l) )); then
                     ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
                     process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
                     transcribed_until=$STEP_S
                 fi
-            elif [ "$(date +%s -r "/tmp/$FILEPLAY")" -gt "$((TIMEPLAYED + SEGMENT_TIME + 6))" ] && [ $tin -eq 0 ]; then
+            elif [ "$file_mod_time" -gt "$((TIMEPLAYED + SEGMENT_TIME + 6))" ] && [ $tin -eq 0 ]; then
                 tin=1
             fi
 
@@ -1393,7 +1400,6 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     segment_duration=$(ffprobe -i "${URL}" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                     if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=999999; fi
                 
-                    # Proactive "kickstart" for the first chunk of the local file
                     if (( $(echo "$segment_duration > 1" | bc -l) )); then
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
