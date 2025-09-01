@@ -44,6 +44,7 @@ This command will create three tabs with the names "My live recordings", "Online
 *Check out the section on livestream_video.sh for help with the available options.
 </br>
 </br>
+
 ## Online Translation with Google Gemini API
 
 The latest version introduces high-quality online translation using Google's Gemini AI models. This feature serves as a powerful alternative to the standard translation provided by `translate-shell`.
@@ -64,14 +65,16 @@ The graphical application can store the key for you.
 ##### Select a Gemini Model in the GUI
 
 *   In `playlist4whisper`, check the **"Online"** box to enable online translation.
-*   Use the **"Engine"** dropdown menu to select your desired Gemini model.
+*   Use the **"Engine"** dropdown menu to select your desired Gemini model. *(It is not recommended to use models above `gemini-2.5-flash-lite`.)*
 
 The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine.
 
-**Note:** Using the Gemini API is subject to Google's pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
+**Note:** Using the Gemini API is subject to Google’s pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
+
+The Gemini API **free tier** is available with lower rate limits for testing purposes. Google AI Studio usage is completely free in all supported countries. The Gemini API **paid tier** provides higher rate limits, additional features, and different data handling.
 
 </br>
-Author: Antonio R. Version: 4.00 License: GPL 3.0
+Author: Antonio R. Version: 4.04 License: GPL 3.0
 </br>
 </br>
 
