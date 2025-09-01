@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.06 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.08 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -187,7 +187,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.06 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.08 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -924,8 +924,9 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 batch_size=20
                 total_blocks=${#text_blocks[@]}
 
-                # Flag to track if any batch failed during translation
-                any_batch_failed=false
+                # Flags to track failure levels for the final message
+                any_trans_fallback=false
+                any_original_fallback=false
 
                 for (( i=0; i<total_blocks; i+=batch_size )); do
                     start_index=$i
@@ -970,7 +971,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     while [[ $retry_count -lt $max_retries && "$batch_successful" == false ]]; do
                         ((retry_count++))
                         
-                        api_response_raw=$(curl --silent --no-buffer --connect-timeout 15 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                        api_response_raw=$(curl --silent --no-buffer --max-time 30 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
                         api_error=$(echo "$api_response_raw" | jq -r '.error.message // ""')
 
                         if [[ -n "$api_error" ]] || [[ -z "$api_response_raw" ]]; then
@@ -1012,12 +1013,12 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             echo -e "Block $((current_block_index + 1)) translated:\n${main_translations[j]}\n"
                         done
                     else
-                        # --- EMERGENCY FALLBACK: TRANSLATE IN MINI-BATCHES ---
+                        echo ""
                         echo "${ICON_WARN} Main batch failed. Activating emergency translation in smaller sub-batches..."
-                        any_batch_failed=true
                         mini_batch_size=5
-
+                        
                         for (( j=start_index; j<=end_index; j+=mini_batch_size )); do
+                            sleep 2
                             mini_start=$j
                             mini_end=$((j + mini_batch_size - 1))
                             if (( mini_end > end_index )); then mini_end=$end_index; fi
@@ -1031,19 +1032,34 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
                             mini_prompt="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator exactly. Output only the translated blocks.\n\n${mini_text_to_translate}"
                             mini_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts": [ { "text": $prompt_text } ] } ], "safetySettings": [ { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" } ] }')
-                            mini_response_raw=$(curl --silent --no-buffer --connect-timeout 10 -X POST -H 'Content-Type: application/json' -d "$mini_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                            mini_response_raw=$(curl --silent --no-buffer --max-time 15 -X POST -H 'Content-Type: application/json' -d "$mini_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
                             
                             translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
                             mapfile -t translated_mini_lines < <(printf "%s" "$translated_mini_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
 
                             num_lines_in_mini_batch=$((mini_end - mini_start + 1))
                             if [ "${#translated_mini_lines[@]}" -ne "$num_lines_in_mini_batch" ]; then
-                                echo "        ${ICON_ERROR} Sub-batch failed. Falling back to original text for these ${num_lines_in_mini_batch} lines:"
-                                any_minibatch_failed=true # Set the flag here
+                                echo "        ${ICON_ERROR} Sub-batch failed. Falling back to translate-shell for these ${num_lines_in_mini_batch} lines:"
                                 for (( l=mini_start; l<=mini_end; l++ )); do
-                                    # Show the original text being used as fallback
-                                    echo -e "Block $((l + 1)) original:\n${text_blocks[l]}\n" | sed 's/_NL_/\n/g'
-                                    printf "%s\n" "${text_blocks[l]}" >> "$temp_text_only_trans"
+                                    original_text_nl=$(echo "${text_blocks[l]}" | sed 's/_NL_/\n/g')
+                                    echo "        -> Translating block $((l + 1)) with fallback..."
+                                    # Translate using trans
+                                    translated_text_nl=$(echo "$original_text_nl" | trans -b -no-warn :${TRANS_LANGUAGE})
+
+                                    # Final fallback: if trans fails, use original text
+                                    if [[ -z "$translated_text_nl" ]]; then
+                                        any_original_fallback=true # Set flag for worst case
+                                        echo "            -> translate-shell also failed. Using original text as a last resort."
+                                        translated_text_nl="$original_text_nl"
+                                        echo -e "Block $((l + 1)) (original text fallback):\n${translated_text_nl}\n"
+                                    else
+                                        any_trans_fallback=true # Set flag for trans fallback
+                                        echo -e "Block $((l + 1)) translated (translate-shell fallback):\n${translated_text_nl}\n"
+                                    fi
+                                    
+                                    # Convert back to placeholder format
+                                    translated_text_placeholder=$(echo "$translated_text_nl" | awk 'ORS="_NL_"' | sed 's/_NL_$//')
+                                    printf "%s\n" "$translated_text_placeholder" >> "$temp_text_only_trans"
                                 done
                             else
                                 # Show the successful translations
@@ -1057,10 +1073,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         echo "${ICON_WARN} Finished emergency handling for the problematic block."
                     fi
                 done
-
-                if [[ "$any_batch_failed" == true ]]; then
-                    FINAL_STATUS_MESSAGE=" ${ICON_WARN} The operation completed, but some translation blocks failed and may require special handling. ${ICON_WARN}"
-                fi
 
                 mapfile -t all_translated_lines < "$temp_text_only_trans"
                 rm "$temp_text_only_trans"
@@ -1173,8 +1185,10 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     # --- Final Status ---
     if [ $err -eq 0 ]; then
-        if [[ "$any_minibatch_failed" == true ]]; then
+        if [[ "$any_original_fallback" == true ]]; then
             echo ""; echo " ${ICON_WARN} Process completed, but some parts could not be translated and the original text was used instead. ${ICON_WARN}"; echo ""
+        elif [[ "$any_trans_fallback" == true ]]; then
+            echo ""; echo " ${ICON_WARN} The operation completed, but some translation blocks failed and required special handling with translate-shell. ${ICON_WARN}"; echo ""
         else
             echo ""; echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"; echo ""
         fi
@@ -1185,7 +1199,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     else
         echo ""; echo "${ICON_ERROR} An error occurred during the subtitle generation process. ${ICON_ERROR}"; echo ""
         pkill -f "^ffmpeg.*${MYPID}.*$"
-        pkill -f "^${WHISPER_EXECUTABLE}.*${MY_PID}.*$"
+        pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
         pkill -f "^trans.*${MYPID}.*$"
         exit 1
     fi
