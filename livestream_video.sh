@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.00 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.02 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -187,7 +187,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.00 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.02 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -308,19 +308,19 @@ process_audio_chunk() {
     # 1. tr '\r' '\n': Converts carriage returns to newlines to normalize output from all versions.
     # 2. grep '^\[': Isolates ALL lines that start with a timestamp.
     # 3. sed 's/^\[.*\] *//': Strips the timestamp from EACH of those lines.
-    # 4. paste -s -d ' ': Joins all the cleaned lines back into a single line, separated by spaces.
+    # 4. paste -s -d ' ' -: Joins all the cleaned lines back into a single line, separated by spaces.
     # 5. tr -d ...: Cleans up potential garbage characters.
     # 6. tee ...: Prints to screen and saves to a file.
 
     if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
-        "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
+        "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' - | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
         err=$?
     elif [[ "$WHISPER_EXECUTABLE" == "pwcpp" ]]; then
         if [[ "$TRANSLATE" == "--translate" ]]; then
-            pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
+            pwcpp --language ${LANGUAGE} --translate translate --n_threads 4 -m ./models/ggml-${MODEL}.bin "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' - | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
             err=$?
         else
-            pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
+            pwcpp --language ${LANGUAGE} --n_threads 4 -m ./models/ggml-${MODEL}.bin "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' - | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
             err=$?
         fi
     elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
