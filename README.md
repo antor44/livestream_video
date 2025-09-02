@@ -74,7 +74,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 The Gemini API **free tier** is available with lower rate limits for testing purposes. Google AI Studio usage is completely free in all supported countries. The Gemini API **paid tier** provides higher rate limits, additional features, and different data handling.
 
 </br>
-Author: Antonio R. Version: 4.04 License: GPL 3.0
+Author: Antonio R. Version: 4.08 License: GPL 3.0
 </br>
 </br>
 
