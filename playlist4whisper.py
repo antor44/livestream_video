@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 4.04 License: GPL 3.0
+Author: Antonio R. Version: 4.08 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -1279,6 +1279,101 @@ class VideoSaverDialog(tk.Toplevel):
         self.geometry(f'+{int(x)}+{int(y)}')
 
 
+class ApiKeyDialog(tk.Toplevel):
+    """
+    A custom dialog to enter an API key and choose whether to apply it
+    to the current configuration or all configurations.
+    """
+    def __init__(self, master, title, prompt, initial_value="", width=50):
+        super().__init__(master)
+        self.transient(master)
+        self.title(title)
+        self.grab_set()
+
+        self.result = (None, None)  # (api_key, scope)
+
+        # Body for prompt and entry
+        body_frame = tk.Frame(self)
+        tk.Label(body_frame, text=prompt, padx=5).pack(pady=5)
+        self.entry = tk.Entry(body_frame, width=width)
+        self.entry.pack(padx=10, pady=(0, 10), fill=tk.X)
+        self.entry.insert(0, initial_value)
+        self.entry.focus_set()
+        self.entry.bind("<Button-3>", self.show_popup_menu) # Add context menu
+        body_frame.pack()
+
+        # Button box
+        button_frame = tk.Frame(self)
+        tk.Button(button_frame, text="Save for This Tab", width=15, command=self.save_current).pack(side=tk.LEFT, padx=5, pady=10)
+        tk.Button(button_frame, text="Save for All Tabs", width=15, command=self.save_all).pack(side=tk.LEFT, padx=5, pady=10)
+        tk.Button(button_frame, text="Cancel", width=10, command=self.cancel).pack(side=tk.LEFT, padx=5, pady=10)
+        button_frame.pack()
+
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+        self.center_window(master)
+        self.wait_window(self)
+
+    def save_current(self):
+        self.result = (self.entry.get(), 'current')
+        self.destroy()
+
+    def save_all(self):
+        self.result = (self.entry.get(), 'all')
+        self.destroy()
+
+    def cancel(self):
+        self.result = (None, None)
+        self.destroy()
+
+    def center_window(self, master):
+        self.update_idletasks()
+        master_width = master.winfo_width()
+        master_height = master.winfo_height()
+        master_x = master.winfo_x()
+        master_y = master.winfo_y()
+        dialog_width = self.winfo_width()
+        dialog_height = self.winfo_height()
+        x = master_x + (master_width // 2) - (dialog_width // 2)
+        y = master_y + (master_height // 2) - (dialog_height // 2)
+        self.geometry(f'+{int(x)}+{int(y)}')
+
+    # Reusing context menu logic from EnhancedStringDialog
+    def show_popup_menu(self, event):
+        self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_command(label="Cut", command=self.cut)
+        self.popup_menu.add_command(label="Copy", command=self.copy)
+        self.popup_menu.add_command(label="Paste", command=self.paste)
+        self.popup_menu.add_command(label="Delete", command=self.delete)
+        self.popup_menu.tk_popup(event.x_root, event.y_root)
+
+    def cut(self):
+        if self.entry.selection_present():
+            selected_text = self.entry.selection_get()
+            self.copy_to_clipboard(selected_text)
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+
+    def copy(self):
+        if self.entry.selection_present():
+            selected_text = self.entry.selection_get()
+            self.copy_to_clipboard(selected_text)
+
+    def paste(self):
+        if self.entry.selection_present():
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+        clipboard_text = self.master.clipboard_get()
+        if clipboard_text is not None:
+            self.entry.insert(tk.INSERT, clipboard_text)
+
+    def delete(self):
+        if self.entry.selection_present():
+            self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
+
+    def copy_to_clipboard(self, text):
+        if text is not None:
+            self.master.clipboard_clear()
+            self.master.clipboard_append(text)
+
+
 class EnhancedStringDialog(tk.Toplevel):
     """
     A custom dialog class for Tkinter that prompts the user to enter a string.
@@ -1560,12 +1655,13 @@ class M3uPlaylistPlayer(tk.Frame):
         main_window: The main Tkinter window.
     """
 
-    def __init__(self, parent, spec, bash_script, error_messages, main_window):
+    def __init__(self, parent, spec, all_specs, bash_script, error_messages, main_window):
         super().__init__(parent)
         self.root = parent
         self.main_window = main_window  # Store main_window reference
 
         self.spec = spec
+        self.all_specs = all_specs
         self.bash_script = bash_script
         self.error_messages = error_messages
         self.current_options = {}
@@ -2065,17 +2161,46 @@ class M3uPlaylistPlayer(tk.Frame):
 
 
     def set_gemini_api_key(self):
-        """Opens a dialog to set the Gemini API Key."""
-        self.load_config() # Load the most recent config
+        """Opens a dialog to set the Gemini API Key for the current tab or all tabs."""
+        self.load_config()  # Load the most recent config for the current tab
         current_key = self.current_options.get("gemini_api_key", "")
 
-        dialog = EnhancedStringDialog(self.main_window, "Set Google Gemini API Key", "Enter your API Key:", initial_value=current_key, width=50)
+        dialog = ApiKeyDialog(self.main_window, "Set Google Gemini API Key", "Enter your API Key:", initial_value=current_key, width=50)
+        api_key, scope = dialog.result
 
-        if dialog.result is not None:
-            # The API key is always global
-            self.current_options["gemini_api_key"] = dialog.result
+        if scope is None:
+            return  # User cancelled
+
+        if scope == 'current':
+            self.current_options["gemini_api_key"] = api_key
             self.save_config()
-            messagebox.showinfo("API Key Saved", "Gemini API Key has been saved globally.")
+            messagebox.showinfo("API Key Saved", f"Gemini API Key has been saved for the '{self.spec}' tab.")
+
+        elif scope == 'all':
+            saved_count = 0
+            for spec_name in self.all_specs:
+                config_file = f'config_{spec_name}.json'
+                try:
+                    # Load existing config or start with an empty one
+                    if os.path.exists(config_file):
+                        with open(config_file, "r") as f:
+                            config_data = json.load(f)
+                    else:
+                        config_data = {}
+
+                    # Update key and save
+                    config_data["gemini_api_key"] = api_key
+                    with open(config_file, "w") as f:
+                        json.dump(config_data, f)
+                    saved_count += 1
+                except Exception as e:
+                    print(f"Could not update API key for {config_file}: {e}")
+                    messagebox.showwarning("File Error", f"Could not update API key for '{spec_name}'.\n\nError: {e}", parent=self.main_window)
+
+            messagebox.showinfo("API Key Saved", f"Gemini API Key was saved to {saved_count} configuration file(s).")
+            # Reload current tab's config to reflect the change if it was part of the 'all' save
+            self.load_config()
+            self.widgets_updates()
 
 
     def populate_playlist(self, filename=None):
@@ -3908,7 +4033,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 4.04\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 4.08\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -4046,9 +4171,9 @@ class MainApplication:
 
         tab_control.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
 
-        for tab, spec in zip(tabs, self.tab_names):
-            spec_lower = spec.lower().replace(" ", "_")
-            player = M3uPlaylistPlayer(tab, spec_lower, bash_script, self.error_messages, self.main_window)
+        all_specs = [name.lower().replace(" ", "_") for name in self.tab_names]
+        for tab, spec in zip(tabs, all_specs):
+            player = M3uPlaylistPlayer(tab, spec, all_specs, bash_script, self.error_messages, self.main_window)
             player.pack(fill=tk.BOTH, expand=True)
             self.playlist_players.append(player)
 
