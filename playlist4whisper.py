@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 4.08 License: GPL 3.0
+Author: Antonio R. Version: 4.10 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -1850,7 +1850,7 @@ class M3uPlaylistPlayer(tk.Frame):
         engine_menu.add_cascade(label="Gemini AI", menu=gemini_submenu)
 
         # API Key Button
-        self.api_key_button = tk.Button(self.options_frame1, text="API Key", command=self.set_gemini_api_key)
+        self.api_key_button = ttk.Button(self.options_frame1, text="API Key", command=self.set_gemini_api_key)
         self.api_key_button.pack(side=tk.LEFT, padx=(5, 10))
 
         # Translation language
@@ -1899,7 +1899,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.speak_checkbox.pack(side=tk.LEFT)
 
         # Save texts button
-        self.save_text_button = tk.Button(self.options_frame1, text="Save texts", command=self.select_files)
+        self.save_text_button = ttk.Button(self.options_frame1, text="Save texts", command=self.select_files)
         self.save_text_button.pack(side=tk.RIGHT, padx=10)
 
         # --- Third Down Frame ---
@@ -2057,10 +2057,10 @@ class M3uPlaylistPlayer(tk.Frame):
 
         self.segment_time_spinner.bind("<KeyRelease>", self.schedule_save_options)
 
-        self.delete_videos_button = tk.Button(self.options_frame3, text="Delete all temp files", command=self.delete_videos)
+        self.delete_videos_button = ttk.Button(self.options_frame3, text="Delete all temp files", command=self.delete_videos)
         self.delete_videos_button.pack(side=tk.LEFT, padx=30)
 
-        self.save_videos_button = tk.Button(self.options_frame3, text="Save Videos", command=self.open_video_saver)
+        self.save_videos_button = ttk.Button(self.options_frame3, text="Save Videos", command=self.open_video_saver)
         self.save_videos_button.pack(side=tk.RIGHT, padx=10)
 
 
@@ -2167,6 +2167,10 @@ class M3uPlaylistPlayer(tk.Frame):
 
         dialog = ApiKeyDialog(self.main_window, "Set Google Gemini API Key", "Enter your API Key:", initial_value=current_key, width=50)
         api_key, scope = dialog.result
+
+        # Schedule the reset function to run after the event loop has processed everything else.
+        # We pass the button itself as an argument.
+        self.after(10, lambda: self._reset_button_state(self.api_key_button))
 
         if scope is None:
             return  # User cancelled
@@ -4033,7 +4037,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 4.08\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 4.10\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -4043,6 +4047,13 @@ class M3uPlaylistPlayer(tk.Frame):
                                          "This is free software, and you are welcome to redistribute it "
                                          "under certain conditions; see source code for details.")
 
+    def _reset_button_state(self, button):
+        """Forces a button to visually reset its state after a dialog closes."""
+        # This command explicitly removes the 'active' state flag from the widget.
+        button.state(['!active'])
+        # As a good practice, we still move the focus to a neutral element.
+        self.focus_set()
+        
 
 class MainApplication:
     """
