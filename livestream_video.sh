@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.08 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.10 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -187,7 +187,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.08 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.10 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -431,10 +431,19 @@ process_audio_chunk() {
         # Log the final translation
         echo "${fallback_indicator}${translated_text}" >> "/tmp/translation-whisper-live_${MYPID}.txt"
         
-        # Update the context window with the latest clean translation
-        translated_context_window+=("$translated_text")
-        if [ "${#translated_context_window[@]}" -gt 2 ]; then
-            translated_context_window=("${translated_context_window[@]:1}")
+        # --- *** LÓGICA DE SANEAMIENTO MEJORADA *** ---
+        # 1. Limpiar la traducción de un conjunto más amplio de caracteres problemáticos
+        #    ANTES de guardarla en la memoria de contexto.
+        local clean_translated_text
+        clean_translated_text=$(echo "$translated_text" | sed 's/(\([^)]*\))//g; s/\[[^]]*\]//g; s/[$*#]//g')
+
+        # 2. Guardar SOLAMENTE el texto limpio en la memoria para el siguiente prompt.
+        #    Esto evita el bucle de retroalimentación de forma más robusta.
+        if [[ -n "$clean_translated_text" ]]; then
+            translated_context_window+=("$clean_translated_text")
+            if [ "${#translated_context_window[@]}" -gt 2 ]; then
+                translated_context_window=("${translated_context_window[@]:1}")
+            fi
         fi
     fi
 
@@ -823,7 +832,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     err=0
     temp_whisper_srt="/tmp/whisper-live_${MYPID}.wav.srt"
-    temp_online_trans_srt="/tmp/online_trans_${MYPID}.srt" # Generic temp file for both methods
+    temp_online_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt" # Generic temp file for both methods
 
     if [[ "$skip_transcription" == false ]]; then
         echo ""
@@ -1134,7 +1143,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             y|yes)
                 echo ""
                 echo "-> Saving $file_desc to: $dest_file"
-                mv "$source_file" "$dest_file"
+                cp "$source_file" "$dest_file"
                 if [ $? -ne 0 ]; then
                     echo ""
                     echo "${ICON_ERROR} Failed to move file to $dest_file. Temp file is at $source_file ${ICON_ERROR}"
@@ -1301,23 +1310,29 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     n=0; tbuf=0; abuf="000"; xbuf=1; nbuf="001"
     FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
     TIMEPLAYED=0; tin=0
-
+    
     while [ $RUNNING -eq 1 ]; do
-  		if [ -f /tmp/whisper-live_${MYPID}_buf$nbuf.avi ]; then
-  			mv -f /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
-  			if [ $n -eq $((SEGMENTS-1)) ]; then n=-1; fi
-  			tbuf=$((tbuf+1))
-  			if [ $tbuf -lt 10 ]; then abuf="00"$tbuf""; elif [ $tbuf -lt 100 ]; then abuf="0"$tbuf""; else abuf="$tbuf"; fi
+        if [ -f /tmp/whisper-live_${MYPID}_buf$nbuf.avi ]; then
+            mv -f /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
+            if [ $n -eq $((SEGMENTS-1)) ]; then n=-1; fi
+            tbuf=$((tbuf+1))
+            if [ $tbuf -lt 10 ]; then abuf="00"$tbuf""; elif [ $tbuf -lt 100 ]; then abuf="0"$tbuf""; else abuf="$tbuf"; fi
             xbuf=$((xbuf+1))
             if [ $xbuf -lt 10 ]; then nbuf="00"$xbuf""; elif [ $xbuf -lt 100 ]; then nbuf="0"$xbuf""; else nbuf="$xbuf"; fi
             n=$((n+1))
-  			ln -f -s /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
-  		fi
+            ln -f -s /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
+        fi
 
         vlc_check
         curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
         FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
         POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
+
+        # Safety guard: if VLC is paused or not providing a valid time, skip this iteration.
+        if ! [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+            sleep 0.1
+            continue
+        fi
 
         if [[ "$PLAYER_ONLY" == "" ]] && [[ -f "/tmp/$FILEPLAY" ]]; then
             
@@ -1333,6 +1348,8 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 TIMEPLAYED=$file_mod_time
                 translated_context_window=()
                 transcribed_until=0; last_pos=0; tin=0
+                
+                # This ffprobe check is only for the very first chunk of a new file segment.
                 segment_duration=$(ffprobe -i "/tmp/$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                 if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=$SEGMENT_TIME; fi
                 
@@ -1346,6 +1363,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
             fi
 
             if [ $tin -eq 0 ]; then
+                # This logic correctly handles when the user seeks forward or backward in the video.
                 pos_diff=$(echo "$POSITION - $last_pos" | bc)
                 seek_threshold=$(echo "2 * $STEP_S" | bc)
                 if (( $(echo "$pos_diff > $seek_threshold" | bc -l) )) || (( $(echo "$pos_diff < -$seek_threshold" | bc -l) )); then
@@ -1353,18 +1371,15 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 fi
                 last_pos=$POSITION
 
-                if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
+                # Main transcription trigger.
+                if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )); then
+                    # NOTE: 'local' keyword removed for shell compatibility.
                     chunk_start=$transcribed_until
                     chunk_duration=$STEP_S
 
-                    if (( $(echo "$chunk_start + $chunk_duration > $segment_duration" | bc -l) )); then
-                        chunk_duration=$(echo "$segment_duration - $chunk_start" | bc)
-                    fi
-
-                    if (( $(echo "$chunk_duration > 1" | bc -l) )); then
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
-                        process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-                    fi
+                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
+                    
+                    process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
                     
                     transcribed_until=$((transcribed_until + STEP_S))
                 fi
@@ -1375,7 +1390,8 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 tin=2
             fi
         fi
-        sleep 0.5
+
+        sleep 0.1
     done
 
     pkill -f "^ffmpeg.*${MYPID}.*$"
@@ -1444,7 +1460,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     transcribed_until=$((transcribed_until + STEP_S))
                 fi
             fi
-            sleep 0.5
+            sleep 0.1
         done
 
         pkill -f "^ffmpeg.*${MYPID}.*$"
@@ -1717,7 +1733,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             fi
             err=$(cat /tmp/whisper-live_${MYPID}.err | wc -l)
             ((tryed=tryed+1))
-            sleep 0.5
+            sleep 0.1
         done
 
         # Call the function to process the audio chunk
