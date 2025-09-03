@@ -887,6 +887,26 @@ A: There could be several potential causes. Online video streams may not always 
 
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, although this may lead to some issues with phrases at the beginning of each segmented video chunk.
 
+**Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
+
+**A:** Online translation issues with the Gemini API can stem from several factors, and the script handles failures differently depending on the mode of operation.
+
+*   **Error Handling:**
+    *   In **Subtitle Generation** mode, the script is designed to retry a failed translation request several times before falling back to the `translate-shell` engine.
+    *   In **Live Stream** mode, to maintain real-time flow, the script does not retry. If a block fails to translate with Gemini, it immediately falls back to `translate-shell` for that specific block, indicated by a `(*)` prefix.
+
+*   **API Rate Limits (The Main Cause of Failures):**
+    The API imposes strict limits, especially on free accounts. The two most important limits are **RPD (Requests Per Day)**, which is your total daily budget, and **TPM (Tokens Per Minute)**, which controls how much text you can process quickly.
+    *   **For Subtitle Generation:** All limits (TPM, RPD, and general availability) can be a factor. While processing, especially with large files, you may hit token limits, and with very large files, even the daily request limit.
+    *   **For Live Streams:** During prolonged, continuous use, the most critical limit is the **RPD** (Requests Per Day). Free tier accounts for Gemini 2.5 models have daily limits that can be easily exhausted in a long session, causing the API to stop responding until the next day.
+    *   **Gemma 3 models** have a very high daily limit (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** like long live streams with normal dialogue, as you won't run out of your daily quota. However, they will fail quickly on high-intensity tasks like subtitle generation, which tries to process a lot of text in a short amount of time and exceeds the TPM limit.
+    *   **Gemini 2.5 models** have the opposite profile: a low daily limit (e.g., 1,000 RPD for Flash-Lite) but a high per-minute limit (**250,000 TPM**). This makes them perfect for **short, high-intensity tasks** like generating subtitles for a whole file at once. However, in a long live stream, you can easily exhaust their daily request limit.
+
+*   **Model Recommendations:**
+    *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
+    *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its massive daily request quota is ideal for long-running sessions, but be aware that very dense dialogue might still trigger the TPM limit.
+    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests).
+
 **Q: Why does the beginning and end of the transcription often get lost? Is this an AI issue?**
 
 A: Most of the time, this occurs because the application lacks a voice activity detection (VAD) system to split the audio during silent intervals. The current versions of the bash script segment sound files into chunks based on user-selected durations, which may result in the truncation or deletion of words at the beginning and end of each chunk. Additionally, sometimes, there may be cut-offs of a few words at the start or end, either caused by the difficulty in obtaining precise data on video synchronization or timestamps, or this issue could be caused by gaps in the Whisper AI's neural network.
