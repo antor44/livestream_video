@@ -889,16 +889,17 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 
 **Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
 
-**A:** Online translation issues with the Gemini API can stem from several factors, often related to API availability and usage limits. Here are the most common causes:
+**A:** Online translation issues with the Gemini API can stem from several factors, from API availability to the inherent behavior of AI models. Here are the most common causes:
 
 *   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
     *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
     *   In **Live Stream** mode, it will immediately fall back to `translate-shell` for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
 
-*   **API Rate Limits:** The primary cause of errors is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers also have limits, they are substantially higher for Gemini models, often removing the practical constraints for most use cases. It is important to note that Gemma 3 models currently have the same rate limits on both free and paid tiers. The following advice focuses on maximizing the utility of the **free tier**:
+*   **API Rate Limits:** The primary cause of failures is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers have much higher limits, the following applies to free accounts:
+    *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (like long live streams), but they will fail on high-intensity tasks (like subtitle generation) that exceed the TPM limit.
+    *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them perfect for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted in a long live stream.
 
-    *   **Gemma 3 models** have a very high daily limit (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (like long live streams), but they will fail on high-intensity tasks (like subtitle generation) that exceed the TPM limit.
-    *   **Gemini 2.5 models** have the opposite profile: a low daily limit (e.g., 1,000 RPD for Flash-Lite) but a high per-minute limit (**250,000 TPM**). This makes them perfect for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted in a long live stream.
+*   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues like **confusing languages** (especially with multilingual source text), **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** can occur.
 
 *   **Model Recommendations & Strategies (for Free Tier users):**
     *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
