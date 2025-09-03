@@ -576,73 +576,127 @@ The script will now use the Gemini API for translations. If the API key is not f
 
 **Note:** Using the Gemini API is subject to Google's pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
 
-#
+---
 
-Usage: ./livestream_video.sh stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]
+### Usage
+
+`./livestream_video.sh stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]`
 
 Example:
 ```
-./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --lower --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak --gemini-trans --gemini-level 3
+./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m.m3u8 --lower --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak --gemini-trans --gemini-level 3
 ```
 
-Only for the bash script and only for local audio/video: Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
+**Only for the bash script and only for local audio/video:** Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
 
+**pulse:index or avfoundation:index:** Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume and sound configuration on your operating system, and the noise around you. Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
 
-pulse:index or avfoundation:index: Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume and sound configuration on your operating system, and the noise around you. Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
+#
 
---streamlink:    Forces the URL to be processed by Streamlink.
+### **Argument Options**
 
---yt-dlp:        Forces the URL to be processed by yt-dlp.
+#### Stream Handling
 
---[raw, upper or lower]: Video quality options are 'raw,' 'upper,' and 'lower'. Quality also affects when timeshift is active for IPTV.
-'raw' is used to download another video stream without any modifications for the player.
-'upper' and 'lower' download only one stream that is re-encoded for the player, which might correspond to the best or worst stream quality.
-This is intended to save downloaded data, although not all streams support it. Additionally, with timeshift, only one stream is downloaded.
+`--streamlink`
+Forces the URL to be processed by Streamlink.
 
---player:        Specify player executable and options. Valid players: smplayer, mpv, mplayer, vlc, etc. Use 'none' or 'true' for no player.
+`--yt-dlp`
+Forces the URL to be processed by yt-dlp.
 
---step:          Size of the sound parts into which videos are divided for AI inference, measured in seconds.
+`--[raw, upper, lower]`
+Video quality options. Affects timeshift for IPTV.
+- **raw:** Downloads another video stream without any modifications for the player.
+- **upper/lower:** Downloads only one stream that is re-encoded for the player (best/worst quality). This saves data, but not all streams support it.
 
---model:         Whisper Models:
+#### Player
 
-tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3, large-v3-turbo
+`--player`
+Specify player executable and options. Valid players: `smplayer`, `mpv`, `mplayer`, `vlc`, etc. Use `'none'` or `'true'` for no player.
 
-with suffixes: -q2_k, -q3_k, -q4_0, -q4_1, -q4_k, -q5_0, -q5_1, -q5_k, -q6_k, -q8_0
+#### Whisper AI Configuration
 
---executable:    Specify the whisper executable to use (full path or command name).
+`--step`
+Size of the sound parts into which audio is divided for AI inference, measured in seconds.
 
---language:      Whisper Languages:
+`--model`
+Whisper Models available:
+- **Base Models:** `tiny.en`, `tiny`, `base.en`, `base`, `small.en`, `small`, `medium.en`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo`.
+- **Quantized Suffixes:** `-q2_k`, `-q3_k`, `-q4_0`, `-q4_1`, `-q4_k`, `-q5_0`, `-q5_1`, `-q5_k`, `-q6_k`, `-q8_0`.
 
-auto (Autodetect), af (Afrikaans), am (Amharic), ar (Arabic), as (Assamese), az (Azerbaijani), be (Belarusian), bg (Bulgarian), bn (Bengali), br (Breton), bs (Bosnian), ca (Catalan), cs (Czech), cy (Welsh), da (Danish), de (German), el (Greek), en (English), eo (Esperanto), es (Spanish), et (Estonian), eu (Basque), fa (Persian), fi (Finnish), fo (Faroese), fr (French), ga (Irish), gl (Galician), gu (Gujarati), ha (Bantu), haw (Hawaiian), he ([Hebrew]), hi (Hindi), hr (Croatian), ht (Haitian Creole), hu (Hungarian), hy (Armenian), id (Indonesian), is (Icelandic), it (Italian), iw (Hebrew), ja (Japanese), jw (Javanese), ka (Georgian), kk (Kazakh), km (Khmer), kn (Kannada), ko (Korean), ku (Kurdish), ky (Kyrgyz), la (Latin), lb (Luxembourgish), lo (Lao), lt (Lithuanian), lv (Latvian), mg (Malagasy), mi (Maori), mk (Macedonian), ml (Malayalam), mn (Mongolian), mr (Marathi), ms (Malay), mt (Maltese), my (Myanmar), ne (Nepali), nl (Dutch), nn (Nynorsk), no (Norwegian), oc (Occitan), or (Oriya), pa (Punjabi), pl (Polish), ps (Pashto), pt (Portuguese), ro (Romanian), ru (Russian), sd (Sindhi), sh (Serbo-Croatian), si (Sinhala), sk (Slovak), sl (Slovenian), sn (Shona), so (Somali), sq (Albanian), sr (Serbian), su (Sundanese), sv (Swedish), sw (Swahili), ta (Tamil), te (Telugu), tg (Tajik), th (Thai), tl (Tagalog), tr (Turkish), tt (Tatar), ug (Uighur), uk (Ukrainian), ur (Urdu), uz (Uzbek), vi (Vietnamese), vo (Volapuk), wa (Walloon), xh (Xhosa), yi (Yiddish), yo (Yoruba), zh (Chinese), zu (Zulu)
+`--executable`
+Specify the whisper executable to use (full path or command name).
 
---translate:      Automatic English translation using Whisper AI (English only).
+`--language`
+Whisper Languages available (code and name):
+```
+ auto (Autodetect)    eo (Esperanto)       kn (Kannada)         pa (Punjabi)         ta (Tamil)
+ af (Afrikaans)       es (Spanish)         ko (Korean)          pl (Polish)          te (Telugu)
+ am (Amharic)         et (Estonian)        ku (Kurdish)         ps (Pashto)          tg (Tajik)
+ ar (Arabic)          eu (Basque)          ky (Kyrgyz)          pt (Portuguese)      th (Thai)
+ as (Assamese)        fa (Persian)         la (Latin)           ro (Romanian)        tl (Tagalog)
+ az (Azerbaijani)     fi (Finnish)         lb (Luxembourgish)   ru (Russian)         tr (Turkish)
+ be (Belarusian)      fo (Faroese)         lo (Lao)             sd (Sindhi)          tt (Tatar)
+ bg (Bulgarian)       fr (French)          lt (Lithuanian)      sh (Serbo-Croatian)  ug (Uighur)
+ bn (Bengali)         ga (Irish)           lv (Latvian)         si (Sinhala)         uk (Ukrainian)
+ br (Breton)          gl (Galician)        mg (Malagasy)        sk (Slovak)          ur (Urdu)
+ bs (Bosnian)         gu (Gujarati)        mi (Maori)           sl (Slovenian)       uz (Uzbek)
+ ca (Catalan)         ha (Bantu)           mk (Macedonian)      sn (Shona)           vi (Vietnamese)
+ cs (Czech)           haw (Hawaiian)       ml (Malayalam)       so (Somali)          vo (Volapuk)
+ cy (Welsh)           he (Hebrew)          mn (Mongolian)       sq (Albanian)        wa (Walloon)
+ da (Danish)          hi (Hindi)           mr (Marathi)         sr (Serbian)         xh (Xhosa)
+ de (German)          hr (Croatian)        ms (Malay)           su (Sundanese)       yi (Yiddish)
+ el (Greek)           ht (Haitian Creole)  mt (Maltese)         sv (Swedish)         yo (Yoruba)
+ en (English)         hu (Hungarian)       my (Myanmar)         sw (Swahili)         zh (Chinese)
+                      hy (Armenian)        ne (Nepali)                               zu (Zulu)
+                      id (Indonesian)      nl (Dutch)
+                      is (Icelandic)       nn (Nynorsk)
+                      it (Italian)         no (Norwegian)
+                      iw (Hebrew)          oc (Occitan)
+                      ja (Japanese)        or (Oriya)
+                      jw (Javanese)
+                      ka (Georgian)
+                      kk (Kazakh)
+                      km (Khmer)
+```
 
---subtitles:      Generate subtitles from an audio/video file, with support for language selection, Whisper AI translation, and online translation to any language. A .srt file will be saved with the same filename and in the same directory as the source file.
+`--translate`
+Automatic English translation using Whisper AI (English only).
 
- --trans          Enables online translation. Must be followed by a language code.
-                  Default engine is translate-shell. Use `--gemini-trans` to switch to the Gemini API.
-    trans_language: Translation language (e.g., es, fr, de).
-    output_text: (Optional) Output text: original, translation, both, none.
-    speak: (Optional) Online Text-to-Speech.
+`--subtitles`
+Generate subtitles (`.srt`) from a local audio/video file.
 
---gemini-trans    Use the Google Gemini API for higher quality translation (replaces translate-shell).
-                  Requires the '--trans' flag to be set with a language.
-                  Requires the 'GEMINI_API_KEY' environment variable to be set.
-    gemini_model: (Optional) Specify a Gemini model. Defaults to 'gemini-2.5-flash-lite'.
+#### Online Translation
 
---gemini-level    Set the context level for Gemini translation (0-3). Default is 2.
-                  Level 0: No context, translates literally.
-                  Level 1: Minimal context (surrounding segments).
-                  Level 2: Standard context (sliding window of multiple surrounding segments).
-                  Level 3: Creative context (allows AI to fix/complete phrases based on context).
+`--trans`
+Enables online translation. Must be followed by a language code.
+- `trans_language`: Translation language (e.g., `es`, `fr`, `de`).
+- `output_text`: (Optional) Output text: `original`, `translation`, `both`, `none`.
+- `speak`: (Optional) Online Text-to-Speech.
 
---timeshift:      Timeshift feature, only VLC player is supported.
+`--gemini-trans`
+Use the Google Gemini API for higher quality translation.
+- `gemini_model`: (Optional) Specify a Gemini model. Defaults to `gemini-2.5-flash-lite`.
 
---sync:           Transcription/video synchronization time in seconds (0 <= seconds <= (Step - 3)).
+`--gemini-level`
+Set the context level for Gemini translation (0-3). Default is 2.
+- `Level 0`: No context, translates literally.
+- `Level 1`: Minimal context (surrounding segments).
+- `Level 2`: Standard context (sliding window of multiple surrounding segments).
+- `Level 3`: Creative context (allows AI to fix/complete phrases based on context).
 
---segments:       Number of segment files for timeshift (2 <= n <= 99).
+#### Timeshift Configuration (VLC Player Only)
 
---segment_time:   Time for each segment file (1 <= minutes <= 99).
+`--timeshift`
+Enables the timeshift feature.
+
+`--sync`
+Transcription/video synchronization time in seconds (`0` <= `seconds` <= (`Step` - 3)).
+
+`--segments`
+Number of segment files for timeshift (`2` <= `n` <= `99`).
+
+`--segment_time`
+Time for each segment file (`1` <= `minutes` <= `99`).
 
 #
 
