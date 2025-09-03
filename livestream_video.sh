@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.10 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.20 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -39,7 +39,7 @@ MODEL="base"            # Default Whisper model
 LANGUAGE="auto"         # Default language for Whisper
 TRANSLATE=""            # Translate to English flag
 PLAYER_ONLY=""          # Only play the video/audio, no transcription
-MPV_OPTIONS="mpv"       # Default player and options
+MPV_OPTIONS="mp3"       # Default player and options
 QUALITY="raw"           # Video quality (raw, upper, lower)
 STREAMLINK_FORCE=""     # Force usage of Streamlink
 YTDLP_FORCE=""          # Force usage of yt-dlp
@@ -51,6 +51,7 @@ TRANS=""                # Enable online translation
 OUTPUT_TEXT="both"      # Output text during translation (original, translation, both, none)
 TRANS_LANGUAGE="en"     # Default translation language
 GEMINI_TRANS_MODEL=""   # Use Google's Gemini for translation with the specified model
+GEMINI_CONTEXT_LEVEL=2  # Context level for Gemini translation (0-3)
 SUBTITLES=""            # Generate subtitles flag
 AUDIO_SOURCE=""         # Audio source (pulse:index or avfoundation:index)
 AUDIO_INDEX="0"         # Default audio index
@@ -178,16 +179,16 @@ check_requirements() {
 # Prints usage instructions and exits.
 usage() {
     cat <<EOF
-Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] --trans trans_language [output_text speak] [--gemini-trans [gemini_model]] [player player_options]
+Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] --trans trans_language [output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]
 
 Example:
   $0 https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
   $0 ./my_video.mp4 --subtitles --trans es --gemini-trans
-  $0 ./my_video.mp4 --subtitles --trans fr --gemini-trans gemini-2.5-pro
+  $0 ./my_video.mp4 --subtitles --trans fr --gemini-trans gemini-2.5-pro --gemini-level 3
 
 Help:
 
-  livestream_video.sh v. 4.10 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.20 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -233,6 +234,12 @@ Help:
                   Requires the 'GEMINI_API_KEY' variable to be set.
     gemini_model: (Optional) Specify a Gemini model. Defaults to 'gemini-2.5-flash-lite'.
                   Available models: ${AVAILABLE_GEMINI_MODELS[@]}
+
+  --gemini-level  Set the context level for Gemini translation (0-3). Default is 2.
+                  Level 0: No context, translates literally.
+                  Level 1: Minimal context (previous segment).
+                  Level 2: Standard context (sliding window of last 2 segments).
+                  Level 3: Creative context (allows AI to fix/complete phrases).
 
   --timeshift     Timeshift feature (VLC player only).
 
@@ -304,14 +311,7 @@ get_unique_port() {
 process_audio_chunk() {
     local wav_file="$1"
 
-    # The processing pipe is designed to be robust across whisper.cpp versions:
-    # 1. tr '\r' '\n': Converts carriage returns to newlines to normalize output from all versions.
-    # 2. grep '^\[': Isolates ALL lines that start with a timestamp.
-    # 3. sed 's/^\[.*\] *//': Strips the timestamp from EACH of those lines.
-    # 4. paste -s -d ' ' -: Joins all the cleaned lines back into a single line, separated by spaces.
-    # 5. tr -d ...: Cleans up potential garbage characters.
-    # 6. tee ...: Prints to screen and saves to a file.
-
+    # The processing pipe is designed to be robust across whisper.cpp versions
     if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
         "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' - | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
         err=$?
@@ -324,7 +324,6 @@ process_audio_chunk() {
             err=$?
         fi
     elif [[ "$WHISPER_EXECUTABLE" == "whisper" ]]; then
-        # The python version of whisper has a different, more stable output format and is not affected.
         if [[ "$TRANSLATE" == "--translate" ]]; then
             if [[ "$LANGUAGE" == "auto" ]]; then
                 whisper --temperature 0 --beam_size 8 --best_of 4 --initial_prompt "" --threads 4 --model ${MODEL} --task translate --model_dir ./models --output_dir /tmp --output_format txt "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tail -n 1 | tr -d '<>^*_' | tee /tmp/aout-whisper-live_${MYPID}.txt >/dev/null
@@ -362,12 +361,32 @@ process_audio_chunk() {
 
     # Attempt translation with the primary engine (Gemini)
     if [[ -n "$GEMINI_TRANS_MODEL" ]] && [[ -n "$GEMINI_API_KEY" ]]; then
-        # Prepare context payload using previous clean translations
-        local translated_context
-        translated_context=$(printf "%s " "${translated_context_window[@]}")
+        # --- Gemini Prompt Engineering based on Context Level ---
+        local translated_context=""
+        local prompt_instructions=""
 
-        # The user-approved prompt. DO NOT CHANGE.
-        local full_prompt="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New English Fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. It is crucial that you translate the full meaning without omitting any information from the original fragment. Your output must be ONLY the new translation.\n\nTranslated Context:\n${translated_context}\n\nNew English Fragment:\n${original_text}"
+        case "$GEMINI_CONTEXT_LEVEL" in
+            0)
+                translated_context=""
+                prompt_instructions="You are an expert real-time translator. Your goal is to provide a literal and fluid translation of the 'New source text fragment' into ${TRANS_LANGUAGE}. Your output must be ONLY the new translation."
+                ;;
+            1)
+                if [ "${#translated_context_window[@]}" -gt 0 ]; then
+                    translated_context="${translated_context_window[-1]}"
+                fi
+                prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. Your output must be ONLY the new translation."
+                ;;
+            3)
+                translated_context=$(printf "%s " "${translated_context_window[@]}")
+                prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE}. Based on the 'Translated Context', you have the creative freedom to rephrase, complete sentences, or fix cut-off words in the 'New source text fragment' to ensure the final output is coherent and flows naturally. Your output must be ONLY the new, improved translation."
+                ;;
+            *)
+                translated_context=$(printf "%s " "${translated_context_window[@]}")
+                prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. It is crucial that you translate the full meaning without omitting any information from the original fragment. Your output must be ONLY the new translation."
+                ;;
+        esac
+
+        local full_prompt="${prompt_instructions}\n\nTranslated Context:\n${translated_context}\n\nNew source text fragment:\n${original_text}"
 
         local json_payload
         json_payload=$(jq -n \
@@ -383,7 +402,7 @@ process_audio_chunk() {
                 ]
             }')
 
-        # API call with a 2-second timeout
+        # API call
         local api_response_raw
         api_response_raw=$(curl --silent --no-buffer --max-time 2 -X POST \
             -H 'Content-Type: application/json' \
@@ -404,7 +423,6 @@ process_audio_chunk() {
     # Fallback to the secondary translation engine (trans)
     if [[ "$use_trans_fallback" == true ]]; then
         if [[ $TRANS == "trans" ]]; then
-            # Set fallback indicator only if Gemini was supposed to run but failed
             if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
                 fallback_indicator="(*) "
             fi
@@ -413,32 +431,38 @@ process_audio_chunk() {
     fi
 
     # --- Display, Context Update, and TTS Logic ---
-    
-    # Log the raw original text
+
+    # Log the raw, unwrapped original text
     echo "$original_text" >> "/tmp/transcription-whisper-live_${MYPID}.txt"
 
-    # Display original text if enabled
+    # Helper function to print text with smart wrapping.
+    # It gets the terminal width on every call to handle window resizing.
+    print_wrapped() {
+        local text_to_print="$1"
+        local terminal_width
+        terminal_width=$(tput cols 2>/dev/null || echo 80)
+        echo "$text_to_print" | fold -s -w "$terminal_width"
+    }
+
+    # Display original text if enabled, using the wrapper
     if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]]; then
-         echo "$original_text"
+         print_wrapped "$original_text"
     fi
 
-    # Display translated text if available and enabled
+    # Display translated text if available and enabled, using the wrapper
     if [[ -n "$translated_text" ]] && ([[ $OUTPUT_TEXT == "translation" ]] || [[ $OUTPUT_TEXT == "both" ]]); then
         if [[ $OUTPUT_TEXT == "both" ]]; then tput rev; fi
-        echo "${fallback_indicator}${translated_text}"
+        print_wrapped "${fallback_indicator}${translated_text}"
         if [[ $OUTPUT_TEXT == "both" ]]; then tput sgr0; fi
 
-        # Log the final translation
+        # Log the raw, unwrapped translated text
         echo "${fallback_indicator}${translated_text}" >> "/tmp/translation-whisper-live_${MYPID}.txt"
-        
-        # --- *** LÓGICA DE SANEAMIENTO MEJORADA *** ---
-        # 1. Limpiar la traducción de un conjunto más amplio de caracteres problemáticos
-        #    ANTES de guardarla en la memoria de contexto.
+
+        # Sanitize the raw, unwrapped translated text before adding it to the context window
         local clean_translated_text
         clean_translated_text=$(echo "$translated_text" | sed 's/(\([^)]*\))//g; s/\[[^]]*\]//g; s/[$*#]//g')
 
-        # 2. Guardar SOLAMENTE el texto limpio en la memoria para el siguiente prompt.
-        #    Esto evita el bucle de retroalimentación de forma más robusta.
+        # Update the context window ONLY with the cleaned text
         if [[ -n "$clean_translated_text" ]]; then
             translated_context_window+=("$clean_translated_text")
             if [ "${#translated_context_window[@]}" -gt 2 ]; then
@@ -449,7 +473,7 @@ process_audio_chunk() {
 
     # Handle Text-to-Speech (TTS)
     if [[ $SPEAK == "speak" ]] && [[ -n "$translated_text" ]]; then
-        # Always use the final translated text for TTS, regardless of its source
+        # TTS logic uses the raw, unwrapped text
         echo "$translated_text" | trans -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null
 
         local audio_file="/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3"
@@ -616,6 +640,14 @@ while [[ $# -gt 0 ]]; do
                 fi
             fi
             ;;
+        --gemini-level )
+            shift
+            if [[ "$1" =~ ^[0-3]$ ]]; then
+                GEMINI_CONTEXT_LEVEL=$1
+            else
+                echo ""; echo "${ICON_ERROR} Invalid Gemini level: $1. Must be between 0 and 3."; echo ""; usage; exit 1
+            fi
+            ;;
         --player )
             shift
             MPV_OPTIONS=$1
@@ -625,7 +657,7 @@ while [[ $# -gt 0 ]]; do
             if [[ $# -gt 1 ]]; then
                 while [[ $# -gt 1 ]]; do
                     case $2 in
-                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --trans | --gemini-trans )
+                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --trans | --gemini-trans | --gemini-level )
                             break
                             ;;
                         *)
@@ -743,15 +775,15 @@ fi
 if [[ "$TRANS" == "trans" ]] && [[ "$PLAYER_ONLY" == "" ]]; then
     engine_info=""
     if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
-        engine_info="via Gemini ('${GEMINI_TRANS_MODEL}')"
+        engine_info="via Gemini ('${GEMINI_TRANS_MODEL}'), context level: ${GEMINI_CONTEXT_LEVEL}"
     else
         engine_info="via translate-shell (engine: '${TRANS_ENGINE}')"
     fi
 
     if [[ "$SPEAK" == "speak" ]]; then
-        printf "[+] Online translation ${engine_info} to '${TRANS_LANGUAGE}', output: '${OUTPUT_TEXT}', Text-to-speech.\n\n"
+        printf "[+] Online translation to '${TRANS_LANGUAGE}' ${engine_info}, output: '${OUTPUT_TEXT}', Text-to-speech.\n\n"
     else
-        printf "[+] Online translation ${engine_info} to '${TRANS_LANGUAGE}', output: '${OUTPUT_TEXT}'.\n\n"
+        printf "[+] Online translation to '${TRANS_LANGUAGE}' ${engine_info}, output: '${OUTPUT_TEXT}'.\n\n"
     fi
 fi
 
@@ -832,7 +864,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     err=0
     temp_whisper_srt="/tmp/whisper-live_${MYPID}.wav.srt"
-    temp_online_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt" # Generic temp file for both methods
+    temp_online_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt"
 
     if [[ "$skip_transcription" == false ]]; then
         echo ""
@@ -909,7 +941,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             echo "---------------------------------------------------------------------------"
             echo "-> Step 3: Starting Online Translation (Gemini AI) to '${TRANS_LANGUAGE}'..."
             echo ""
-            echo "   Using model: ${GEMINI_TRANS_MODEL}"
+            echo "   Using model: ${GEMINI_TRANS_MODEL}, context level: ${GEMINI_CONTEXT_LEVEL}"
             echo "   Source: ${source_srt_file}"
             echo ""
             echo "---------------------------------------------------------------------------"
@@ -942,9 +974,36 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     end_index=$((i + batch_size - 1))
                     if (( end_index >= total_blocks )); then end_index=$((total_blocks - 1)); fi
 
-                    context_start=$((start_index - 3))
+                    # --- Gemini Prompt Engineering for Subtitles based on Context Level ---
+                    context_start=0
+                    context_end=0
+                    prompt_instructions=""
+
+                    case "$GEMINI_CONTEXT_LEVEL" in
+                        0) # Level 0: No context, batch only
+                            context_start=$start_index
+                            context_end=$end_index
+                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator."
+                            ;;
+                        1) # Level 1: Minimal bidirectional context
+                            context_start=$((start_index - 1))
+                            context_end=$((end_index + 1))
+                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}, using the surrounding blocks for context. Each block is separated by a delimiter. Maintain the separator exactly. Output only the translated blocks, joined by the separator."
+                            ;;
+                        3) # Level 3: Creative context (restores v4.10 window size)
+                            context_start=$((start_index - 3))
+                            context_end=$((end_index + 2))
+                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Use surrounding blocks for context. You have creative freedom to slightly rephrase the translations to ensure they are coherent and flow naturally. Each block is separated by a delimiter. Maintain the separator exactly. Output only the improved translated blocks, joined by the separator."
+                            ;;
+                        *) # Level 2 (Default): Standard context (restores v4.10 window size)
+                            context_start=$((start_index - 3))
+                            context_end=$((end_index + 2))
+                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator."
+                            ;;
+                    esac
+
+                    # Boundary checks for the context window
                     if (( context_start < 0 )); then context_start=0; fi
-                    context_end=$((end_index + 2))
                     if (( context_end >= total_blocks )); then context_end=$((total_blocks - 1)); fi
 
                     text_to_translate=""
@@ -959,8 +1018,8 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
                     echo "--> Translating blocks $((start_index + 1)) to $((end_index + 1)) (with full context)..."
 
-                    full_prompt="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator.\n\n${text_to_translate}"
-                    
+                    full_prompt="${prompt_instructions}\n\n${text_to_translate}"
+
                     json_payload=$(jq -n \
                         --arg prompt_text "$full_prompt" \
                         '{
@@ -979,7 +1038,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
                     while [[ $retry_count -lt $max_retries && "$batch_successful" == false ]]; do
                         ((retry_count++))
-                        
+
                         api_response_raw=$(curl --silent --no-buffer --max-time 30 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
                         api_error=$(echo "$api_response_raw" | jq -r '.error.message // ""')
 
@@ -1001,7 +1060,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
                         translated_text_block=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
                         mapfile -t all_translations_in_batch < <(printf "%s" "$translated_text_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
-                        
+
                         if [ "${#all_translations_in_batch[@]}" -ne "$total_blocks_in_request" ]; then
                             echo "${ICON_ERROR} Translation Alignment Error: Expected ${total_blocks_in_request} total blocks, got ${#all_translations_in_batch[@]}."
                             if [[ $retry_count -lt $max_retries ]]; then
@@ -1025,15 +1084,15 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         echo ""
                         echo "${ICON_WARN} Main batch failed. Activating emergency translation in smaller sub-batches..."
                         mini_batch_size=5
-                        
+
                         for (( j=start_index; j<=end_index; j+=mini_batch_size )); do
                             sleep 2
                             mini_start=$j
                             mini_end=$((j + mini_batch_size - 1))
                             if (( mini_end > end_index )); then mini_end=$end_index; fi
-                            
+
                             echo "    --> Translating sub-batch (lines $((mini_start + 1)) to $((mini_end + 1)))..."
-                            
+
                             mini_text_to_translate=""
                             for (( l=mini_start; l<=mini_end; l++ )); do
                                 mini_text_to_translate+="${text_blocks[l]}${delimiter}"
@@ -1042,7 +1101,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             mini_prompt="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator exactly. Output only the translated blocks.\n\n${mini_text_to_translate}"
                             mini_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts": [ { "text": $prompt_text } ] } ], "safetySettings": [ { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" } ] }')
                             mini_response_raw=$(curl --silent --no-buffer --max-time 15 -X POST -H 'Content-Type: application/json' -d "$mini_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
-                            
+
                             translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
                             mapfile -t translated_mini_lines < <(printf "%s" "$translated_mini_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
 
@@ -1065,7 +1124,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                         any_trans_fallback=true # Set flag for trans fallback
                                         echo -e "Block $((l + 1)) translated (translate-shell fallback):\n${translated_text_nl}\n"
                                     fi
-                                    
+
                                     # Convert back to placeholder format
                                     translated_text_placeholder=$(echo "$translated_text_nl" | awk 'ORS="_NL_"' | sed 's/_NL_$//')
                                     printf "%s\n" "$translated_text_placeholder" >> "$temp_text_only_trans"
@@ -1091,7 +1150,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 for (( k=0; k<total_blocks; k++ )); do
                     line_number="${srt_numbers[k]}"
                     timestamp="${srt_timestamps[k]}"
-                    translated_text="${all_translated_lines[k]:-${text_blocks[k]}}"
+                    translated_text="${all_translated_lines[k]:-${text_blocks[k]}}" # Fallback to original text_block if line is empty
                     translated_text_final=$(printf "%s" "$translated_text" | sed 's/_NL_/\n/g')
                     echo -e "${line_number}\n${timestamp}\n${translated_text_final}\n" >> "$temp_online_trans_srt"
                 done
@@ -1146,19 +1205,19 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 cp "$source_file" "$dest_file"
                 if [ $? -ne 0 ]; then
                     echo ""
-                    echo "${ICON_ERROR} Failed to move file to $dest_file. Temp file is at $source_file ${ICON_ERROR}"
-                    err=1 # Set global error state for a real failure
+                    echo "${ICON_ERROR} Failed to copy file to $dest_file. Temp file is at $source_file ${ICON_ERROR}"
+                    err=1
                 fi
                 ;;
             n|no)
                 echo ""
                 echo "${ICON_WARN} User chose not to overwrite. The temporary file is available at: '$source_file' ${ICON_WARN}"
-                err=2 # Set state to indicate user-aborted save
+                err=2
                 ;;
             *)
                 echo ""
                 echo "${ICON_ERROR} Invalid response. The temporary file is available at '$source_file' ${ICON_ERROR}"
-                err=1 # Invalid input is a failure
+                err=1
                 ;;
         esac
     }
@@ -1181,7 +1240,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
              echo "-> Whisper AI subtitle file was not re-generated, so no new version to save."
         fi
 
-        # CORRECTED: This check now correctly handles both cases
         if [[ $err -eq 0 ]] && [[ "$TRANS" == "trans" ]] && [[ -f "$temp_online_trans_srt" ]]; then
              trans_dest_file="${url_no_ext}.${TRANS_LANGUAGE}.srt"
              trans_file_description="Online Translated Subtitle (${TRANS_LANGUAGE})"
@@ -1310,7 +1368,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     n=0; tbuf=0; abuf="000"; xbuf=1; nbuf="001"
     FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
     TIMEPLAYED=0; tin=0
-    
+
     while [ $RUNNING -eq 1 ]; do
         if [ -f /tmp/whisper-live_${MYPID}_buf$nbuf.avi ]; then
             mv -f /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
@@ -1335,24 +1393,24 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         fi
 
         if [[ "$PLAYER_ONLY" == "" ]] && [[ -f "/tmp/$FILEPLAY" ]]; then
-            
+
             file_mod_time=0
             if [[ "$(uname)" == "Darwin" ]]; then # macOS compatible command
                 file_mod_time=$(stat -f %m "/tmp/$FILEPLAY")
             else # GNU/Linux command
                 file_mod_time=$(date +%s -r "/tmp/$FILEPLAY")
             fi
-            
+
             if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
                 FILEPLAYED="$FILEPLAY"
                 TIMEPLAYED=$file_mod_time
                 translated_context_window=()
                 transcribed_until=0; last_pos=0; tin=0
-                
+
                 # This ffprobe check is only for the very first chunk of a new file segment.
                 segment_duration=$(ffprobe -i "/tmp/$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                 if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=$SEGMENT_TIME; fi
-                
+
                 if (( $(echo "$segment_duration > 1" | bc -l) )); then
                     ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
                     process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
@@ -1378,9 +1436,9 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                     chunk_duration=$STEP_S
 
                     ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
-                    
+
                     process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-                    
+
                     transcribed_until=$((transcribed_until + STEP_S))
                 fi
             elif [ $tin -eq 1 ]; then
@@ -1408,7 +1466,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
         else
             vlc --extraintf=http --http-host 127.0.0.1 --http-port "$MYPORT" --http-password playlist4whisper -L /tmp/playlist_whisper-live_${MYPID}.m3u >/dev/null 2>&1 &
         fi
-        
+
         if [ $? -ne 0 ]; then printf "${ICON_ERROR} Error: The player could not play the file.\n" && exit 1; fi
         VLC_PID=$(ps -ax -o etime,pid,command -c | grep -i '[Vv][Ll][Cc]' | tail -n 1 | awk '{print $2}')
         if [ -z "$VLC_PID" ]; then printf "${ICON_ERROR} Error: The player could not be executed.\n" && exit 1; fi
@@ -1429,7 +1487,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     transcribed_until=0; last_pos=0
                     segment_duration=$(ffprobe -i "${URL}" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                     if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=999999; fi
-                
+
                     if (( $(echo "$segment_duration > 1" | bc -l) )); then
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
@@ -1456,7 +1514,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
                     fi
-                    
+
                     transcribed_until=$((transcribed_until + STEP_S))
                 fi
             fi
@@ -1724,7 +1782,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
         # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
         err=1
         tryed=0
-        
+
         while [ $err -ne 0 ] && [ $tryed -lt $STEP_S ]; do
             if [ $i -gt 0 ]; then
                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.${FMT} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $STEP_S - 1" | bc -l) -t $(echo "$STEP_S" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
