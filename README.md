@@ -964,7 +964,7 @@ A: Yes, several advanced methods can significantly boost performance:
   
 *   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
 
-**The accelerated versions of whisper.cpp require specific model versions to achieve better performance.
+*The accelerated versions of whisper.cpp require specific model versions to achieve better performance.
 
 **Q: How much data is needed to fine-tune a model?**
 
