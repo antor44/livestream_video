@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.20 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.21 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -39,7 +39,7 @@ MODEL="base"            # Default Whisper model
 LANGUAGE="auto"         # Default language for Whisper
 TRANSLATE=""            # Translate to English flag
 PLAYER_ONLY=""          # Only play the video/audio, no transcription
-MPV_OPTIONS="mp3"       # Default player and options
+MPV_OPTIONS="mpv"       # Default player and options
 QUALITY="raw"           # Video quality (raw, upper, lower)
 STREAMLINK_FORCE=""     # Force usage of Streamlink
 YTDLP_FORCE=""          # Force usage of yt-dlp
@@ -188,7 +188,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.20 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.21 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
