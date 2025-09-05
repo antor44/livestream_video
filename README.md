@@ -747,6 +747,49 @@ Additionally, Linux distributions are very different, even Python environments, 
 
 Another question is that "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
 
+**Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
+
+A: Yes, several advanced methods can significantly boost performance:
+
+*   **GPU/NPU Acceleration:** Instead of running the AI engine on the CPU, you can compile `whisper.cpp` with hardware acceleration. This can increase execution speed by 2x or more, allowing you to use larger, more accurate models. Supported technologies include:
+    *   **NVIDIA GPU:** via [cuBLAS](https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas).
+    *   **Cross-Vendor GPU (NVIDIA, AMD, Intel):** via [Vulkan](https://github.com/ggerganov/whisper.cpp#vulkan-gpu-support) or [OpenCL (CLBlast)](https://github.com/ggerganov/whisper.cpp/pull/1037).
+    *   **Intel CPU/GPU:** via [OpenVINO](https://github.com/ggerganov/whisper.cpp#openvino-support).
+    *   **Apple Silicon (M1/M2/M3):** via [Core ML](https://github.com/ggerganov/whisper.cpp#core-ml-support) to use the Apple Neural Engine (ANE), offering speed-ups of over 3x.
+    *   **Ascend NPU:** via [CANN](https://github.com/ggerganov/whisper.cpp#ascend-npu-support).
+    *   **Moore Threads GPU:** via [MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
+   
+*   **CPU Acceleration:** For CPU-only systems, you can still get a boost by compiling with [OpenBLAS](https://github.com/ggerganov/whisper.cpp#blas-cpu-support-via-openblas) or [POWER VSX](https://github.com/ggerganov/whisper.cpp#power-vsx-intrinsics).
+    
+*   **Quantized Models:** You can try using the quantized models option, which can improve execution speed on certain processors with minimal loss in accuracy.
+  
+*   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
+
+*The accelerated versions of whisper.cpp require specific model versions to achieve better performance.
+
+**Q: How much data is needed to fine-tune a model?**
+
+A: Fine-tuning a Whisper model might be more difficult and costly than expected; you must collect that specific information yourself. Some users report success with a relatively short amount of data, while others couldn't obtain significant improvements. It depends on the quality of the language already supported by Whisper and its similarities with other languages supported by Whisper. It also depends on the quality of the dataset for training. It's clear that having as much data as possible is better; perhaps thousands of hours of short sound chunks with their transcriptions. You might be able to fine-tune with large free datasets like Common Voice. You can find the latest version of the Common Voice dataset by checking the [Mozilla Foundation](https://commonvoice.mozilla.org) page or the [Hugging Face Hub](https://huggingface.co/mozilla-foundation). Keep in mind that OpenAI already utilized Common Voice datasets for the validation task during its training, so it's possible that some datasets or languages may not improve Whisper's models as expected. Nonetheless, some minority languages like Catalan, Esperanto and Basque have a significant number of hours in Common Voice, while one of the major languages like Spanish has a very poor dataset. If you want to fine-tune for a more specific use, then you might need a lot of effort or cost to collect enough data with the needed quality, although the dataset would be smaller for improving technical words, slang, or a specific accent of a local region for an already well-supported language.
+
+**Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
+
+**A:** Online translation issues with the Gemini API can stem from several factors, from API availability to the inherent behavior of AI models. Here are the most common causes:
+
+*   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
+    *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
+    *   In **Live Stream** mode, it will immediately fall back to `translate-shell` for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
+
+*   **API Rate Limits:** The primary cause of failures is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers have much higher limits, the following applies to free accounts:
+    *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (like long live streams), but they will fail on high-intensity tasks (like subtitle generation) that exceed the TPM limit.
+    *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them perfect for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted in a long live stream.
+
+*   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues like **confusing languages** (especially with multilingual source text), process previous sentences **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** can occur.
+
+*   **Model Recommendations & Strategies (for Free Tier users):**
+    *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
+    *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its massive daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
+    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests) using the default context level.
+
 **Q: What's the use of the loopback ports? Could I see my videos from the internet?**
 
 A: Loopback ports are needed for features like timeshift, and for upper and lower video quality options. The application uses one port to communicate with VLC for information about the currently playing video, or is used by ffmpeg to stream video to mpv or smplayer. The loopback interface is a virtual network interface per user that by default is not accessible outside your computer, although you can configure your firewall and network interfaces to control VLC and transmit video outside to the internet using VLC's streaming option. However, this would not include live transcriptions, only subtitles. Nevertheless, there are some solutions to stream your entire desktop with decent image quality over the internet, NoMachine (freeware) or Moonlight (open source license) are both great options.
@@ -887,25 +930,6 @@ A: There could be several potential causes. Online video streams may not always 
 
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, although this may lead to some issues with phrases at the beginning of each segmented video chunk.
 
-**Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
-
-**A:** Online translation issues with the Gemini API can stem from several factors, from API availability to the inherent behavior of AI models. Here are the most common causes:
-
-*   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
-    *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
-    *   In **Live Stream** mode, it will immediately fall back to `translate-shell` for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
-
-*   **API Rate Limits:** The primary cause of failures is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers have much higher limits, the following applies to free accounts:
-    *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (like long live streams), but they will fail on high-intensity tasks (like subtitle generation) that exceed the TPM limit.
-    *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them perfect for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted in a long live stream.
-
-*   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues like **confusing languages** (especially with multilingual source text), process previous sentences **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** can occur.
-
-*   **Model Recommendations & Strategies (for Free Tier users):**
-    *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
-    *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its massive daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
-    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests) using the default context level.
-
 **Q: Why does the beginning and end of the transcription often get lost? Is this an AI issue?**
 
 A: Most of the time, this occurs because the application lacks a voice activity detection (VAD) system to split the audio during silent intervals. The current versions of the bash script segment sound files into chunks based on user-selected durations, which may result in the truncation or deletion of words at the beginning and end of each chunk. Additionally, sometimes, there may be cut-offs of a few words at the start or end, either caused by the difficulty in obtaining precise data on video synchronization or timestamps, or this issue could be caused by gaps in the Whisper AI's neural network.
@@ -945,30 +969,6 @@ A: This is one of the well-known limitations of the current version of OpenAI's 
 **Q: The transcriptions I get are not accurate?**
 
 A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models for other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or translate for simultaneous translation to English, it may also significantly increase processor consumption.
-
-**Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
-
-A: Yes, several advanced methods can significantly boost performance:
-
-*   **GPU/NPU Acceleration:** Instead of running the AI engine on the CPU, you can compile `whisper.cpp` with hardware acceleration. This can increase execution speed by 2x or more, allowing you to use larger, more accurate models. Supported technologies include:
-    *   **NVIDIA GPU:** via [cuBLAS](https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas).
-    *   **Cross-Vendor GPU (NVIDIA, AMD, Intel):** via [Vulkan](https://github.com/ggerganov/whisper.cpp#vulkan-gpu-support) or [OpenCL (CLBlast)](https://github.com/ggerganov/whisper.cpp/pull/1037).
-    *   **Intel CPU/GPU:** via [OpenVINO](https://github.com/ggerganov/whisper.cpp#openvino-support).
-    *   **Apple Silicon (M1/M2/M3):** via [Core ML](https://github.com/ggerganov/whisper.cpp#core-ml-support) to use the Apple Neural Engine (ANE), offering speed-ups of over 3x.
-    *   **Ascend NPU:** via [CANN](https://github.com/ggerganov/whisper.cpp#ascend-npu-support).
-    *   **Moore Threads GPU:** via [MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
-   
-*   **CPU Acceleration:** For CPU-only systems, you can still get a boost by compiling with [OpenBLAS](https://github.com/ggerganov/whisper.cpp#blas-cpu-support-via-openblas) or [POWER VSX](https://github.com/ggerganov/whisper.cpp#power-vsx-intrinsics).
-    
-*   **Quantized Models:** You can try using the quantized models option, which can improve execution speed on certain processors with minimal loss in accuracy.
-  
-*   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
-
-*The accelerated versions of whisper.cpp require specific model versions to achieve better performance.
-
-**Q: How much data is needed to fine-tune a model?**
-
-A: Fine-tuning a Whisper model might be more difficult and costly than expected; you must collect that specific information yourself. Some users report success with a relatively short amount of data, while others couldn't obtain significant improvements. It depends on the quality of the language already supported by Whisper and its similarities with other languages supported by Whisper. It also depends on the quality of the dataset for training. It's clear that having as much data as possible is better; perhaps thousands of hours of short sound chunks with their transcriptions. You might be able to fine-tune with large free datasets like Common Voice. You can find the latest version of the Common Voice dataset by checking the [Mozilla Foundation](https://commonvoice.mozilla.org) page or the [Hugging Face Hub](https://huggingface.co/mozilla-foundation). Keep in mind that OpenAI already utilized Common Voice datasets for the validation task during its training, so it's possible that some datasets or languages may not improve Whisper's models as expected. Nonetheless, some minority languages like Catalan, Esperanto and Basque have a significant number of hours in Common Voice, while one of the major languages like Spanish has a very poor dataset. If you want to fine-tune for a more specific use, then you might need a lot of effort or cost to collect enough data with the needed quality, although the dataset would be smaller for improving technical words, slang, or a specific accent of a local region for an already well-supported language.
 
 **Q: smplayer does not work with online TV?**
 
