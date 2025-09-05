@@ -2,7 +2,7 @@
 
 ## playlist4whisper & livestream_video.sh
 
-This is a graphical application that allows you to easily manage and launch `livestream_video.sh`. It provides a user-friendly interface to configure all transcription and translation options, manage TV channel playlists, and store settings.
+`playlist4whisper` is a graphical application that allows you to easily manage and launch `livestream_video.sh`. It provides a user-friendly interface to configure all transcription and translation options, manage TV channel playlists, and store settings.
 
 ### Some Notable Features:
 
@@ -10,7 +10,9 @@ This is a graphical application that allows you to easily manage and launch `liv
 -   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency.
 -   **Text-to-Speech (TTS):** Read translated text aloud for a more immersive experience.
 -   **Subtitle Generation:** Automatically create `.srt` subtitle files from local media files.
+-   **Subtitle Video Editor:** Integrated tool to cut and merge video segments, ideal for creating multilingual subtitles or refining timing.
 -   **Timeshift:** A fully configurable timeshift feature, exclusive to the VLC player.
+-   **Timeshift Recording:** Save and merge selected video segments directly from the timeshift buffer.
 -   **Broad Service Support:** Access a wide range of video services through `streamlink` or `yt-dlp`.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
 
