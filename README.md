@@ -543,6 +543,7 @@ The latest version introduces high-quality online translation using Google's Gem
 You must make the API key available to the `livestream_video.sh` script. There are three recommended methods:
 
 **Method A: System-Wide Environment Variable (Recommended for Desktop Users)**
+
 This method ensures the key is always available, even when launching the bash script from a desktop icon.
 
 1.  Open the file `~/.profile` with a text editor (e.g., `nano ~/.profile`).
@@ -553,6 +554,7 @@ This method ensures the key is always available, even when launching the bash sc
 3.  Save the file and log out and log back in for the changes to take effect.
 
 **Method B: Shell-Specific Environment Variable (Recommended for Terminal Users)**
+
 This is ideal if you primarily run the application from a terminal.
 
 1.  Open your shell's configuration file (`~/.bashrc` for Bash, `~/.zshrc` for Zsh).
@@ -563,6 +565,7 @@ This is ideal if you primarily run the application from a terminal.
 3.  Save the file and either restart your terminal or run `source ~/.bashrc` (or `source ~/.zshrc`).
 
 **Method C: Set in the `playlist4whisper` GUI (Easiest)**
+
 The graphical application can store the key for you. This method is the most straightforward, but the key will only be used when launching the script **from the GUI**.
 
 1.  In `playlist4whisper`, click the **"API Key"** button located in the "Online translation" section.
