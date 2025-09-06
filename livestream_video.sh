@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.24 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.26 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -127,10 +127,9 @@ AVAILABLE_GEMINI_MODELS=(
 # --- Function Definitions ---
 
 
-# Waits for a keypress before exiting, but only on macOS and specifically when
-# running inside an xterm, which tends to close instantly.
+# Waits for a keypress before exiting when running inside an xterm.
 wait_for_keypress_if_needed() {
-    if [[ "$(uname)" == "Darwin" && "$TERM" == "xterm" ]]; then
+    if [[ "$TERM" == "xterm" ]]; then
         echo ""
         # The -n 1 flag reads a single character, -s hides it, -r treats backslashes literally
         read -n 1 -s -r -p "Press any key to close this window..."
@@ -201,7 +200,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.24 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.26 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -1380,6 +1379,9 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     else
         echo ""; echo "${ICON_ERROR} An error occurred during the subtitle generation process. ${ICON_ERROR}"; echo ""
         wait_for_keypress_if_needed
+        pkill -f "^ffmpeg.*${MYPID}.*$"
+        pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
+        pkill -f "^trans.*${MYPID}.*$"
         exit 1
     fi
 
