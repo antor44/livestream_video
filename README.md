@@ -9,6 +9,7 @@
 -   **Online Translation:** Translate transcriptions in real-time using either Google Translate or the high-quality Google Gemini API.
 -   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency.
 -   **Text-to-Speech (TTS):** Read translated text aloud for a more immersive experience.
+-   **Save Session Transcripts:** Save the complete transcription and translation logs from the current session with a single click.
 -   **Subtitle Generation:** Automatically create `.srt` subtitle files from local media files.
 -   **Subtitle Video Editor:** Integrated tool to cut and merge video segments, ideal for creating multilingual subtitles or refining timing.
 -   **Timeshift:** A fully configurable timeshift feature, exclusive to the VLC player.
@@ -775,7 +776,7 @@ A: Fine-tuning a Whisper model might be more difficult and costly than expected;
 
 **Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
 
-**A:** Online translation issues with the Gemini API can stem from several factors, from API availability to the inherent behavior of AI models. Here are the most common causes:
+A: Online translation issues with the Gemini API can stem from several factors, from API availability to the inherent behavior of AI models. Here are the most common causes:
 
 *   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
     *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
@@ -791,6 +792,28 @@ A: Fine-tuning a Whisper model might be more difficult and costly than expected;
     *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
     *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its massive daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
     *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests) using the default context level.
+
+**Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
+
+A: While the quality from the API is very high, you may notice that pasting an entire SRT file into a web chat like Google AI Studio can sometimes yield superior results. The primary reason for this is **global context**. When you paste a full SRT file into the web interface, it generally uses a powerful model like Gemini 2.5 Pro and can process the entire document as a single piece of context. This allows the AI to understand overarching themes and the relationships between distant parts of the dialogue, resulting in excellent quality translations in a wide range of languages. However, this manual method is less convenient and can fail with very extensive texts.
+
+The application, on the other hand, processes the subtitle file in **segmented parts** to handle very large files robustly without failing. To maintain coherence, it provides the AI with a "sliding window" of context, including several phrases before and after the current segment being translated. For most content, the quality difference is barely noticeable. The most significant drop in quality usually occurs due to external factors like API server overload or rate limit errors. You may occasionally see minor errors, such as the repetition of a word at the intersection between batches.
+
+Despite this, the script's approach is highly effective. Even with smaller models like `gemini-2.5-flash-lite`, it does an excellent job with common languages, often correcting misspelled words and accurately identifying well-known entities such as places, acronyms, companies, organizations, political parties, and the names of famous people. However, it's important to note a universal limitation: if a name of an unknown person is transcribed incorrectly (e.g., "Jhon" instead of "John"), the AI has no way of knowing the correct spelling, a challenge that even the web version cannot solve.
+
+**Q: Why doesn't the application use the entire subtitle file for context at once, similar to the web version?**
+
+A: This is a design choice to optimize the script for reliability and performance across all models, especially for users with free tier API keys. While a feature known as **context caching** exists, which allows uploading a full document for global context, its practical application is complex.
+
+The situation is as follows:
+
+- For the powerful **Gemini models**, context caching is primarily a **paid tier feature**.
+- For **Gemma models**, context caching is indeed available **free of charge**. However, this option was deliberately not implemented as the default for two key reasons:
+
+    - **Rate Limits:** The free tier for Gemma models has a very low **Tokens Per Minute (TPM) limit**. Attempting to upload a moderately sized subtitle file to the cache would immediately fail by exceeding this limit.
+    - **Translation Quality:** While Gemma is highly capable, it is not as powerful as the flagship Gemini models, especially for translating less common or nuanced languages where the larger model's extensive training data makes a significant difference.
+
+Therefore, the current "sliding window" approach was chosen as the best overall solution. It provides high-quality context, works reliably across all models without failing on rate limits, and is optimized for the free tier. Paid account users still benefit from this system as they can use more powerful models with much higher rate limits, leading to a superior result.
 
 **Q: What's the use of the loopback ports? Could I see my videos from the internet?**
 
