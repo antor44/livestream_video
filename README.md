@@ -562,8 +562,8 @@ This is ideal if you primarily run the application from a terminal.
     ```
 3.  Save the file and either restart your terminal or run `source ~/.bashrc` (or `source ~/.zshrc`).
 
-**Method C: Set in `playlist4whisper` GUI (Easiest)**
-The graphical application can store the key for you.
+**Method C: Set in the `playlist4whisper` GUI (Easiest)**
+The graphical application can store the key for you. This method is the most straightforward, but the key will only be used when launching the script **from the GUI**.
 
 1.  In `playlist4whisper`, click the **"API Key"** button located in the "Online translation" section.
 2.  Paste your key into the dialog box and click "OK". The key is saved in your configuration file and will be passed to the script automatically.
