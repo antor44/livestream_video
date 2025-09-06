@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.22 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.24 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -126,6 +126,19 @@ AVAILABLE_GEMINI_MODELS=(
 
 # --- Function Definitions ---
 
+
+# Waits for a keypress before exiting, but only on macOS and specifically when
+# running inside an xterm, which tends to close instantly.
+wait_for_keypress_if_needed() {
+    if [[ "$(uname)" == "Darwin" && "$TERM" == "xterm" ]]; then
+        echo ""
+        # The -n 1 flag reads a single character, -s hides it, -r treats backslashes literally
+        read -n 1 -s -r -p "Press any key to close this window..."
+        echo ""
+    fi
+}
+
+
 # Checks if required external tools (ffmpeg, whisper, etc.) are available.
 check_requirements() {
     # Use specified executable or find and select one
@@ -188,7 +201,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.22 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.24 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -372,7 +385,9 @@ process_audio_chunk() {
                 ;;
             1)
                 if [ "${#translated_context_window[@]}" -gt 0 ]; then
-                    translated_context="${translated_context_window[-1]}"
+                    # macOS/Bash 3.2 compatible way to get the last element of an array
+                    local last_index=$((${#translated_context_window[@]} - 1))
+                    translated_context="${translated_context_window[last_index]}"
                 fi
                 prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. Your output must be ONLY the new translation."
                 ;;
@@ -959,9 +974,21 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             else
                 # -- Deconstruction --
                 echo "--> Deconstructing source SRT file..."
-                mapfile -t srt_numbers < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $1 }' "$source_srt_file")
-                mapfile -t srt_timestamps < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $2 }' "$source_srt_file")
-                mapfile -t text_blocks < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); s=$3; for (i=4; i<=NF; i++) { s = s "_NL_" $i } print s; }' "$source_srt_file")
+                # Use while-read loops for compatibility with older Bash versions (like on macOS)
+                declare -a srt_numbers=()
+                while IFS= read -r line; do
+                    srt_numbers+=("$line")
+                done < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $1 }' "$source_srt_file")
+
+                declare -a srt_timestamps=()
+                while IFS= read -r line; do
+                    srt_timestamps+=("$line")
+                done < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $2 }' "$source_srt_file")
+
+                declare -a text_blocks=()
+                while IFS= read -r line; do
+                    text_blocks+=("$line")
+                done < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); s=$3; for (i=4; i<=NF; i++) { s = s "_NL_" $i } print s; }' "$source_srt_file")
                 echo "Done."
 
                 # -- Batch Processing with Context Window --
@@ -1066,7 +1093,11 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         fi
 
                         translated_text_block=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
-                        mapfile -t all_translations_in_batch < <(printf "%s" "$translated_text_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
+
+                        declare -a all_translations_in_batch=()
+                        while IFS= read -r line; do
+                            all_translations_in_batch+=("$line")
+                        done < <(printf "%s" "$translated_text_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
 
                         if [ "${#all_translations_in_batch[@]}" -ne "$total_blocks_in_request" ]; then
                             echo "${ICON_ERROR} Translation Alignment Error: Expected ${total_blocks_in_request} total blocks, got ${#all_translations_in_batch[@]}."
@@ -1117,7 +1148,11 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             mini_response_raw=$(curl --silent --no-buffer --max-time 15 -X POST -H 'Content-Type: application/json' -d "$mini_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
 
                             translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
-                            mapfile -t translated_mini_lines < <(printf "%s" "$translated_mini_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
+
+                            declare -a translated_mini_lines=()
+                            while IFS= read -r line; do
+                                translated_mini_lines+=("$line")
+                            done < <(printf "%s" "$translated_mini_block" | tr -d '\r' | sed "s/${delimiter}/\n/g" | grep .)
 
                             num_lines_in_mini_batch=$((mini_end - mini_start + 1))
                             if [ "${#translated_mini_lines[@]}" -ne "$num_lines_in_mini_batch" ]; then
@@ -1171,7 +1206,10 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     fi
                 done
 
-                mapfile -t all_translated_lines < "$temp_text_only_trans"
+                declare -a all_translated_lines=()
+                while IFS= read -r line; do
+                    all_translated_lines+=("$line")
+                done < "$temp_text_only_trans"
                 rm "$temp_text_only_trans"
 
                 echo "--> Reconstructing final SRT file..."
@@ -1278,7 +1316,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
              set +x
          fi
-     fi
+    fi
 
     # --- Final Status ---
     if [ $err -eq 0 ]; then
@@ -1333,15 +1371,15 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             echo ""
         fi
 
+        wait_for_keypress_if_needed
         exit 0
     elif [ $err -eq 2 ]; then
         echo ""; echo " ${ICON_WARN} Operation finished, but final file was not saved as per user request. ${ICON_WARN}"; echo ""
+        wait_for_keypress_if_needed
         exit 0
     else
         echo ""; echo "${ICON_ERROR} An error occurred during the subtitle generation process. ${ICON_ERROR}"; echo ""
-        pkill -f "^ffmpeg.*${MYPID}.*$"
-        pkill -f "^${WHISPER_EXECUTABLE}.*${MYPID}.*$"
-        pkill -f "^trans.*${MYPID}.*$"
+        wait_for_keypress_if_needed
         exit 1
     fi
 
@@ -1400,12 +1438,12 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     esac
 
     arg='#EXTM3U'
-	x=0
-	while [ $x -lt $SEGMENTS ]; do
-		arg="$arg"'\n/tmp/whisper-live_'"${MYPID}"'_'"$x"'.avi'
-		x=$((x+1))
-	done
-	echo -e $arg > /tmp/playlist_whisper-live_${MYPID}.m3u
+  	x=0
+  	while [ $x -lt $SEGMENTS ]; do
+  		arg="$arg"'\n/tmp/whisper-live_'"${MYPID}"'_'"$x"'.avi'
+  		x=$((x+1))
+  	done
+  	echo -e $arg > /tmp/playlist_whisper-live_${MYPID}.m3u
 
     max_wait_time=20
     file_path="/tmp/whisper-live_${MYPID}_buf000.avi"
