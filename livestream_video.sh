@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.21 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.22 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -188,7 +188,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.21 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.22 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -426,7 +426,7 @@ process_audio_chunk() {
             if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
                 fallback_indicator="(*) "
             fi
-            translated_text=$(echo "$original_text" | trans -no-warn -b :${TRANS_LANGUAGE})
+            translated_text=$(echo "$original_text" | trans -no-warn -b :${TRANS_LANGUAGE} 2>/dev/null)
         fi
     fi
 
@@ -474,7 +474,7 @@ process_audio_chunk() {
     # Handle Text-to-Speech (TTS)
     if [[ $SPEAK == "speak" ]] && [[ -n "$translated_text" ]]; then
         # TTS logic uses the raw, unwrapped text
-        echo "$translated_text" | trans -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null
+        echo "$translated_text" | trans -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
 
         local audio_file="/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3"
         if [ -f "$audio_file" ]; then
@@ -814,6 +814,12 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     # do not stop script on error
     set +e
 
+    # Arrays to store information about translation fallbacks
+    declare -a emergency_batches=()
+    declare -a emergency_gemini_success=()
+    declare -a trans_fallback_blocks=()
+    declare -a original_fallback_blocks=()
+
     url_no_ext="${URL%.*}"
     skip_transcription=false
     source_srt_file="" # This will hold the path to the SRT file to be used by 'trans'
@@ -966,6 +972,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 total_blocks=${#text_blocks[@]}
 
                 # Flags to track failure levels for the final message
+                any_emergency_fallback=false
                 any_trans_fallback=false
                 any_original_fallback=false
 
@@ -990,12 +997,12 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             context_end=$((end_index + 1))
                             prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}, using the surrounding blocks for context. Each block is separated by a delimiter. Maintain the separator exactly. Output only the translated blocks, joined by the separator."
                             ;;
-                        3) # Level 3: Creative context (restores v4.10 window size)
+                        3) # Level 3: Creative context
                             context_start=$((start_index - 3))
                             context_end=$((end_index + 2))
                             prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Use surrounding blocks for context. You have creative freedom to slightly rephrase the translations to ensure they are coherent and flow naturally. Each block is separated by a delimiter. Maintain the separator exactly. Output only the improved translated blocks, joined by the separator."
                             ;;
-                        *) # Level 2 (Default): Standard context (restores v4.10 window size)
+                        *) # Level 2 (Default): Standard context
                             context_start=$((start_index - 3))
                             context_end=$((end_index + 2))
                             prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator."
@@ -1016,7 +1023,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         text_to_translate+="${text_blocks[k]}${delimiter}"
                     done
 
-                    echo "--> Translating blocks $((start_index + 1)) to $((end_index + 1)) (with full context)..."
+                    echo "--> Translating blocks $((start_index + 1)) to $((end_index + 1)) (with context window)..."
 
                     full_prompt="${prompt_instructions}\n\n${text_to_translate}"
 
@@ -1078,15 +1085,22 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         for (( j=0; j<num_main_lines; j++ )); do
                             current_block_index=$((start_index + j))
                             printf "%s\n" "${main_translations[j]}" >> "$temp_text_only_trans"
-                            echo -e "Block $((current_block_index + 1)) translated:\n${main_translations[j]}\n"
+
+                            # Print with timestamps
+                            translated_text_nl=$(echo "${main_translations[j]}" | sed 's/_NL_/\n/g')
+                            echo -e "${srt_numbers[current_block_index]}\n${srt_timestamps[current_block_index]}\n${translated_text_nl}\n"
                         done
                     else
                         echo ""
                         echo "${ICON_WARN} Main batch failed. Activating emergency translation in smaller sub-batches..."
+                        any_emergency_fallback=true
+                        emergency_batches+=("Batch from block $((start_index + 1)) to $((end_index + 1))")
                         mini_batch_size=5
 
                         for (( j=start_index; j<=end_index; j+=mini_batch_size )); do
-                            sleep 2
+                            # Wait between each emergency sub-batch to be rate-limit friendly
+                            sleep 5
+
                             mini_start=$j
                             mini_end=$((j + mini_batch_size - 1))
                             if (( mini_end > end_index )); then mini_end=$end_index; fi
@@ -1111,18 +1125,20 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                 for (( l=mini_start; l<=mini_end; l++ )); do
                                     original_text_nl=$(echo "${text_blocks[l]}" | sed 's/_NL_/\n/g')
                                     echo "        -> Translating block $((l + 1)) with fallback..."
-                                    # Translate using trans
-                                    translated_text_nl=$(echo "$original_text_nl" | trans -b -no-warn :${TRANS_LANGUAGE})
+                                    # Translate using trans, redirecting stderr to /dev/null
+                                    translated_text_nl=$(echo "$original_text_nl" | trans -b -no-warn :${TRANS_LANGUAGE} 2>/dev/null)
 
                                     # Final fallback: if trans fails, use original text
                                     if [[ -z "$translated_text_nl" ]]; then
-                                        any_original_fallback=true # Set flag for worst case
+                                        any_original_fallback=true
+                                        original_fallback_blocks+=("Block $((l + 1)) | ${srt_timestamps[l]}")
                                         echo "            -> translate-shell also failed. Using original text as a last resort."
                                         translated_text_nl="$original_text_nl"
-                                        echo -e "Block $((l + 1)) (original text fallback):\n${translated_text_nl}\n"
+                                        echo -e "${srt_numbers[l]}\n${srt_timestamps[l]}\n${translated_text_nl}\n"
                                     else
-                                        any_trans_fallback=true # Set flag for trans fallback
-                                        echo -e "Block $((l + 1)) translated (translate-shell fallback):\n${translated_text_nl}\n"
+                                        any_trans_fallback=true
+                                        trans_fallback_blocks+=("Block $((l + 1)) | ${srt_timestamps[l]}")
+                                        echo -e "${srt_numbers[l]}\n${srt_timestamps[l]}\n${translated_text_nl}\n"
                                     fi
 
                                     # Convert back to placeholder format
@@ -1130,15 +1146,28 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                     printf "%s\n" "$translated_text_placeholder" >> "$temp_text_only_trans"
                                 done
                             else
-                                # Show the successful translations
+                                # Show the successful translations and store the timestamp range
+                                start_ts_full="${srt_timestamps[mini_start]}"
+                                end_ts_full="${srt_timestamps[mini_end]}"
+                                # Extract start time from the first block and end time from the last block
+                                start_time=$(echo "$start_ts_full" | cut -d' ' -f1)
+                                end_time=$(echo "$end_ts_full" | cut -d' ' -f3)
+                                emergency_gemini_success+=("Blocks $((mini_start + 1)) to $((mini_end + 1)) | ${start_time} --> ${end_time}")
+
                                 for k in "${!translated_mini_lines[@]}"; do
                                     current_block_index=$((mini_start + k))
-                                    echo -e "Block $((current_block_index + 1)) translated (emergency mode):\n${translated_mini_lines[k]}\n"
+                                    translated_text_nl=$(echo "${translated_mini_lines[k]}" | sed 's/_NL_/\n/g')
+                                    echo -e "${srt_numbers[current_block_index]}\n${srt_timestamps[current_block_index]}\n${translated_text_nl}\n"
                                     printf "%s\n" "${translated_mini_lines[k]}" >> "$temp_text_only_trans"
                                 done
                             fi
                         done
                         echo "${ICON_WARN} Finished emergency handling for the problematic block."
+                    fi
+
+                    # Wait before processing the next main batch to be rate-limit friendly
+                    if [ $i -lt $((total_blocks - batch_size)) ]; then
+                        sleep 1
                     fi
                 done
 
@@ -1168,7 +1197,8 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             echo "---------------------------------------------------------------------------"
             echo ""
 
-            trans -b -e "${TRANS_ENGINE}" :"${TRANS_LANGUAGE}" -i "$source_srt_file" | tee "$temp_online_trans_srt"
+            # Redirect stderr to /dev/null to hide gawk errors
+            trans -b -e "${TRANS_ENGINE}" :"${TRANS_LANGUAGE}" -i "$source_srt_file" 2>/dev/null | tee "$temp_online_trans_srt"
             err=${PIPESTATUS[0]}
 
             if [[ $err -ne 0 ]]; then
@@ -1252,13 +1282,57 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     # --- Final Status ---
     if [ $err -eq 0 ]; then
-        if [[ "$any_original_fallback" == true ]]; then
-            echo ""; echo " ${ICON_WARN} Process completed, but some parts could not be translated and the original text was used instead. ${ICON_WARN}"; echo ""
-        elif [[ "$any_trans_fallback" == true ]]; then
-            echo ""; echo " ${ICON_WARN} The operation completed, but some translation blocks failed and required special handling with translate-shell. ${ICON_WARN}"; echo ""
-        else
-            echo ""; echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"; echo ""
+        success=true
+        # Check for any issues and set success to false if any are found
+        if [ ${#original_fallback_blocks[@]} -gt 0 ] || [ ${#trans_fallback_blocks[@]} -gt 0 ] || [ ${#emergency_batches[@]} -gt 0 ]; then
+            success=false
         fi
+
+        # General summary if emergency mode was triggered
+        if [ ${#emergency_batches[@]} -gt 0 ]; then
+             echo ""; echo " ${ICON_WARN} SUMMARY: The translation process encountered issues and entered emergency mode for the following main batches: ${ICON_WARN}";
+             for item in "${emergency_batches[@]}"; do
+                echo "  - $item"
+            done
+        fi
+
+        # Most severe issue: Using original text
+        if [ ${#original_fallback_blocks[@]} -gt 0 ]; then
+            echo ""; echo " ${ICON_ERROR} CRITICAL: Some blocks could not be translated by any engine. Original text was used in these instances: ${ICON_ERROR}";
+            printf "%-20s | %s\n" "Block Number" "Timestamp"
+            printf -- "-%.0s" {1..50}; echo ""
+            for item in "${original_fallback_blocks[@]}"; do
+                printf "%-20s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
+            done
+        fi
+
+        # Second most severe: Fallback to translate-shell
+        if [ ${#trans_fallback_blocks[@]} -gt 0 ]; then
+            echo ""; echo " ${ICON_WARN} WARNING: Some blocks failed with Gemini and fell back to translate-shell in these instances: ${ICON_WARN}";
+            printf "%-20s | %s\n" "Block Number" "Timestamp"
+            printf -- "-%.0s" {1..50}; echo ""
+            for item in "${trans_fallback_blocks[@]}"; do
+                printf "%-20s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
+            done
+        fi
+
+        # Informational: Gemini successes within emergency mode
+        if [ ${#emergency_gemini_success[@]} -gt 0 ]; then
+             echo ""; echo " ${ICON_OK} INFO: Gemini successfully translated the following sub-batches within emergency mode: ${ICON_OK}";
+             printf "%-30s | %s\n" "Sub-Batch Range" "Timestamp Range"
+             printf -- "-%.0s" {1..80}; echo ""
+             for item in "${emergency_gemini_success[@]}"; do
+                printf "%-30s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
+            done
+        fi
+
+        if [[ "$success" == true ]]; then
+            echo ""; echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"; echo ""
+        else
+            # Add a final newline for better separation if there were warnings/errors
+            echo ""
+        fi
+
         exit 0
     elif [ $err -eq 2 ]; then
         echo ""; echo " ${ICON_WARN} Operation finished, but final file was not saved as per user request. ${ICON_WARN}"; echo ""
