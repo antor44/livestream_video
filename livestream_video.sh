@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.26 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 4.30 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -200,7 +200,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 4.26 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 4.30 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -1325,21 +1325,13 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             success=false
         fi
 
-        # General summary if emergency mode was triggered
-        if [ ${#emergency_batches[@]} -gt 0 ]; then
-             echo ""; echo " ${ICON_WARN} SUMMARY: The translation process encountered issues and entered emergency mode for the following main batches: ${ICON_WARN}";
-             for item in "${emergency_batches[@]}"; do
-                echo "  - $item"
-            done
-        fi
-
-        # Most severe issue: Using original text
-        if [ ${#original_fallback_blocks[@]} -gt 0 ]; then
-            echo ""; echo " ${ICON_ERROR} CRITICAL: Some blocks could not be translated by any engine. Original text was used in these instances: ${ICON_ERROR}";
-            printf "%-20s | %s\n" "Block Number" "Timestamp"
-            printf -- "-%.0s" {1..50}; echo ""
-            for item in "${original_fallback_blocks[@]}"; do
-                printf "%-20s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
+        # Informational: Gemini successes within emergency mode
+        if [ ${#emergency_gemini_success[@]} -gt 0 ]; then
+             echo ""; echo " ${ICON_OK} INFO: Gemini successfully translated the following sub-batches within emergency mode: ${ICON_OK}";
+             printf "%-30s | %s\n" "Sub-Batch Range" "Timestamp Range"
+             printf -- "-%.0s" {1..80}; echo ""
+             for item in "${emergency_gemini_success[@]}"; do
+                printf "%-30s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
             done
         fi
 
@@ -1353,23 +1345,31 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             done
         fi
 
-        # Informational: Gemini successes within emergency mode
-        if [ ${#emergency_gemini_success[@]} -gt 0 ]; then
-             echo ""; echo " ${ICON_OK} INFO: Gemini successfully translated the following sub-batches within emergency mode: ${ICON_OK}";
-             printf "%-30s | %s\n" "Sub-Batch Range" "Timestamp Range"
-             printf -- "-%.0s" {1..80}; echo ""
-             for item in "${emergency_gemini_success[@]}"; do
-                printf "%-30s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
+        # Most severe issue: Using original text
+        if [ ${#original_fallback_blocks[@]} -gt 0 ]; then
+            echo ""; echo " ${ICON_ERROR} CRITICAL: Some blocks could not be translated by any engine. Original text was used in these instances: ${ICON_ERROR}";
+            printf "%-20s | %s\n" "Block Number" "Timestamp"
+            printf -- "-%.0s" {1..50}; echo ""
+            for item in "${original_fallback_blocks[@]}"; do
+                printf "%-20s | %s\n" "$(echo $item | cut -d'|' -f1)" "$(echo $item | cut -d'|' -f2)"
+            done
+        fi
+
+        # General summary if emergency mode was triggered
+        if [ ${#emergency_batches[@]} -gt 0 ]; then
+            echo ""
+            echo ""; echo " SUMMARY: The translation process encountered issues and entered emergency mode for the following main batches:";
+            echo ""
+            for item in "${emergency_batches[@]}"; do
+                echo "  - $item"
             done
         fi
 
         if [[ "$success" == true ]]; then
-            echo ""; echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"; echo ""
-        else
-            # Add a final newline for better separation if there were warnings/errors
-            echo ""
+            echo ""; echo "${ICON_OK} Subtitles generation process completed successfully! ${ICON_OK}"
         fi
 
+        echo ""
         wait_for_keypress_if_needed
         exit 0
     elif [ $err -eq 2 ]; then
