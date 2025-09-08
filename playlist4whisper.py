@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 4.20 License: GPL 3.0
+Author: Antonio R. Version: 4.30 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -474,6 +474,7 @@ class VideoCutterDialog(tk.Toplevel):
 
         self.time_entry_var = tk.StringVar(value="00:00:00.000")
         self.time_entry = tk.Entry(manual_time_frame, textvariable=self.time_entry_var, width=12, font=("Monospace", 10))
+        self.time_entry.bind("<Return>", self._seek_from_entry)
         self.time_entry.pack(side=tk.LEFT)
 
         add_cut_button = tk.Button(manual_time_frame, text="Add Cut", command=self.add_cut_from_entry)
@@ -482,8 +483,14 @@ class VideoCutterDialog(tk.Toplevel):
         controls_frame = tk.Frame(main_frame)
         controls_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
+        self.prev_cut_button = tk.Button(controls_frame, text="<< Prev Cut", command=self.jump_to_prev_cut, state=tk.DISABLED)
+        self.prev_cut_button.pack(side=tk.LEFT, padx=(5, 0))
+
         self.play_pause_button = tk.Button(controls_frame, text="Play", width=10, command=self.toggle_play_pause, state=tk.DISABLED)
         self.play_pause_button.pack(side=tk.LEFT, padx=5)
+
+        self.next_cut_button = tk.Button(controls_frame, text="Next Cut >>", command=self.jump_to_next_cut, state=tk.DISABLED)
+        self.next_cut_button.pack(side=tk.LEFT, padx=(0, 5))
 
         self.time_label = tk.Label(controls_frame, text="--:-- / --:--", width=12)
         self.time_label.pack(side=tk.RIGHT, padx=5)
@@ -589,6 +596,7 @@ class VideoCutterDialog(tk.Toplevel):
         self._on_closing()
 
     def _on_slider_press(self, event):
+        self.focus_set() # Move focus away from any entry widgets
         if self.is_playing:
             self.was_playing_before_seek = True
             self.stop_playback()
@@ -620,6 +628,29 @@ class VideoCutterDialog(tk.Toplevel):
 
         self.cut_points.add(clicked_time)
         self._draw_timeline()
+
+    def jump_to_next_cut(self):
+        """Jumps the playback time to the next cut point or the end of the video."""
+        # Create a set of all possible jump points: user cuts + video end
+        jump_points = sorted(list(self.cut_points | {self.duration_seconds}))
+
+        # Find the first jump point that is greater than the current time
+        next_jump = next((point for point in jump_points if point > self.current_playback_time + 0.1), None)
+
+        if next_jump is not None:
+            self._jump_to_time(next_jump)
+
+    def jump_to_prev_cut(self):
+        """Jumps the playback time to the previous cut point or the start of the video."""
+        # Create a set of all possible jump points: video start + user cuts
+        jump_points = sorted(list({0.0} | self.cut_points))
+
+        # Find all jump points that are less than the current time
+        prev_jumps = [point for point in jump_points if point < self.current_playback_time - 0.1]
+
+        if prev_jumps:
+            # Jump to the last one in the list (the one closest to the current time)
+            self._jump_to_time(prev_jumps[-1])
 
     def _perform_seek(self, event):
         if self.is_loading: return
@@ -692,20 +723,30 @@ class VideoCutterDialog(tk.Toplevel):
             pass
 
     def update_ui(self):
-        # This now only updates text labels and calls the drawing function.
+        # Update time labels and entry widget
         if self.duration_seconds > 0.001:
             duration_str = time.strftime('%M:%S', time.gmtime(self.duration_seconds))
             current_time_str = time.strftime('%M:%S', time.gmtime(self.current_playback_time))
             self.time_label.config(text=f"{current_time_str} / {duration_str}")
+
             td = timedelta(seconds=self.current_playback_time)
             total_seconds = td.total_seconds()
             hours, remainder = divmod(total_seconds, 3600)
             minutes, remainder = divmod(remainder, 60)
             seconds, milliseconds = divmod(remainder, 1)
             precise_time_str = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}.{int(milliseconds*1000):03}"
+
+            # Only update the entry if the user is not actively typing in it
             if self.focus_get() != self.time_entry:
                 self.time_entry_var.set(precise_time_str)
 
+        # Enable/disable navigation buttons based on position
+        # The "Next" button is active if we are not at the very end.
+        self.next_cut_button.config(state=tk.NORMAL if self.current_playback_time < self.duration_seconds - 0.1 else tk.DISABLED)
+        # The "Prev" button is active if we are not at the very beginning.
+        self.prev_cut_button.config(state=tk.NORMAL if self.current_playback_time > 0.1 else tk.DISABLED)
+
+        # Redraw the timeline
         self._draw_timeline()
 
     def _kill_media_process(self):
@@ -729,22 +770,81 @@ class VideoCutterDialog(tk.Toplevel):
                 print(f"Error removing temp file: {e}")
         self.destroy()
 
-    def add_cut_from_entry(self):
-        time_str = self.time_entry_var.get()
+    def _parse_time_string(self, time_str):
+        """Parses a time string (HH:MM:SS.ms) and returns seconds, or None if invalid."""
         try:
             time_parts = re.split(r'[:.,]', time_str)
             if len(time_parts) != 4: raise ValueError("Invalid time format")
             h, m, s, ms = map(int, time_parts)
-            time_in_seconds = (h * 3600) + (m * 60) + s + (ms / 1000.0)
-            if 0 < time_in_seconds < self.duration_seconds:
-                self.cut_points.add(time_in_seconds)
-                self.current_playback_time = time_in_seconds
-                if not self.is_audio_only: self.display_frame()
-                self.update_ui()
-            else:
-                messagebox.showwarning("Invalid Time", "The entered time must be greater than 0 and less than the total duration.", parent=self)
+            return (h * 3600) + (m * 60) + s + (ms / 1000.0)
         except (ValueError, TypeError):
+            return None
+
+    def _jump_to_time(self, new_time):
+        """Helper function to seek the player to a specific time, handling playback state."""
+        was_playing = self.is_playing
+        if was_playing:
+            self.stop_playback()
+
+        self.current_playback_time = new_time
+        self.update_ui()
+        if not self.is_audio_only:
+            self.display_frame()
+
+        if was_playing:
+            self.start_playback()
+
+    def _seek_from_entry(self, event=None):
+        """Seeks the player to the time specified in the time_entry widget."""
+        time_str = self.time_entry_var.get()
+        time_in_seconds = self._parse_time_string(time_str)
+
+        if time_in_seconds is None:
+            if self.is_playing:
+                self.stop_playback()  # Stop playback on error
             messagebox.showerror("Invalid Format", "Please enter the time in HH:MM:SS.ms format (e.g., 00:01:23.456).", parent=self)
+            return
+
+        if not (0 <= time_in_seconds <= self.duration_seconds):
+            if self.is_playing:
+                self.stop_playback()  # Stop playback on error
+            messagebox.showwarning("Invalid Time", "The entered time must be within the media's duration.", parent=self)
+            return
+
+        self._jump_to_time(time_in_seconds)
+        self.focus_set() # Move focus away from the entry
+
+    def add_cut_from_entry(self):
+        time_str = self.time_entry_var.get()
+        time_in_seconds = self._parse_time_string(time_str)
+
+        if time_in_seconds is None:
+            if self.is_playing:
+                self.stop_playback()  # Stop playback on error
+            messagebox.showerror("Invalid Format", "Please enter the time in HH:MM:SS.ms format (e.g., 00:01:23.456).", parent=self)
+            return
+
+        if 0 < time_in_seconds < self.duration_seconds:
+            was_playing = self.is_playing
+            if was_playing:
+                self.stop_playback()
+
+            # Add the cut point and update the current time
+            self.cut_points.add(time_in_seconds)
+            self.current_playback_time = time_in_seconds
+
+            # Update the UI to reflect the new state
+            if not self.is_audio_only: self.display_frame()
+            self.update_ui()
+
+            if was_playing:
+                self.start_playback() # Resume playback from the new position
+
+            self.focus_set()  # Move focus away from the entry widget
+        else:
+            if self.is_playing:
+                self.stop_playback()  # Stop playback on error
+            messagebox.showwarning("Invalid Time", "The entered time must be greater than 0 and less than the total duration.", parent=self)
 
     def perform_cut(self):
         self.stop_playback()
@@ -4073,7 +4173,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 4.20\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 4.30\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
