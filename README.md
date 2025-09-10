@@ -771,7 +771,7 @@ A: Yes, several advanced methods can significantly boost performance:
   
 *   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
 
-*The accelerated versions of whisper.cpp require specific model versions to achieve better performance.
+*The accelerated versions of whisper.cpp may require specific model versions to achieve better performance.
 
 **Q: How much data is needed to fine-tune a model?**
 
@@ -798,9 +798,9 @@ A: Online translation issues with the Gemini API can stem from several factors, 
 
 **Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
 
-A: While the quality from the API is very high, you may notice that pasting an entire SRT file into a web chat like Google AI Studio can sometimes yield superior results. The primary reason for this is **global context**. When you paste a full SRT file into the web interface, it generally uses a powerful model like Gemini 2.5 Pro and can process the entire document as a single piece of context. This allows the AI to understand overarching themes and the relationships between distant parts of the dialogue, resulting in excellent quality translations in a wide range of languages. However, this manual method is less convenient and can fail with very extensive texts.
+A: While the quality from the API is very high, you may notice that pasting an entire SRT file into a web chat like Google AI Studio can sometimes yield superior results. The primary reason for this is **global context**. When you paste a full SRT file into the web interface, it generally uses a powerful model like Gemini 2.5 Pro and can process the entire document as a single piece of context. This allows the AI to understand overarching themes and the relationships between distant parts of the dialogue, resulting in excellent quality translations in a wide range of languages. However, this manual method is less practical and can fail with very long texts, and occasionally generates other errors as well.
 
-The application, on the other hand, processes the subtitle file in **segmented parts** to handle very large files robustly without failing. To maintain coherence, it provides the AI with a "sliding window" of context, including several phrases before and after the current segment being translated. For most content, the quality difference is barely noticeable. The most significant drop in quality usually occurs due to external factors like API server overload or rate limit errors. You may occasionally see minor errors, such as the repetition of a word at the intersection between batches.
+The application, on the other hand, processes the subtitle file in **segmented parts** to handle very large files robustly without failing. To maintain coherence, it provides the AI with a "sliding window" of context, including several phrases before and after the current segment being translated. For most content, the quality difference is barely noticeable. The most significant drop in quality usually occurs due to external factors like API server overload or rate limit errors. You may occasionally see minor errors, such as the repetition of words.
 
 Despite this, the script's approach is highly effective. Even with smaller models like `gemini-2.5-flash-lite`, it does an excellent job with common languages, often correcting misspelled words and accurately identifying well-known entities such as places, acronyms, companies, organizations, political parties, and the names of famous people. However, it's important to note a universal limitation: if a name of an unknown person is transcribed incorrectly (e.g., "Jhon" instead of "John"), the AI has no way of knowing the correct spelling, a challenge that even the web version cannot solve.
 
