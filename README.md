@@ -498,7 +498,7 @@ This is a command-line program that includes the same transcription functions as
 
 https://github.com/ggerganov/whisper.cpp
 
-The Text-to-Speech (TTS) feature and translations into languages other than English are performed online via the **Translate Shell** app, which utilizes a free Google service. The availability of this service is not guaranteed. Additionally, the TTS feature is designed for short audio segments and is limited to certain languages.
+*The Text-to-Speech (TTS) feature is performed online via the **Translate Shell** app, which utilizes a free Google service. The availability of this service is not guaranteed. Additionally, the TTS feature is designed for short audio segments and is limited to certain languages.
 
 ### Some Notable Features:
 
