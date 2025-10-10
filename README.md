@@ -742,9 +742,13 @@ Linux prioritizes security, which is best ensured through precompiled packages s
 
 'whisper.cpp' itself is not available in the repositories of major Linux distributions, despite its reputation for being significantly more efficient than OpenAI's original implementation. It can only be installed via PyPI—a repository for Python software—or Homebrew, a non-traditional package manager.
 
-The absence of precompiled 'playlist4whisper' packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying 'whisper.cpp' program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences. 
-
 Additionally, Linux distributions are very different, even Python environments, and it is not easy to support every one, especially with this project that depends on numerous other libraries and programs.
+
+The absence of precompiled ‘playlist4whisper’ packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying ‘whisper.cpp’ program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences.
+
+Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, even compared to the default or CPU-optimized builds of whisper.cpp, even on powerful modern CPUs.
+
+However, compiling whisper.cpp with CUDA is not always a trivial task: the success of the build or executable will depend on factors such as the CUDA version, NVIDIA driver, compiler version, and other libraries installed on the user’s Linux operating system.
 
 Another question is that "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
 
@@ -765,6 +769,8 @@ A: Yes, several advanced methods can significantly boost performance:
 *   **Quantized Models:** You can try using the quantized models option, which can improve execution speed on certain processors with minimal loss in accuracy.
   
 *   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
+
+Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, even compared to the default or CPU-optimized builds of whisper.cpp, even on powerful modern CPUs.
 
 *The accelerated versions of whisper.cpp may require specific model versions to achieve better performance.
 
