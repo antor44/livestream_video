@@ -871,8 +871,6 @@ pip install -r requirements-openvino.txt
   - Set up OpenVINO:  
 ```bash
 source /path/to/openvino/setupvars.sh  # Linux
-# or
-C:\Path\To\openvino\setupvars.bat  # Windows
 ```
 - **Generate Model**:  
 ```bash
