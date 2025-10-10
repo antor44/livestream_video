@@ -854,7 +854,7 @@ cmake --build build -j --config Release
 ```bash
 ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
 ```
-  - **Important**: `-m ggml-base.en.bin` loads `ggml-base.en-encoder.mlmodelc` if Core ML is enabled.  
+  - **Important**: `--model base.en` loads `ggml-base.en-encoder.mlmodelc` if Core ML is enabled.  
 - **Note**: Models from `playlist4whisper.py` **do not work**. You must generate the `.mlmodelc` model.
 
 #### 4. OpenVINO (Intel CPU/GPU)
@@ -888,7 +888,7 @@ cmake --build build -j --config Release
 ```bash
 ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
 ```
-  - **Important**: `-m ggml-base.en.bin` loads the `.xml`/`.bin` IR files internally.  
+  - **Important**: `--model base.en` loads the `.xml`/`.bin` IR files internally.  
 - **Note**: Models from `playlist4whisper.py` **do not work**. You must generate the OpenVINO IR model.
 
 #### 5. Vulkan (AMD/Intel/NVIDIA GPUs)
