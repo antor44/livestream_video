@@ -756,7 +756,7 @@ A: Yes, several advanced methods can significantly boost performance:
     *   **NVIDIA GPU:** via [cuBLAS](https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas).
     *   **Cross-Vendor GPU (NVIDIA, AMD, Intel):** via [Vulkan](https://github.com/ggerganov/whisper.cpp#vulkan-gpu-support) or [OpenCL (CLBlast)](https://github.com/ggerganov/whisper.cpp/pull/1037).
     *   **Intel CPU/GPU:** via [OpenVINO](https://github.com/ggerganov/whisper.cpp#openvino-support).
-    *   **Apple Silicon (M1/M2/M3):** via [Core ML](https://github.com/ggerganov/whisper.cpp#core-ml-support) to use the Apple Neural Engine (ANE), offering speed-ups of over 3x.
+    *   **Apple Silicon (M1/M2/M3/M4):** via [Core ML](https://github.com/ggerganov/whisper.cpp#core-ml-support) to use the Apple Neural Engine (ANE), offering speed-ups of over 3x.
     *   **Ascend NPU:** via [CANN](https://github.com/ggerganov/whisper.cpp#ascend-npu-support).
     *   **Moore Threads GPU:** via [MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
    
