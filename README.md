@@ -746,7 +746,7 @@ Additionally, Linux distributions are very different, even Python environments, 
 
 The absence of precompiled ‘playlist4whisper’ packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying ‘whisper.cpp’ program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences.
 
-Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, even compared to the default or CPU-optimized builds of whisper.cpp, even on powerful modern CPUs.
+Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
 
 However, compiling whisper.cpp with CUDA is not always a trivial task: the success of the build or executable will depend on factors such as the CUDA version, NVIDIA driver, compiler version, and other libraries installed on the user’s Linux operating system.
 
@@ -770,7 +770,7 @@ A: Yes, several advanced methods can significantly boost performance:
   
 *   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
 
-Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, even compared to the default or CPU-optimized builds of whisper.cpp, even on powerful modern CPUs.
+Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
 
 *The accelerated versions of whisper.cpp may require specific model versions to achieve better performance.
 
