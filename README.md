@@ -770,14 +770,16 @@ A: Yes, several advanced methods can significantly boost performance:
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
-A: Whisper.cpp supports various hardware accelerations (CPU, CUDA, Core ML, OpenVINO, Vulkan, BLAS, CANN, MUSA), each requiring specific compilation flags and, for some, custom model formats. The models downloaded by `playlist4whisper.py` are in the standard `ggml` format (`.bin`) and work only with CPU, CUDA, Vulkan, BLAS, CANN, and MUSA backends. **These models do not work with Core ML (Apple M1/M2/M3/M4 NPU) or OpenVINO (Intel CPU/GPU) without conversion to their specific formats.** Below are the steps to compile whisper.cpp for each acceleration, generate the required models, and test them with `livestream_video.sh`.
-
-**Why `playlist4whisper.py` Models Don't Work for All Accelerations?** The `playlist4whisper.py` script downloads `ggml` models (e.g., `ggml-base.en.bin`) or quantizes them (e.g., `ggml-base.en-q5_0.bin`). These are compatible with CPU, CUDA, Vulkan, BLAS, CANN, and MUSA but **not** with Core ML or OpenVINO, which require converted models (`.mlmodelc` for Core ML, `.xml`/`.bin` IR for OpenVINO). Attempting to use a standard `.bin` with these backends will fail, as whisper.cpp expects the optimized format in the `models/` directory.
+A: Whisper.cpp supports various hardware accelerations (CPU, CUDA, Core ML, OpenVINO, Vulkan, BLAS, CANN, MUSA), each requiring specific compilation flags and, for some, custom model formats. The models downloaded by `playlist4whisper.py` are in the standard `ggml` format (`.bin`) and work only with CPU, CUDA, Vulkan, BLAS, CANN, and MUSA backends. **These models do not work with Core ML (Apple M1/M2/M3/M4 NPU) or OpenVINO (Intel CPU/GPU) without conversion to their specific formats.** Core ML or OpenVINO require converted models (`.mlmodelc` for Core ML, `.xml`/`.bin` IR for OpenVINO). Attempting to use a standard `.bin` with these backends will fail, as whisper.cpp expects the optimized format in the `models/` directory. Below are the steps to compile whisper.cpp for each acceleration, generate the required models, and test them with `livestream_video.sh`.
 
 **Commands for Compilation and Model Generation**  
-Clone the repository first:  
-```bash
-git clone https://github.com/ggml-org/whisper.cpp.git
+
+Download the source code of whisper.cpp from your home directory:
+```
+git clone https://github.com/ggerganov/whisper.cpp.git
+```
+Change the default directory to the whisper.cpp directory, which is whisper.cpp:
+```
 cd whisper.cpp
 ```
 
