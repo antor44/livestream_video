@@ -772,6 +772,8 @@ A: Yes, several advanced methods can significantly boost performance:
 
 Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
 
+The CPU and CPU-accelerated builds of whisper.cpp are limited by default to 4 threads, as specified in whispercpp’s default configuration. This setting helps preserve system resources, allowing other applications to run smoothly or enabling multi-instance and multi-user setups. However, modern CPUs can often achieve significantly better performance with more threads. To adjust this, edit the livestream_video.sh script and modify the two lines that define the default arguments for WHISPER_EXECUTABLE. Replace -t 4 with a higher value, such as -t 16, to allocate 16 threads per instance. For other variants of the whisper executable, also update the arguments --n_threads 4 and --threads 4 as needed.
+
 *The accelerated versions of whisper.cpp may require specific model versions to achieve better performance.
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
