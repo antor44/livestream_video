@@ -782,7 +782,7 @@ A: On a PC or any other computer, it will depend on its hardware, the models cho
 
 For example, on an older PC, such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions, models up to `base` or `small` can be run at most, perhaps up to 2-3 instances at a time with `base` models. On a current powerful computer, the possibilities are much greater; even with a mid-range graphics card like any NVIDIA RTX, it is possible to run many instances with larger models like `large-v2`.
 
-**A notable advantage lies in the specific design of `playlist4whisper.py` and `livestream_video.sh` for real-time video stream transcription.** Both scripts process small, discrete audio chunks sequentially. Unlike loading a massive audio file into memory all at once, this chunk-based approach keeps the memory footprint per instance stable and relatively low after initialization. Consequently, **the probability of out-of-memory errors is minimal even up to very high limits**, allowing users to push their hardware's concurrent processing capabilities to the absolute maximum efficiently.
+A notable advantage lies in the specific design of `playlist4whisper.py` and `livestream_video.sh` for real-time video stream transcription. Both scripts process small, discrete audio chunks sequentially. **Unlike processing a large pre-recorded file, which can cause the program to pre-allocate larger memory buffers upfront,** this chunk-based approach keeps the memory footprint per instance stable and relatively low after initialization. Consequently, the probability of out-of-memory errors is minimal even up to very high limits, allowing users to push their hardware's concurrent processing capabilities to the absolute maximum efficiently.
 
 However, you may observe a modern PC seemingly running even more instances than its physical VRAM should theoretically allow. To understand the limits and risks, we must look deeper.
 
@@ -790,9 +790,9 @@ However, you may observe a modern PC seemingly running even more instances than 
 
 The magic behind exceeding physical VRAM limits is a system called **unified virtual memory**.
 
-*   **How It Works:** The GPU driver intelligently uses your system's main RAM as an overflow for the VRAM. The VRAM acts as a high-speed cache for critical data, while less active data is moved ("paged") to and from system RAM via the PCIe bus. Technologies like **Resizable BAR** accelerate this, making it highly efficient.
+*   **How It Works:** The GPU driver intelligently uses your system's main RAM as an overflow for the VRAM. The VRAM acts as a high-speed cache for critical data, while less active data is moved ("paged") to and from system RAM via the PCIe bus. Technologies like `Resizable BAR` accelerate this, making it highly efficient.
 
-*   **The Unpredictability Trap:** While powerful, this system has a weakness: it can be overwhelmed by a **"stampede" of simultaneous memory requests**. If you launch many instances at the *exact same instant* (e.g., via a script without delays), it creates a **race condition**. The driver cannot page memory to RAM fast enough to satisfy all immediate requests. The result is unpredictable: sometimes they launch, other times they fail with `cudaMalloc failed`, `Segmentation fault`, or `Aborted` errors. This is not luck, but a consequence of microsecond-level timing in resource allocation.
+*   **The Unpredictability Trap:** While powerful, this system has a weakness: it can be overwhelmed by a "stampede" of simultaneous memory requests. If you launch many instances at the *exact same instant* (e.g., via a script without delays), it creates a **race condition**. The driver cannot page memory to RAM fast enough to satisfy all immediate requests. The result is unpredictable: sometimes they launch, other times they fail with `cudaMalloc failed`, `Segmentation fault`, or `Aborted` errors. This is not luck, but a consequence of microsecond-level timing in resource allocation.
 
 This distinction is crucial based on the user's goal:
 
@@ -806,12 +806,11 @@ For server uses, neither `playlist4whisper.py` nor `livestream_video.sh` include
 While the chunk-based processing makes individual instances efficient, running multiple instances on a single GPU in a production environment requires careful management to avoid the startup race conditions and memory fragmentation described above.
 
 For production servers, the following best practices are **strongly recommended** to ensure 100% reliability:
-*   **Quantization:** Use quantized models (e.g., Q5_K_M). This drastically reduces VRAM consumption, allowing many instances to run safely entirely within physical memory, eliminating paging risks.
-*   **Staggered Launches:** Crucially, do not launch all instances simultaneously. Introduce a delay (e.g., 5-10 seconds) between starting each instance of `livestream_video.sh`. This prevents the memory allocation "stampede" and allows the driver to manage resources orderly.
-*   **Conservative Capacity Planning:** Plan your workload to fit within physical VRAM boundaries to guarantee performance.
-*   **Real-time Monitoring:** Use tools like `nvidia-smi` to actively monitor GPU metrics.
 
-**Ultimately, the true concurrency limit is empirical** — it depends on your specific hardware, model size, and quantization level. You can identify it by gradually increasing the number of concurrent instances until latency or stability issues appear. Once that threshold is known, treat it as the safe ceiling for your configuration to ensure long-term reliability.
+1.  **Quantization:** Use quantized models (e.g., `Q5_K_M`). This drastically reduces VRAM consumption, allowing more instances to run safely entirely within physical memory, eliminating paging risks.
+2.  **Staggered Launches:** Crucially, do not launch all instances simultaneously. Introduce a delay (e.g., 5-10 seconds) between starting each instance. **This is the key to stability: it changes a potential failure from an unpredictable *race condition* to a clean and predictable *hard limit* once physical VRAM is exhausted.**
+3.  **Conservative Capacity Planning and Empirical Testing:** Plan your workload to fit within your physical VRAM boundaries to guarantee performance. **Ultimately, the true concurrency limit is empirical** — it depends on your specific hardware, model size, and quantization level. You can identify it with a staggered launch script, gradually increasing the number of concurrent instances until they predictably fail to initialize. Once that threshold is known, treat it as the safe ceiling for your configuration to ensure long-term reliability.
+4.  **Real-time Monitoring:** Use tools like `nvidia-smi` to actively monitor GPU metrics.
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
