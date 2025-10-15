@@ -782,7 +782,7 @@ A: The number of concurrent instances depends heavily on **your usage pattern** 
 
 #### **Critical Distinction: Short Chunks vs. Continuous Processing**
 
-Real-world testing on an **RTX 4060 Ti 16GB** with the `large-v2` model reveals two dramatically different scenarios:
+Real-world testing on an **Nvidia RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
 **Short Audio Chunks (8-10 seconds) - High Concurrency:**
 - **Up to 10+ simultaneous instances** achievable
@@ -805,14 +805,8 @@ Real-world testing on an **RTX 4060 Ti 16GB** with the `large-v2` model reveals 
 3. **Quantization:** Use `Q8_0` models to reduce memory footprint in both scenarios
 4. **Monitor crashes, not just VRAM:** `nvidia-smi` may show only 13-14GB used when Segmentation Faults occur
 
-**Bottom Line:** Architecture matters more than raw VRAM. Short-lived processes enable **10+ concurrent streams**; continuous processing caps at **3-4 instances** on 16GB GPUs.
+**Bottom Line:** Architecture matters more than raw VRAM. Short-lived processes enable **10+ concurrent streams**; continuous processing caps at **3-4 instances** on 16GB GPUs. For subtitle generation, slower processing is acceptable since real-time performance is not required.
 
-[1](https://www.reddit.com/r/intel/comments/13ezezx/question_on_intel_i7i9_core_max_supported_memory/)
-[2](https://community.intel.com/t5/Graphics/Question-about-the-Iris-Xe-and-system-RAM/td-p/1546272)
-[3](https://www.intel.com/content/www/us/en/support/articles/000055474/processors.html)
-[4](https://forums.servethehome.com/index.php?threads%2Fxeon-8272cl-maximum-memory.37222%2F)
-[5](https://forum.blackmagicdesign.com/viewtopic.php?f=21&t=115089)
-[6](https://community.esri.com/t5/arcgis-pro-questions/hardware-i7-vs-xeon-with-arcgis-10-3-desktop/td-p/463314)
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
