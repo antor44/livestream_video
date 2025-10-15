@@ -789,18 +789,18 @@ It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` 
 Real-world testing on an **Nvidia RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
 **Short Audio Chunks (8-10 seconds) - High Concurrency:**
-- **Up to 10+ simultaneous instances** achievable
-- Each instance processes and **terminates immediately**, releasing VRAM
-- Ideal for video streaming, live transcription
+- **Up to 10+ simultaneous instances** achievable.
+- Each instance processes and **terminates immediately**, releasing VRAM.
+- Ideal for video streaming, live transcription.
 
 **Continuous Processing (Subtitles) - Limited Concurrency:**
-- **Only 3-4 instances** before Segmentation Faults and crashes
-- Memory accumulates without release, causing exhaustion
-- Processing time degrades from 5-7s to 12s per minute of audio
-- Ideal workload understanding: batch processing fails beyond 3-4 instances
+- **Only 3-4 instances** before Segmentation Faults and crashes.
+- Memory accumulates without release, causing exhaustion.
+- Processing time degrades from 5-7s to 12s per minute of audio.
+- Ideal workload understanding: batch processing fails beyond 3-4 instances.
 
 **Mixed Workload:**
-- 5 base instances + only 1 long-file instance before failure
+- 5 base instances + only 1 long-file instance before failure.
 
 #### **Production Recommendations**
 
@@ -809,7 +809,7 @@ Real-world testing on an **Nvidia RTX 16GB** with the `large-v2` model reveals t
 3. **Quantization:** Use quantized models (e.g., `Q8_0`). This drastically reduces VRAM consumption, allowing more instances to run safely entirely within physical memory, eliminating paging risks.
 4. **Monitor crashes, not just VRAM:** `nvidia-smi` may show only 13-14GB used when Segmentation Faults occur.
 
-**Bottom Line:** Architecture matters more than raw VRAM. Short-lived processes enable **10+ concurrent streams**; continuous processing caps at **3-4 instances** on 16GB GPUs. For subtitle generation, a large delay or slower processing is acceptable since real-time performance is not required.
+**Bottom Line:** Architecture matters more than raw VRAM. Short-lived processes enable 10+ concurrent streams, although neither playlist4whisper.py nor livestream_video.sh currently includes a mechanism to control this, making error occurrence unpredictable. Continuous processing caps at 3-4 instances on 16GB GPUs; however, for subtitle generation, longer processing times or delayed instance launches are acceptable since real-time performance is not required.
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
