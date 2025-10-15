@@ -778,39 +778,42 @@ The CPU and CPU-accelerated builds of whisper.cpp are limited by default to 4 th
 
 **Q: How many simultaneous instances can be run on a PC?**
 
-A: On a PC or any other computer, it will depend on its hardware, the models chosen for each of the executed instances, as well as the power and memory, both in CPU and GPU. There is also the possibility of hybrid execution, with several instances running on the CPU and system RAM, and others on the GPU and graphics card VRAM. It also differs if it involves real-time transcriptions, while subtitle generation for long pre-recorded files could be executed without the need for them to finish in an urgent time frame.
+A: The number of simultaneous instances depends on hardware (CPU, GPU, RAM), the model size, and the specific task. For example, on an older PC like an Intel Haswell i7/Xeon using only the CPU, you might run 2-3 instances with `base` models. On a modern, powerful computer, the possibilities are much greater.
 
-For example, on an older PC, such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions, models up to `base` or `small` can be run at most, perhaps up to 2-3 instances at a time with `base` models. On a current powerful computer, the possibilities are much greater; even with a mid-range graphics card like any NVIDIA RTX, it is possible to run many instances with larger models like `large-v2`.
+It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
 
-A notable advantage lies in the specific design of `playlist4whisper.py` and `livestream_video.sh` for real-time video stream transcription. Both scripts process small, discrete audio chunks sequentially. This chunk-based approach keeps the memory footprint per instance stable and relatively low after initialization. Conversely, workloads involving subtitle generation from a complete file, or those configured with very large audio chunks (`step` size), behave differently. These tasks often cause the program to pre-allocate significantly larger memory buffers on the GPU upfront. This dramatically increases the VRAM pressure per instance, making out-of-memory errors far more likely, especially when attempting to run multiple concurrent instances.
+Despite each instance needing a full copy of the model, a modern PC can run a seemingly impossible number of real-time instances. For example, tests show 10 or more `large-v2` instances (a theoretical 40+ GB) running on a single 16 GB RTX GPU.
 
-It is important to clarify that both `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM. This behavior differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single model loaded in memory—a feature that may be supported in future versions of `playlist4whisper.py`. Despite this significant memory requirement per instance with the current backend, you may observe a modern PC running a seemingly impossible number of instances—for example, tests have shown successful execution of **10 or more** full `large-v2` models (requiring a theoretical 40+ GB) on a single 16 GB Nvidia RTX GPU. **The actual upper limit in such scenarios is often dictated not by the GPU's VRAM, but by the total amount of available system RAM and the system's ability to page memory efficiently.**
+The critical factor observed is a fundamental difference in how `whisper.cpp` handles two distinct workloads:
 
-#### **The Underlying Mechanics: Unified Memory and Its Risks**
+1.  **Real-Time Transcription:** When using `playlist4whisper.py` or `livestream_video.sh` for real-time streams, the process is remarkably efficient. New instances can be launched on an already heavily loaded system without issue. The practical limit for concurrency in this mode is extremely high.
 
-The magic behind exceeding physical VRAM limits is a system called **unified virtual memory**.
+2.  **Subtitle Generation:** When using the scripts to process a complete audio/video file for subtitles, the memory behavior is completely different.
 
-*   **How It Works:** The GPU driver intelligently uses your system's main RAM as an overflow for the VRAM. The VRAM acts as a high-speed cache for critical data, while less active data is moved ("paged") to and from system RAM via the PCIe bus. Technologies like `Resizable BAR` accelerate this, making it highly efficient.
+The single, consistently observed failure mode is this: **Launching a new subtitle generation task on a system already running many real-time instances will cause an immediate out-of-memory error. However, launching yet another real-time instance on that same system will succeed.**
 
-*   **The Unpredictability Trap:** While powerful, this system has a weakness: it can be overwhelmed by a "stampede" of simultaneous memory requests. If you launch many instances at the *exact same instant* (e.g., via a script without delays), it creates a **race condition**. The driver cannot page memory to RAM fast enough to satisfy all immediate requests. The result is unpredictable: sometimes they launch, other times they fail with `cudaMalloc failed`, `Segmentation fault`, or `Aborted` errors. This is not luck, but a consequence of microsecond-level timing in resource allocation.
+This proves the issue is not a simple lack of VRAM, but an initial, large memory allocation specific to how `whisper.cpp` handles a complete audio file. This larger allocation is not required for the chunk-by-chunk processing of a real-time stream.
 
-This distinction is crucial based on the user's goal:
+#### **The Underlying Mechanics: Unified Memory and the Observed Limit**
 
-*   **For an Enthusiast:** Pushing limits is part of the experience. Thanks to the chunking nature of the real-time scripts, once running, they are stable. If an instance fails during a simultaneous launch, it's a minor inconvenience solved by restarting it.
-*   **For a Professional/Server Environment:** Unpredictability during startup or operation is unacceptable. The priority is absolute reliability.
+The mechanism allowing this high concurrency is **unified virtual memory**, where the GPU driver uses system RAM as an overflow for VRAM. However, this system has a clear, practical limit defined by the type of memory request:
+
+*   **The "Subtitle Task Allocation" Failure:** This is the only observed limit. The system can handle many small, incremental memory requests from new real-time streams. But when a subtitle generation task starts, it makes a larger, single upfront memory request. On a heavily loaded GPU, the driver cannot fulfill this large request and denies it, causing a predictable `out-of-memory` error for that specific instance.
+
+This distinction is crucial:
+
+*   **For an Enthusiast:** They can add a very large number of real-time streams one by one. The system only fails when they attempt to launch a subtitle generation task on top of that heavy load.
+*   **For a Professional/Server Environment:** The most important failure that needs to be managed is the one related to subtitle generation tasks.
 
 #### **Recommendations for Production and Server Use**
 
-For server uses, neither `playlist4whisper.py` nor `livestream_video.sh` includes a built-in load balancing system across different machines; so an external solution must be implemented for scaling.
+For server uses, neither `playlist4whisper.py` nor `livestream_video.sh` includes a built-in load balancing system across different machines; an external solution must be implemented for scaling.
 
-While the real-time chunk-based processing is efficient, running multiple instances on a single GPU in a production environment requires careful management.
+For production servers, the following best practices are **strongly recommended**:
 
-For production servers, the following best practices are **strongly recommended** to ensure 100% reliability:
-
-1.  **Quantization:** Use quantized models (e.g., `Q8_0`). This drastically reduces VRAM consumption, allowing more instances to run safely entirely within physical memory, eliminating paging risks.
-2.  **Staggered Launches:** Crucially, do not launch all instances simultaneously. Introduce a delay (e.g., 5-10 seconds) between starting each instance. This is the key to stability: it changes a potential failure from an unpredictable *race condition* to a clean and predictable *hard limit* once physical resources are exhausted.
-3.  **Conservative Capacity Planning and Empirical Testing:** Plan your workload to fit within your physical VRAM boundaries to guarantee performance. Ultimately, the true concurrency limit is empirical—it depends on your specific hardware, model, and workload type. You can identify it with a staggered launch script, gradually increasing the number of concurrent instances until they predictably fail to initialize **or overall system stability is compromised.** Once that threshold is known, treat it as the safe ceiling for your configuration.
-4.  **Real-time Monitoring:** Use tools like `nvidia-smi` to actively monitor GPU metrics.
+1.  **Quantization:** Use quantized models (e.g., `Q8_0`). This is the most effective way to reduce the VRAM footprint of every instance and raise the overall capacity of the system.
+2.  **Empirical Testing with Mixed Workloads:** The true limit of your system must be found empirically. The correct test is to load the system with your baseline number of real-time streams and then probe its limit by attempting to launch a subtitle generation task. This will define the true, safe operational ceiling of your specific hardware and workload mix.
+3.  **Real-time Monitoring:** Use tools like `nvidia-smi` to actively monitor GPU metrics.
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
