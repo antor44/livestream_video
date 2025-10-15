@@ -784,21 +784,7 @@ A: The number of concurrent instances depends on your hardware (GPU, CPU, System
 
 #### **The Core Mechanism: Unified Memory and Instance States**
 
-On a modern system, the GPU driver uses the main system RAM as a vast, slower overflow for the VRAM. This allows the system to load a number of models that far exceeds the physical VRAM capacity. Through testing, two distinct memory states for an instance have been identified:
-
-1.  **Active State:** An instance currently being processed by the GPU. Its model and data are loaded into VRAM. **The required VRAM for the non-quantized `large-v2` model is approximately:**
-    *   **~4.3 GB** for a subtitle generation task on a complete file.
-    *   **~3.1 GB** for a real-time transcription task processing a short audio chunk.
-
-2.  **Inactive (Paged) State:** An instance waiting in the background. The driver aggressively moves its data from VRAM to System RAM, leaving only a tiny placeholder of **~10-100 MB** in the VRAM.
-
-The system constantly juggles instances between these two states. This is visible in monitoring tools as extreme fluctuations in VRAM usage, even under a constant number of total instances.
-
-#### **The True System Limit: Performance, Not VRAM Crashes**
-
-With sufficient system RAM (e.g., 48GB or more), the hard limit for the number of concurrent instances is exceptionally high. Tests have shown **upwards of 30 simultaneous instances** of the `large-v2` model running on a single 16 GB GPU without out-of-memory errors.
-
-This is because the system does not crash when VRAM is full; it simply pages more data to System RAM. Therefore, **the true bottleneck is not memory capacity, but performance.** As more instances are added, the PCIe bus becomes saturated with data being swapped between RAM and VRAM, and the CPU works harder to manage the processes. This leads to "graceful degradation": the system doesn't crash, but the transcription speed for each individual instance slows down.
+On a modern system, the GPU driver uses the main system RAM as a vast, slower overflow for the VRAM. This allows the system to load a number of models that far exceeds the physical VRAM capacity. With sufficient system RAM, the hard limit for the number of concurrent instances is exceptionally high. Tests have shown **upwards of 10 simultaneous instances** of the `large-v2` model running on a single 16 GB GPU without out-of-memory errors.
 
 The practical limit is the number of instances you can run before the performance per stream drops below an acceptable level for your use case.
 
