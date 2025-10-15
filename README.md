@@ -778,7 +778,11 @@ The CPU and CPU-accelerated builds of whisper.cpp are limited by default to 4 th
 
 **Q: How many simultaneous instances can be run on a PC?**
 
-A: The number of concurrent instances depends heavily on **your usage pattern** and hardware. **For older PCs such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without acceleration, models up to `base` or `small` can be run at most, perhaps 2-3 instances at a time. On modern systems, the possibilities are much greater, but with important caveats.**
+A: On a PC or any other computer, it will depend on its hardware, the models chosen for each of the executed instances, as well as the power and memory, both in CPU and GPU. There is also the possibility of hybrid execution, with several instances running on the CPU and system RAM, and others on the GPU and graphics card VRAM. It also differs if it involves real-time transcriptions, while subtitle generation for long pre-recorded files could be executed without the need for them to finish in an urgent time frame.
+
+For older PCs such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without acceleration, models up to `base` or `small` can be run at most, perhaps 2-3 instances at a time. On modern systems, the possibilities are much greater; even with a mid-range graphics card like any NVIDIA RTX, it is possible to run many instances with larger models like `large-v2`.
+
+It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
 
 #### **Critical Distinction: Short Chunks vs. Continuous Processing**
 
@@ -789,7 +793,7 @@ Real-world testing on an **Nvidia RTX 16GB** with the `large-v2` model reveals t
 - Each instance processes and **terminates immediately**, releasing VRAM
 - Ideal for video streaming, live transcription
 
-**Continuous Processing (Long Files/Loops) - Limited Concurrency:**
+**Continuous Processing (Subtitles) - Limited Concurrency:**
 - **Only 3-4 instances** before Segmentation Faults and crashes
 - Memory accumulates without release, causing exhaustion
 - Processing time degrades from 5-7s to 12s per minute of audio
@@ -800,10 +804,10 @@ Real-world testing on an **Nvidia RTX 16GB** with the `large-v2` model reveals t
 
 #### **Production Recommendations**
 
-1. **Design for short chunks:** Process audio in 8-10 second segments that terminate after completion for maximum scalability (10+ streams)
-2. **Stagger launches:** 5-second delays between instance starts prevent allocation race conditions
-3. **Quantization:** Use `Q8_0` models to reduce memory footprint in both scenarios
-4. **Monitor crashes, not just VRAM:** `nvidia-smi` may show only 13-14GB used when Segmentation Faults occur
+1. **Design for short chunks:** Process audio in 8-10 second segments that terminate after completion for maximum scalability (10+ streams).
+2. **Stagger launches:** 5-second delays between instance starts prevent allocation race conditions.
+3. **Quantization:** Use quantized models (e.g., `Q8_0`). This drastically reduces VRAM consumption, allowing more instances to run safely entirely within physical memory, eliminating paging risks.
+4. **Monitor crashes, not just VRAM:** `nvidia-smi` may show only 13-14GB used when Segmentation Faults occur.
 
 **Bottom Line:** Architecture matters more than raw VRAM. Short-lived processes enable **10+ concurrent streams**; continuous processing caps at **3-4 instances** on 16GB GPUs. For subtitle generation, a large delay or slower processing is acceptable since real-time performance is not required.
 
