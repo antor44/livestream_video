@@ -778,27 +778,41 @@ The CPU and CPU-accelerated builds of whisper.cpp are limited by default to 4 th
 
 **Q: How many simultaneous instances can be run on a PC?**
 
-A: The number of concurrent instances depends on your hardware (GPU, CPU, System RAM), but tests on modern NVIDIA RTX GPUs reveal that the limits are far beyond what the physical VRAM would suggest, thanks to a system called Unified Memory. **Please note, the following results were obtained by running the `whisper.cpp` executable directly and do not include the additional overhead from video players or other software.**
+A: The number of concurrent instances depends heavily on **your usage pattern** and hardware. **For older PCs such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without acceleration, models up to `base` or `small` can be run at most, perhaps 2-3 instances at a time. On modern systems, the possibilities are much greater, but with important caveats.**
 
-**For example, on an older PC, such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without other acceleration, models up to `base` or `small` can be run at most, perhaps up to 2-3 instances at a time. On a current powerful computer, the possibilities are much greater.**
+#### **Critical Distinction: Short Chunks vs. Continuous Processing**
 
-#### **The Core Mechanism: Unified Memory and Instance States**
+Real-world testing on an **RTX 4060 Ti 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
-On a modern system, the GPU driver uses the main system RAM as a vast, slower overflow for the VRAM. This allows the system to load a number of models that far exceeds the physical VRAM capacity. With sufficient system RAM, the hard limit for the number of concurrent instances is exceptionally high. Tests have shown **upwards of 10 simultaneous instances** of the `large-v2` model running on a single 16 GB GPU without out-of-memory errors.
+**Short Audio Chunks (8-10 seconds) - High Concurrency:**
+- **Up to 10+ simultaneous instances** achievable
+- Each instance processes and **terminates immediately**, releasing VRAM
+- Ideal for video streaming, live transcription
 
-The practical limit is the number of instances you can run before the performance per stream drops below an acceptable level for your use case.
+**Continuous Processing (Long Files/Loops) - Limited Concurrency:**
+- **Only 3-4 instances** before Segmentation Faults and crashes
+- Memory accumulates without release, causing exhaustion
+- Processing time degrades from 5-7s to 12s per minute of audio
+- Ideal workload understanding: batch processing fails beyond 3-4 instances
 
-#### **Recommendations for Production and Server Use**
+**Mixed Workload:**
+- 5 base instances + only 1 long-file instance before failure
 
-For professional environments, the goal is to maintain consistent performance, not just to avoid crashes.
+#### **Production Recommendations**
 
-1.  **Quantization:** This remains the most effective method. Using quantized models (e.g., `Q8_0`) drastically reduces the memory footprint of *every* instance, both in the Active and Inactive states, which reduces the amount of data that needs to be swapped and improves overall performance.
-2.  **Empirical Performance Testing:** The only way to find the true limit is to measure it.
-    *   Load the system with your target number of concurrent instances.
-    *   Do not just check for crashes; **measure the real-time transcription speed** of individual streams.
-    *   The maximum number of instances is the point at which the transcription speed no longer meets your real-time requirements.
-3.  **Staggered Launches:** While not strictly necessary to prevent crashes (as the system is very robust), launching instances with a small delay between them is still good practice to allow the memory manager to accommodate the new load smoothly.
-4.  **Monitor Both GPU and System:** Use `nvidia-smi` to watch VRAM activity and tools like `htop` or `iotop` to get a sense of CPU load and potential disk/PCIe bus activity.
+1. **Design for short chunks:** Process audio in 8-10 second segments that terminate after completion for maximum scalability (10+ streams)
+2. **Stagger launches:** 5-second delays between instance starts prevent allocation race conditions
+3. **Quantization:** Use `Q8_0` models to reduce memory footprint in both scenarios
+4. **Monitor crashes, not just VRAM:** `nvidia-smi` may show only 13-14GB used when Segmentation Faults occur
+
+**Bottom Line:** Architecture matters more than raw VRAM. Short-lived processes enable **10+ concurrent streams**; continuous processing caps at **3-4 instances** on 16GB GPUs.
+
+[1](https://www.reddit.com/r/intel/comments/13ezezx/question_on_intel_i7i9_core_max_supported_memory/)
+[2](https://community.intel.com/t5/Graphics/Question-about-the-Iris-Xe-and-system-RAM/td-p/1546272)
+[3](https://www.intel.com/content/www/us/en/support/articles/000055474/processors.html)
+[4](https://forums.servethehome.com/index.php?threads%2Fxeon-8272cl-maximum-memory.37222%2F)
+[5](https://forum.blackmagicdesign.com/viewtopic.php?f=21&t=115089)
+[6](https://community.esri.com/t5/arcgis-pro-questions/hardware-i7-vs-xeon-with-arcgis-10-3-desktop/td-p/463314)
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
