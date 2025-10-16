@@ -778,38 +778,43 @@ The CPU and CPU-accelerated builds of whisper.cpp are limited by default to 4 th
 
 **Q: How many simultaneous instances can be run on a PC?**
 
-A: On a PC or any other computer, it will depend on its hardware, the models chosen for each of the executed instances, as well as the power and memory, both in CPU and GPU. There is also the possibility of hybrid execution, with several instances running on the CPU and system RAM, and others on the GPU and graphics card VRAM. It also differs if it involves real-time transcriptions, while subtitle generation for long pre-recorded files could be executed without the need for them to finish in an urgent time frame.
+A: On a PC or any other computer, it depends on its hardware, the models chosen for each of the executed instances, as well as the power and memory, both in CPU and GPU. There is also the possibility of hybrid execution, with several instances running on the CPU and system RAM, and others on the GPU and graphics card VRAM. It also differs if it involves real-time transcriptions, while subtitle generation for long pre-recorded files could be executed without the need for them to finish in an urgent time frame.
 
 For older PCs such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without acceleration, models up to `base` or `small` can be run at most, perhaps 2-3 instances at a time. On modern systems, the possibilities are much greater; even with a mid-range graphics card like any NVIDIA RTX, it is possible to run many instances with larger models like `large-v2`.
 
-It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
+It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM, or into system RAM when using CPU without GPU acceleration. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
 
 #### **Critical Distinction: Short Chunks vs. Continuous Processing**
 
-Real-world testing on an **Nvidia RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
+Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
 **Short Audio Chunks (8-10 seconds) - High Concurrency:**
-- **Up to 10+ simultaneous instances** achievable.
-- Each instance processes and **terminates immediately**, releasing VRAM.
-- Ideal for video streaming, live transcription.
+- **Up to 10+ simultaneous instances** achievable without perceivable errors
+- Each instance continuously processes short audio chunks (8-10 seconds), with VRAM being allocated per chunk and released upon completion
+- Fast chunk processing prevents memory saturation
+- Ideal for video streaming, live transcription
 
 **Continuous Processing (Subtitles) - Limited Concurrency:**
-- **Only 3-4 instances** before Segmentation Faults and crashes.
-- Memory accumulates without release, causing exhaustion.
-- Processing time degrades from 5-7s to 12s per minute of audio.
-- Ideal workload understanding: batch processing fails beyond 3-4 instances.
+- **Only 3-4 instances** before Segmentation Faults and crashes
+- Memory accumulates without release, causing exhaustion
+- Processing time degrades from 5-7s to 12s per minute of audio
+- Batch processing fails beyond 3-4 instances
 
 **Mixed Workload:**
-- 5 base instances + only 1 long-file instance before failure.
+- 5 short-chunk base instances + only 1 long-file instance before failure
+
+**Note:** It is highly likely that mid-range NVIDIA RTX GPUs can achieve 20-30+ or even many more concurrent instances for short-chunk processing, because these GPUs are very capable of processing up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` currently includes a necessary concurrency control system at its code level (meaning this control cannot be managed through other or external load balancing mechanisms), making any single GPU scaling near or beyond VRAM limits unpredictable.
 
 #### **Production Recommendations**
 
-1. **Design for short chunks:** Process audio in 8-10 second segments that terminate after completion for maximum scalability (10+ streams).
-2. **Stagger launches:** 5-second delays between instance starts prevent allocation race conditions.
-3. **Quantization:** Use quantized models (e.g., `Q8_0`). This drastically reduces VRAM consumption, allowing more instances to run safely entirely within physical memory, eliminating paging risks.
-4. **Monitor crashes, not just VRAM:** `nvidia-smi` may show only 13-14GB used when Segmentation Faults occur.
+1. **Design for short chunks:** Process audio in 8-10 second segments for maximum scalability (10+ concurrent streams).
+2. **Stagger launches:** Implement 5-second delays between instance starts to prevent allocation race conditions, as neither script currently includes this control.
+3. **Quantization:** Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption, allowing more instances to run safely within physical memory and eliminating paging risks.
+4. **Monitor crashes, not just VRAM:** `nvidia-smi` may report only 13-14GB used when Segmentation Faults occur, indicating driver-level allocation failures rather than simple VRAM exhaustion.
 
-Architecture matters more than raw VRAM. Short-lived processes enable 10+ concurrent streams, although neither playlist4whisper.py nor livestream_video.sh currently includes a mechanism to control concurrency or implement controlled delays between instance launches, making error occurrence unpredictable when the cumulative VRAM footprint of all concurrent model instances approaches or exceeds the physical memory limit. On the other hand, for continuous processing scenarios like subtitle generation, according to real-world tests with large-v2 (non-quantized) on NVIDIA RTX 16GB GPUs, the limit caps at 3-4 instances before encountering Segmentation Faults. However, for subtitle generation workflows, longer processing times or delayed instance launches are acceptable since real-time performance is not required.
+#### **Summary**
+
+Architecture matters more than raw VRAM. Short-lived chunk processing enables many concurrent streams on RTX 16GB GPUs, while continuous processing with large-v2 (non-quantized) caps at 3-4 instances. The absence of built-in concurrency control in both scripts means scaling near VRAM limits remains unpredictable without manual instance management. However, for subtitle generation workflows, longer processing times or delayed instance launches are acceptable since real-time performance is not required.
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
