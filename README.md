@@ -803,14 +803,7 @@ Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals t
 **Mixed Workload:**
 - 5 short-chunk base instances + only 1 long-file instance before failure
 
-**Note:** It is highly likely that mid-range NVIDIA RTX GPUs can achieve 20-30+ or even many more concurrent instances for short-chunk processing, because these GPUs are very capable of processing up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` currently includes a necessary concurrency control system at its code level (meaning this control cannot be managed through other or external load balancing mechanisms), making unpredictable errors occur when the theoretical sum of VRAM required by all concurrent model instances exceeds the GPU's physical VRAM capacity.
-
-#### **Production Recommendations**
-
-1. **Design for short chunks:** Process audio in 8-10 second segments for maximum scalability (10+ concurrent streams).
-2. **Stagger launches:** Implement 5-second delays between instance starts to prevent allocation race conditions, as neither script currently includes this control.
-3. **Quantization:** Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption, allowing more instances to run safely within physical memory and eliminating paging risks.
-4. **Monitor crashes, not just VRAM:** `nvidia-smi` may report only 13-14GB used when Segmentation Faults occur, indicating driver-level allocation failures rather than simple VRAM exhaustion.
+**Note:** It is highly likely that mid-range NVIDIA RTX GPUs can achieve 20-30+ or even many more concurrent instances for short-chunk processing, because these GPUs are very capable of processing up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` currently includes a necessary concurrency control system at its code level (meaning this control cannot be managed through other or external load balancing mechanisms), making unpredictable errors occur when the theoretical sum of VRAM required by all concurrent model instances exceeds the GPU's physical VRAM capacity. Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption, allowing more instances to run safely within physical memory and eliminating paging risks.
 
 #### **Summary**
 
