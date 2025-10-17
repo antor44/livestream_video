@@ -909,7 +909,7 @@ make base.en
 ```
   - Optional: Quantize for reduced memory/faster processing:  
 ```bash
-./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q5_0.bin q5_0
+./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
 ```bash
@@ -935,7 +935,7 @@ make base.en
 ```
   - Optional: Quantize:  
 ```bash
-./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q5_0.bin q5_0
+./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
 ```bash
@@ -1018,7 +1018,7 @@ make base.en
 ```
   - Optional: Quantize:  
 ```bash
-./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q5_0.bin q5_0
+./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
 ```bash
