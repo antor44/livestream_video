@@ -808,7 +808,7 @@ Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals t
 
 **Q: Do quantized models run faster on NVIDIA RTX GPUs with playlist4whisper.py and livestream_video.sh, or do they only reduce VRAM usage? Does whisper.cpp leverage RTX 5000 series optimizations for 4-bit quantized models?**
 
-A: **Important context first:** Modern GPUs and CPUs are more than capable of running large models like large-v2 for live transcription without breaking a sweat. Even mid-range NVIDIA RTX cards and recent CPUs with reasonable power handle large-v2 effortlessly for real-time transcription. The main benefit of quantization is enabling **more concurrent instances** on the same hardware, though speed improvements also occur.
+A: **Important context first:** Modern GPUs and CPUs are more than capable of running large models like large-v2 for live transcription without breaking a sweat. The main benefit of quantization is enabling **more concurrent instances** on the same hardware.
 
 For `playlist4whisper.py` and `livestream_video.sh` (which depend on `whisper.cpp`), quantized models **reduce VRAM consumption AND improve processing speed** on NVIDIA RTX GPUs.
 
@@ -862,20 +862,6 @@ The benchmark results suggest whisper.cpp achieves:
 - **Modest INT4 optimization**: Only 13% speed improvement, despite hardware support existing since RTX 2000
 
 This indicates whisper.cpp may not be fully leveraging Tensor Cores for INT4 operations, or other bottlenecks limit performance gains.
-
-#### **Practical Recommendations**
-
-**Recommended: Q8_0 (INT8)**
-- Uses half the graphics memory
-- **35-38% faster** than standard models on all NVIDIA RTX GPUs (2000 series and newer)
-- Same transcription quality
-- Best overall choice - fully optimized across all RTX generations
-
-**For maximum concurrent instances: Q4_0 (INT4)**
-- Uses 75% less graphics memory  
-- About 13% faster than standard models on RTX GPUs
-- Enables more simultaneous streams
-- Choose this when memory is your bottleneck
 
 **Note for older GPUs:**
 On NVIDIA GPUs without Tensor Cores (GTX 1000 series and older), quantized models may not show speed improvements and could be slightly slower. The primary benefit remains VRAM reduction.
