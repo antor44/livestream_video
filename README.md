@@ -788,23 +788,23 @@ It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` 
 
 Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
-**Short Audio Chunks (8-10 seconds) - High Concurrency:**
-- **Up to 10+ simultaneous instances** achievable without perceivable errors
-- Each instance continuously processes short audio chunks (8-10 seconds), with VRAM being allocated per chunk and released upon completion
-- Fast chunk processing prevents memory saturation
-- Ideal for video streaming, live transcription
+*   **Short Audio Chunks (8-10 seconds) - High Concurrency:**
+    - **Up to 10+ simultaneous instances** achievable without perceivable errors
+    - Each instance continuously processes short audio chunks (8-10 seconds), with VRAM being allocated per chunk and released upon completion
+    - Fast chunk processing prevents memory saturation
+    - Ideal for video streaming, live transcription
 
-**Continuous Processing (Subtitles) - Limited Concurrency:**
-- **Only 3-4 instances** before Segmentation Faults and crashes
-- Memory accumulates without release, causing exhaustion
-- Processing time per audio minute degrades from 5-7s (1-2 instances) to 12s (3-4 instances) as GPU resources become saturated
-- Batch processing fails beyond 3-4 instances
-- However, for subtitle generation workflows, longer processing times or delayed instance launches are acceptable since real-time performance is not required
+*   **Continuous Processing (Subtitles) - Limited Concurrency:**
+    - **Only 3-4 instances** before Segmentation Faults and crashes
+    - Memory accumulates without release, causing exhaustion
+    - Processing time per audio minute degrades from 5-7s (1-2 instances) to 12s (3-4 instances) as GPU resources become saturated
+    - Batch processing fails beyond 3-4 instances
+    - However, for subtitle generation workflows, longer processing times or delayed instance launches are acceptable since real-time performance is not required
 
-**Mixed Workload:**
-- 5 short-chunk base instances + only 1 long-file instance before failure
+*   **Mixed Workload:**
+    - 5 short-chunk base instances + only 1 long-file instance before failure
 
-**Note:** Mid-range NVIDIA RTX GPUs can likely achieve 20-30+ concurrent instances for short-chunk processing, as these GPUs process up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` includes concurrency control at the code level (meaning external load balancing cannot manage this), making unpredictable errors occur when cumulative VRAM requirements exceed physical GPU memory. Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption and eliminate paging risks.
+>**Note:** Mid-range NVIDIA RTX GPUs can likely achieve 20-30+ concurrent instances for short-chunk processing, as these GPUs process up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` includes concurrency control at the code level (meaning external load balancing cannot manage this), making unpredictable errors occur when cumulative VRAM requirements exceed physical GPU memory. Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption and eliminate paging risks.
 
 **Q: Do quantized models run faster on NVIDIA RTX GPUs with playlist4whisper.py and livestream_video.sh, or do they only reduce VRAM usage? Does whisper.cpp leverage RTX 5000 series optimizations for 4-bit quantized models?**
 
@@ -848,20 +848,27 @@ According to official whisper.cpp benchmark data from real user testing on NVIDI
 **Quality:**
 All quantization levels maintain high transcription accuracy with no significant degradation reported in user testing.
 
-#### **Understanding whisper.cpp Quantization and GPU Acceleration**
+#### **Understanding Whisper.cpp Quantization and GPU Acceleration**
 
-**whisper.cpp uses INTEGER quantization (INT), not floating-point (FP):**
-- Q8_0 = INT8 (8-bit integers)
-- Q5_0/Q5_1 = INT5 (5-bit integers)
-- Q4_0/Q4_1 = INT4 (4-bit integers)
+Whisper.cpp is an AI inference engine that leverages **integer quantization** to deliver excellent accuracy with minimal performance overhead. In contrast, **floating-point quantization** is often preferred in other AI applications, **FP4** can also achieve excellent accuracy despite its extremely low precision, thanks to a new software design by NVIDIA that optimizes training in conjunction with its **Blackwell GPU architecture** (as seen in the **RTX 5000 series**).
 
-**NVIDIA Tensor Cores support across RTX generations:**
-- **RTX 2000 (Turing)**: INT8 and INT4 acceleration
-- **RTX 3000 (Ampere)**: INT8 and INT4 acceleration
-- **RTX 4000 (Ada)**: INT8, INT4, and FP8 acceleration
-- **RTX 5000 (Blackwell)**: INT8, INT4, FP8, and FP4 acceleration
+**Whisper.cpp uses INTEGER quantization (INT), not floating-point (FP):**
+- `Q8_0` → **INT8** (8-bit integers)
+- `Q5_0` / `Q5_1` → **INT5** (5-bit integers)
+- `Q4_0` / `Q4_1` → **INT4** (4-bit integers)
 
-All RTX GPUs from 2000 series onwards have hardware support for INT4 and INT8 through Tensor Cores. The RTX 5000's new feature is **FP4** (floating-point 4-bit) acceleration, which is different from INT4. This is why benchmark data shows RTX 5060 Ti and RTX 4070 Ti Super have identical Q4_0 performance gains (~13%) - they're both using the same INT4 Tensor Core acceleration that has existed since RTX 2000 series.
+**NVIDIA Tensor Core Support Across RTX Generations:**
+
+| Generation       | Architecture | Supported Low-Precision Formats         |
+|------------------|--------------|----------------------------------------|
+| RTX 2000         | Turing       | INT8, **INT4**                         |
+| RTX 3000         | Ampere       | INT8, **INT4**                         |
+| RTX 4000         | Ada Lovelace | INT8, **INT4**, FP8                    |
+| **RTX 5000**     | **Blackwell**| INT8, **INT4**, FP8, **FP4** (new)     |
+
+> **All RTX GPUs from the 2000 series onward support INT4 and INT8 via Tensor Cores.**  
+> The **RTX 5000 series introduces FP4 (4-bit floating-point) acceleration** — a distinct format from INT4.  
+> This is why **RTX 5060 Ti and RTX 4070 Ti Super show identical ~13% performance gains in Q4_0**: both rely on the **same INT4 Tensor Core acceleration** introduced in the RTX 2000 series.
 
 **Current optimization status:**
 
