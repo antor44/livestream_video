@@ -810,13 +810,13 @@ Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals t
 
 A: **Important context first:** Modern GPUs and CPUs are more than capable of running large models like large-v2 for live transcription without breaking a sweat. The main benefit of quantization is enabling **more concurrent instances** on the same hardware, although in many cases, performance gains can also be achieved. And any of these gains in multi-instance or multi-user executions, however small, are generally a matter of geometric, not arithmetic, progression. This means that a new gain is multiplied by those previously achieved or obtained through other techniques. While this is not extensible to all artificial intelligence applications, Whisper is a very clear case where we can see this in action.
 
+Any of these improvements are especially valued in environments like businesses or public administrations where, at least when not dealing with a corrupt country or region, it translates into cost savings for the company or for public spending. Naturally, this applies to many other applications based on Artificial Intelligence or, in general, to any software, not just the particular case of Whisper.
+
 In the case of `playlist4whisper.py` and `livestream_video.sh`, for now, **only whisper.cpp can be used as a backend**. It is a well-documented implementation of Whisper that replicates the results and improves the performance of OpenAI's original executable. A key advantage of this approach is its stability; in my experience, I have never encountered issues with whisper.cpp, either in long-running or multi-instance executions. Other benefits include its lightweight nature with fewer dependencies and its ability to run on more architectures and much more heterogeneous hardware. This flexibility is a major asset when running models of different sizes or for different languages. For example, one could use fine-tuned models optimized for various accents, slang, or technical terms. In countries like Spain, it is common to find many different accents, some of which are difficult to understand even for native Spanish speakers themselves. Furthermore, languages can be mixed, or different regional slang may be used.
 
 Although for comparison, if one could choose to use faster-whisper as a backend, there would be no contest in terms of raw concurrency. It supports up to 16 instances with a single model loaded in memory. These figures represent geometric multiplications in gains that are unapproachable with whisper.cpp, although not all geometric multiplications from VRAM savings will be reflected in performance or execution times. Furthermore, there is still potential for whisper.cpp to be optimized further, particularly for live transcriptions within scripts like `playlist4whisper.py` and `livestream_video.sh`.
 
-These improvements are especially valued in environments like businesses or public administrations where, at least when not dealing with a corrupt country or region, it translates into cost savings for the company or for public spending. Naturally, this applies to many other applications based on Artificial Intelligence or, in general, to any software, not just the particular case of Whisper.
-
-For `playlist4whisper.py` and `livestream_video.sh` (which depend on `whisper.cpp`), quantized models **reduce VRAM consumption AND improve processing speed** on NVIDIA RTX GPUs.
+For now, for `playlist4whisper.py` and `livestream_video.sh` (which depend on `whisper.cpp`), quantized models **reduce VRAM consumption AND improve processing speed** on NVIDIA RTX GPUs.
 
 #### **VRAM Reduction - Guaranteed Benefit**
 
@@ -848,7 +848,7 @@ All quantization levels maintain high transcription accuracy with no significant
 
 #### **Understanding Whisper.cpp Quantization and GPU Acceleration**
 
-Whisper.cpp is an AI inference engine that leverages **integer quantization** to deliver excellent accuracy with minimal performance overhead. In contrast, **floating-point quantization** is often preferred in other AI applications, **FP4** can also achieve excellent accuracy despite its extremely low precision, thanks to a new software design by NVIDIA that optimizes training in conjunction with its **Blackwell GPU architecture** (as seen in the **RTX 5000 series**).
+Whisper.cpp is an AI inference engine that leverages integer quantization to deliver excellent accuracy, close to floating point models. In contrast, **floating-point quantization** is often preferred in other AI applications, **FP4** can also achieve excellent accuracy despite its extremely low precision, thanks to a new software design by NVIDIA that optimizes training in conjunction with its **Blackwell GPU architecture** (as seen in the **RTX 5000 series**).
 
 **Whisper.cpp uses INTEGER quantization (INT), not floating-point (FP):**
 - `Q8_0` → **INT8** (8-bit integers)
