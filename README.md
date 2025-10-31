@@ -941,67 +941,103 @@ make base.en
 ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
 ```
 - **Note**: Models from `playlist4whisper.py` work directly.
-
+- 
 #### 3. Core ML (Apple Silicon M1/M2/M3/M4 NPU)
-- **Requirements**:  
-  - macOS Sonoma (14 or later).  
-  - Xcode and command-line tools:  
-```bash
-xcode-select --install
-```
-  - Python 3.11 (use Miniconda):  
-```bash
-conda create -n py311-whisper python=3.11 -y
-conda activate py311-whisper
-pip install ane_transformers openai-whisper coremltools
-```
-- **Generate Model**:  
-```bash
-sh ./models/generate-coreml-model.sh base.en
-```
-  - Creates `models/ggml-base.en-encoder.mlmodelc` (loaded as `.bin`).  
-- **Compilation**:  
-```bash
-cmake -B build -DWHISPER_COREML=1
-cmake --build build -j --config Release
-```
-- **Run**:  
-```bash
-./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
-```
-  - **Important**: `--model base.en` loads `ggml-base.en-encoder.mlmodelc` if Core ML is enabled.  
-- **Note**: Models from `playlist4whisper.py` **do not work**. You must generate the `.mlmodelc` model.
+This option enables hardware-accelerated transcription using the Neural Engine on Apple Silicon Macs.
+
+- **Requirements**:
+  - macOS Sonoma (14 or later).
+  - Xcode and command-line tools. You can install them with:
+    ```bash
+    xcode-select --install
+    ```
+
+- **Python Environment (Choose one option)**:
+  To install the necessary dependencies, you can use a standard virtual environment (`venv`) or Conda.
+
+  - **Option A (Recommended): Using `venv`**
+    ```bash
+    # Create and activate a virtual environment
+    python3 -m venv whisper-env
+    source whisper-env/bin/activate
+    
+    # Install the required packages for Core ML
+    pip install ane_transformers openai-whisper coremltools
+    ```
+
+  - **Option B (Alternative): Using `Miniconda` or `Conda`**
+    ```bash
+    conda create -n py311-whisper python=3.11 -y
+    conda activate py311-whisper
+    pip install ane_transformers openai-whisper coremltools
+    ```
+
+- **Generate Model**:
+  You must convert a standard Whisper model to the `.mlmodelc` format.
+  ```bash
+  # Run this script from the root whisper.cpp directory
+  sh ./models/generate-coreml-model.sh base.en
+  ```
+  This creates the `models/ggml-base.en-encoder.mlmodelc` file.
+
+- **Compilation**:
+  To enable Core ML, you must compile using `cmake` with the specific flag.
+  ```bash
+  cmake -B build -DWHISPER_COREML=1
+  cmake --build build -j --config Release
+  ```
+
+- **Run**:
+  The application will automatically detect and use the Core ML model if it's available.
+  ```bash
+  ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
+  ```
+- **Note**: Models downloaded via `make` or used directly by `playlist4whisper.py` **will not work** for Core ML acceleration. You must generate the `.mlmodelc` model as shown above.
 
 #### 4. OpenVINO (Intel CPU/GPU)
-- **Requirements**:  
-  - Python 3.10:  
-```bash
-cd models
-python3 -m venv openvino_conv_env
-source openvino_conv_env/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements-openvino.txt
-```
-  - OpenVINO toolkit (version 2024.6.0, from https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html).  
-  - Set up OpenVINO:  
-```bash
-source /path/to/openvino/setupvars.sh  # Linux
-```
-- **Generate Model**:  
-```bash
-python convert-whisper-to-openvino.py --model base.en
-```
-  - Creates `models/ggml-base.en-encoder-openvino.xml` and `.bin`. Move to `models/` if needed.  
-- **Compilation**:  
-```bash
-cmake -B build -DWHISPER_OPENVINO=1
-cmake --build build -j --config Release
-```
-- **Run**:  
-```bash
-./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
-```
-  - **Important**: `--model base.en` loads the `.xml`/`.bin` IR files internally.  
+This option is designed to optimize performance on Intel processors and their integrated GPUs.
+
+- **Requirements**:
+  - **Python Environment**: A dedicated virtual environment is recommended for the conversion scripts.
+    ```bash
+    # Navigate to the models directory
+    cd models
+    
+    # Create and activate the virtual environment
+    python3 -m venv openvino_conv_env
+    source openvino_conv_env/bin/activate
+    
+    # Install conversion dependencies
+    python -m pip install --upgrade pip
+    pip install -r requirements-openvino.txt
+    ```
+  - **OpenVINO Toolkit**: Download and install the toolkit from the [official Intel website](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html).
+  - **Set up OpenVINO Environment**: After installation, source the setup script in your terminal.
+    ```bash
+    # Adjust the path to your OpenVINO installation
+    source /path/to/openvino/setupvars.sh  # Linux/macOS
+    ```
+
+- **Generate Model**:
+  With your conversion environment activated, run the script to convert the model.
+  ```bash
+  python convert-whisper-to-openvino.py --model base.en
+  ```
+  This creates `ggml-base.en-encoder-openvino.xml` and `.bin` files in the `models/` directory.
+
+- **Compilation**:
+  Compile `whisper.cpp` using `cmake` to enable OpenVINO support.
+  ```bash
+  # Return to the root whisper.cpp directory
+  cmake -B build -DWHISPER_OPENVINO=1
+  cmake --build build -j --config Release
+  ```
+
+- **Run**:
+  The application will internally load the OpenVINO `.xml`/`.bin` IR files when you specify the base model name.
+  ```bash
+  ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
+  ```
 - **Note**: Models from `playlist4whisper.py` **do not work**. You must generate the OpenVINO IR model.
 
 #### 5. Vulkan (AMD/Intel/NVIDIA GPUs)
