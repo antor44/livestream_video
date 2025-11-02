@@ -633,7 +633,8 @@ Whisper Models available:
 Specify the whisper executable to use (full path or command name).
 
 `--language`
-Whisper Languages available (code and name):
+Transcription language (e.g., `es`, `fr`, `de`).
+Codes of Whisper Languages available:
 
 ```
  auto (Autodetect)      fa (Persian)           kk (Kazakh)            nn (Nynorsk)           ta (Tamil)
@@ -784,24 +785,24 @@ For older PCs such as Intel i7/Xeon processors from the Haswell series, for real
 
 It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM, or into system RAM when using CPU without GPU acceleration. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
 
-#### **Critical Distinction: Short Chunks vs. Continuous Processing**
+##### **Critical Distinction: Short Chunks vs. Continuous Processing**
 
 Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
-*   **Short Audio Chunks (8-10 seconds) - High Concurrency:**
+*   ##### **Short Audio Chunks (8-10 seconds) - High Concurrency:**
     - **Up to 10+ simultaneous instances** achievable without perceivable errors
     - Each instance continuously processes short audio chunks (8-10 seconds), with VRAM being allocated per chunk and released upon completion
     - Fast chunk processing prevents memory saturation
     - Ideal for video streaming, live transcription
 
-*   **Continuous Processing (Subtitles) - Limited Concurrency:**
+*   ##### **Continuous Processing (Subtitles) - Limited Concurrency:**
     - **Only 3-4 instances** before Segmentation Faults and crashes
     - Memory accumulates without release, causing exhaustion
     - Processing time per audio minute degrades from 5-7s (1-2 instances) to 12s (3-4 instances) as GPU resources become saturated
     - Batch processing fails beyond 3-4 instances
     - However, for subtitle generation workflows, longer processing times or delayed instance launches are acceptable since real-time performance is not required
 
-*   **Mixed Workload:**
+*   ##### **Mixed Workload:**
     - 5 short-chunk base instances + only 1 long-file instance before failure
 
 >**Note:** Mid-range NVIDIA RTX GPUs can likely achieve 20-30+ concurrent instances for short-chunk processing, as these GPUs process up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` includes concurrency control at the code level (meaning external load balancing cannot manage this), making unpredictable errors occur when cumulative VRAM requirements exceed physical GPU memory. Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption and eliminate paging risks.
@@ -818,7 +819,7 @@ Although for comparison, if one could choose to use faster-whisper as a backend,
 
 For now, for `playlist4whisper.py` and `livestream_video.sh` (which depend on `whisper.cpp`), quantized models **reduce VRAM consumption AND improve processing speed** on NVIDIA RTX GPUs.
 
-#### **VRAM Reduction - Guaranteed Benefit**
+##### **VRAM Reduction - Guaranteed Benefit:**
 
 Quantization drastically reduces memory footprint:
 - **INT8 (Q8_0)**: ~50% less VRAM compared to FP16
@@ -827,35 +828,35 @@ Quantization drastically reduces memory footprint:
 
 This allows you to run more concurrent instances on the same GPU (e.g., 6-8 instead of 3-4 with large-v2 on 16GB).
 
-#### **Speed Performance - Verified Results**
+##### **Speed Performance - Verified Results:**
 
 According to official whisper.cpp benchmark data from real user testing on NVIDIA GPUs:
 
-**Q8_0 (INT8) is the fastest on RTX GPUs with Tensor Cores:**
+##### **Q8_0 (INT8) is the fastest on RTX GPUs with Tensor Cores:**
 - RTX 5060 Ti: Q8_0 achieves 246.6 GFLOPS vs F16's 183.2 GFLOPS (~35% faster)
 - RTX 4070 Ti Super: Q8_0 achieves 69.9 GFLOPS vs F16's 50.6 GFLOPS (~38% faster)
 - GTX 1080 Ti (older GPU without Tensor Cores): Q8_0 achieves 28.2 GFLOPS vs F16's 29.2 GFLOPS (slightly slower)
 
-**Q4_0 (INT4) performance on RTX GPUs:**
+##### **Q4_0 (INT4) performance on RTX GPUs:**
 - RTX 5060 Ti: Q4_0 achieves 207.9 GFLOPS vs F16's 183.2 GFLOPS (~13% faster)
 - RTX 4070 Ti Super: Q4_0 achieves 57.1 GFLOPS vs F16's 50.6 GFLOPS (~13% faster)
 - Q4_0 is consistently faster than F16 on RTX GPUs with Tensor Cores, but slower than Q8_0
 
 **Key takeaway:** On NVIDIA RTX GPUs with Tensor Cores (RTX 2000 series and newer), quantized models are faster than F16, with Q8_0 providing the best speed improvements (35-38% faster). On older GPUs without Tensor Cores, quantized models may not show speed improvements.
 
-**Quality:**
+##### **Quality:**
 All quantization levels maintain high transcription accuracy with no significant degradation reported in user testing.
 
-#### **Understanding Whisper.cpp Quantization and GPU Acceleration**
+##### **Understanding Whisper.cpp Quantization and GPU Acceleration**
 
 Whisper.cpp is an AI inference engine that leverages integer quantization to deliver excellent accuracy, close to floating point models. In contrast, **floating-point quantization** is often preferred in other AI applications, **FP4** can also achieve excellent accuracy despite its extremely low precision, thanks to a new software design by NVIDIA that optimizes training in conjunction with its **Blackwell GPU architecture** (as seen in the **RTX 5000 series**).
 
-**Whisper.cpp uses INTEGER quantization (INT), not floating-point (FP):**
+##### **Whisper.cpp uses INTEGER quantization (INT), not floating-point (FP):**
 - `Q8_0` → **INT8** (8-bit integers)
 - `Q5_0` / `Q5_1` → **INT5** (5-bit integers)
 - `Q4_0` / `Q4_1` → **INT4** (4-bit integers)
 
-**NVIDIA Tensor Core Support Across RTX Generations:**
+##### **NVIDIA Tensor Core Support Across RTX Generations:**
 
 | Generation       | Architecture | Supported Low-Precision Formats         |
 |------------------|--------------|----------------------------------------|
@@ -868,7 +869,7 @@ Whisper.cpp is an AI inference engine that leverages integer quantization to del
 > The **RTX 5000 series introduces FP4 (4-bit floating-point) acceleration** — a distinct format from INT4.  
 > This is why **RTX 5060 Ti and RTX 4070 Ti Super show identical ~13% performance gains in Q4_0**: both rely on the **same INT4 Tensor Core acceleration** introduced in the RTX 2000 series.
 
-**Current optimization status:**
+##### **Current optimization status:**
 
 The benchmark results suggest whisper.cpp achieves:
 - **Excellent INT8 optimization**: 35-38% speed improvement on RTX GPUs
@@ -876,7 +877,7 @@ The benchmark results suggest whisper.cpp achieves:
 
 This indicates whisper.cpp may not be fully leveraging Tensor Cores for INT4 operations, or other bottlenecks limit performance gains.
 
-**Note for older GPUs:**
+##### **Note for older GPUs:**
 On NVIDIA GPUs without Tensor Cores (GTX 1000 series and older), quantized models may not show speed improvements and could be slightly slower. The primary benefit remains VRAM reduction.
 
 **In simple terms:** Use Q8_0 models (faster and half the memory). Only use Q4_0 if you need maximum concurrent streams and are running out of memory. Avoid Q5_0.
@@ -885,7 +886,7 @@ On NVIDIA GPUs without Tensor Cores (GTX 1000 series and older), quantized model
 
 A: Whisper.cpp supports various hardware accelerations (CPU, CUDA, Core ML, OpenVINO, Vulkan, BLAS, CANN, MUSA), each requiring specific compilation flags and, for some, custom model formats. The models downloaded by `playlist4whisper.py` are in the standard `ggml` format (`.bin`) and work only with CPU, CUDA, Vulkan, BLAS, CANN, and MUSA backends. **These models do not work with Core ML (Apple M1/M2/M3/M4 NPU) or OpenVINO (Intel CPU/GPU) without conversion to their specific formats.** Core ML or OpenVINO require converted models (`.mlmodelc` for Core ML, `.xml`/`.bin` IR for OpenVINO). Attempting to use a standard `.bin` with these backends will fail, as whisper.cpp expects the optimized format in the `models/` directory. Below are the steps to compile whisper.cpp for each acceleration, generate the required models, and test them with `livestream_video.sh`.
 
-**Commands for Compilation and Model Generation**  
+##### **Commands for Compilation and Model Generation**  
 
 Download the source code of whisper.cpp from your home directory:
 ```
@@ -896,7 +897,7 @@ Change the default directory to the whisper.cpp directory, which is whisper.cpp:
 cd whisper.cpp
 ```
 
-#### 1. CPU (Standard, No Acceleration)
+##### 1. CPU (Standard, No Acceleration)
 - **Compilation**:  
 ```bash
 cmake -B build
@@ -916,7 +917,7 @@ make base.en
 ```
 - **Note**: Models from `playlist4whisper.py` work directly.
 
-#### 2. CUDA (NVIDIA GPU, e.g., RTX 4060 Ti)
+##### 2. CUDA (NVIDIA GPU, e.g., RTX 4060 Ti)
 - **Requirements**: Install CUDA toolkit (https://developer.nvidia.com/cuda-downloads).  
 - **Compilation**:  
 ```bash
@@ -941,8 +942,8 @@ make base.en
 ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
 ```
 - **Note**: Models from `playlist4whisper.py` work directly.
-- 
-#### 3. Core ML (Apple Silicon M1/M2/M3/M4 NPU)
+
+##### 3. Core ML (Apple Silicon M1/M2/M3/M4 NPU)
 This option enables hardware-accelerated transcription using the Neural Engine on Apple Silicon Macs.
 
 - **Requirements**:
@@ -971,6 +972,13 @@ This option enables hardware-accelerated transcription using the Neural Engine o
     conda activate py311-whisper
     pip install ane_transformers openai-whisper coremltools
     ```
+    
+- **Compilation**:
+  To enable Core ML, you must compile using `cmake` with the specific flag.
+  ```bash
+  cmake -B build -DWHISPER_COREML=1
+  cmake --build build -j --config Release
+  ```
 
 - **Generate Model**:
   You must convert a standard Whisper model to the `.mlmodelc` format.
@@ -980,13 +988,6 @@ This option enables hardware-accelerated transcription using the Neural Engine o
   ```
   This creates the `models/ggml-base.en-encoder.mlmodelc` file.
 
-- **Compilation**:
-  To enable Core ML, you must compile using `cmake` with the specific flag.
-  ```bash
-  cmake -B build -DWHISPER_COREML=1
-  cmake --build build -j --config Release
-  ```
-
 - **Run**:
   The application will automatically detect and use the Core ML model if it's available.
   ```bash
@@ -994,7 +995,7 @@ This option enables hardware-accelerated transcription using the Neural Engine o
   ```
 - **Note**: Models downloaded via `make` or used directly by `playlist4whisper.py` **will not work** for Core ML acceleration. You must generate the `.mlmodelc` model as shown above.
 
-#### 4. OpenVINO (Intel CPU/GPU)
+##### 4. OpenVINO (Intel CPU/GPU)
 This option is designed to optimize performance on Intel processors and their integrated GPUs.
 
 - **Requirements**:
@@ -1017,14 +1018,7 @@ This option is designed to optimize performance on Intel processors and their in
     # Adjust the path to your OpenVINO installation
     source /path/to/openvino/setupvars.sh  # Linux/macOS
     ```
-
-- **Generate Model**:
-  With your conversion environment activated, run the script to convert the model.
-  ```bash
-  python convert-whisper-to-openvino.py --model base.en
-  ```
-  This creates `ggml-base.en-encoder-openvino.xml` and `.bin` files in the `models/` directory.
-
+    
 - **Compilation**:
   Compile `whisper.cpp` using `cmake` to enable OpenVINO support.
   ```bash
@@ -1033,6 +1027,13 @@ This option is designed to optimize performance on Intel processors and their in
   cmake --build build -j --config Release
   ```
 
+- **Generate Model**:
+  With your conversion environment activated, run the script to convert the model.
+  ```bash
+  python convert-whisper-to-openvino.py --model base.en
+  ```
+  This creates `ggml-base.en-encoder-openvino.xml` and `.bin` files in the `models/` directory.
+
 - **Run**:
   The application will internally load the OpenVINO `.xml`/`.bin` IR files when you specify the base model name.
   ```bash
@@ -1040,7 +1041,7 @@ This option is designed to optimize performance on Intel processors and their in
   ```
 - **Note**: Models from `playlist4whisper.py` **do not work**. You must generate the OpenVINO IR model.
 
-#### 5. Vulkan (AMD/Intel/NVIDIA GPUs)
+##### 5. Vulkan (AMD/Intel/NVIDIA GPUs)
 - **Requirements**: Install drivers with Vulkan API support.  
 - **Compilation**:  
 ```bash
@@ -1061,7 +1062,7 @@ make base.en
 ```
 - **Note**: Models from `playlist4whisper.py` work directly.
 
-#### 6. BLAS (CPU with OpenBLAS)
+##### 6. BLAS (CPU with OpenBLAS)
 - **Requirements**: Install OpenBLAS (https://www.openblas.net/).  
 - **Compilation**:  
 ```bash
@@ -1078,7 +1079,7 @@ make base.en
 ```
 - **Note**: Models from `playlist4whisper.py` work directly.
 
-#### 7. Ascend NPU (Huawei Atlas 300T A2)
+##### 7. Ascend NPU (Huawei Atlas 300T A2)
 - **Requirements**: Install CANN toolkit (latest version, check Huawei documentation).  
 - **Compilation**:  
 ```bash
@@ -1095,7 +1096,7 @@ make base.en
 ```
 - **Note**: Models from `playlist4whisper.py` work directly.
 
-#### 8. MUSA (Moore Threads GPU)
+##### 8. MUSA (Moore Threads GPU)
 - **Requirements**: Install MUSA SDK rc4.2.0 (https://developer.mthreads.com/sdk/download/musa).  
 - **Compilation**:  
 ```bash
