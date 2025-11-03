@@ -830,19 +830,18 @@ This allows you to run more concurrent instances on the same GPU (e.g., 6-8 inst
 
 ##### **Speed Performance - Verified Results:**
 
-According to official whisper.cpp benchmark data from real user testing on NVIDIA GPUs:
+According to official whisper.cpp benchmark data from real user testing on NVIDIA GPUs (ggml_mul_mat benchmark):
 
 ##### **Q8_0 (INT8) is the fastest on RTX GPUs with Tensor Cores:**
-- RTX 5060 Ti: Q8_0 achieves 246.6 GFLOPS vs F16's 183.2 GFLOPS (~35% faster)
-- RTX 4070 Ti Super: Q8_0 achieves 69.9 GFLOPS vs F16's 50.6 GFLOPS (~38% faster)
+- RTX 5060 Ti (ggml_mul_mat benchmark 4 threads): Q8_0 achieves 246.6 GFLOPS vs F16's 183.2 GFLOPS (~35% faster)
+- RTX 4070 Ti Super (1 thread): Q8_0 achieves 69.9 GFLOPS vs F16's 50.6 GFLOPS (~38% faster)
 - GTX 1080 Ti (older GPU without Tensor Cores): Q8_0 achieves 28.2 GFLOPS vs F16's 29.2 GFLOPS (slightly slower)
 
 ##### **Q4_0 (INT4) performance on RTX GPUs:**
-- RTX 5060 Ti: Q4_0 achieves 207.9 GFLOPS vs F16's 183.2 GFLOPS (~13% faster)
-- RTX 4070 Ti Super: Q4_0 achieves 57.1 GFLOPS vs F16's 50.6 GFLOPS (~13% faster)
-- Q4_0 is consistently faster than F16 on RTX GPUs with Tensor Cores, but slower than Q8_0
+- RTX 5060 Ti (4 threads): Q4_0 achieves 207.9 GFLOPS vs F16's 183.2 GFLOPS (~13% faster)
+- RTX 4070 Ti Super (1 thread): Q4_0 achieves 57.1 GFLOPS vs F16's 50.6 GFLOPS (~13% faster)
 
-**Key takeaway:** On NVIDIA RTX GPUs with Tensor Cores (RTX 2000 series and newer), quantized models are faster than F16, with Q8_0 providing the best speed improvements (35-38% faster). On older GPUs without Tensor Cores, quantized models may not show speed improvements.
+**Key takeaway:** On NVIDIA RTX GPUs with Tensor Cores (RTX 2000 series and newer), quantized models are faster than F16, with Q8_0 providing the best speed improvements (35-38% faster). Q4_0 is consistently faster than F16 on RTX GPUs, but slower than Q8_0. On older GPUs without Tensor Cores, quantized models may not show speed improvements.
 
 ##### **Quality:**
 All quantization levels maintain high transcription accuracy with no significant degradation reported in user testing.
