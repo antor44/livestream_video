@@ -84,6 +84,8 @@ In this release, we have added various options for text output manipulation and 
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
 #
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
+#
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
