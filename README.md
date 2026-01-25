@@ -1354,7 +1354,3 @@ A: Yes, many of the URLs for channels found on the internet are made freely acce
 
 In the case of YouTube and Twitch, watching channels through standalone applications such as `yt-dlp` or `streamlink` poses a conflict with the companies, as they cannot control the advertisements you see. In other words, they are not interested in this approach and may make it difficult or prevent you from accessing their video streams.
 
-
-
-
-[<img src="https://github.com/antor44/livestream_video/blob/main/Paypal-QR-Button.png">](https://www.paypal.com/donate/?business=D2SKZRE6RVAZG&no_recurring=0&item_name=Your+donation+powers+our+commitment+to+providing+free%2C+efficient+transcription+%26+translation+tools.+Thank+you+for+contributing.&currency_code=EUR)
