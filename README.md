@@ -811,77 +811,62 @@ Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals t
 
 **Q: Do quantized models run faster on NVIDIA RTX GPUs with playlist4whisper.py and livestream_video.sh, or do they only reduce VRAM usage? Does whisper.cpp leverage RTX 5000 series optimizations for 4-bit quantized models?**
 
-A: **Important context first:** Modern GPUs and CPUs are more than capable of running large models like large-v2 for live transcription without breaking a sweat. The main benefit of quantization is enabling **more concurrent instances** on the same hardware, although in many cases, performance gains can also be achieved. And any of these gains in multi-instance or multi-user executions, however small, are generally a matter of geometric, not arithmetic, progression. This means that a new gain is multiplied by those previously achieved or obtained through other techniques. While this is not extensible to all artificial intelligence applications, Whisper is a very clear case where we can see this in action.
+A: Important context first: Modern GPUs and CPUs are more than capable of running large models like `large-v2` or `large-v3` for live transcription without breaking a sweat. The main benefit of quantization is enabling more concurrent instances on the same hardware, although in many cases, performance gains can also be achieved. In scenarios with multi-instance or multi-user executions, even small gains accumulate geometrically. This is particularly evident in Whisper applications.
 
-Any of these improvements are especially valued in environments like businesses or public administrations where, at least when not dealing with a corrupt country or region, it translates into cost savings for the company or for public spending. Naturally, this applies to many other applications based on Artificial Intelligence or, in general, to any software, not just the particular case of Whisper.
+These improvements are especially valuable in business or public administration environments, translating into cost savings for hardware or cloud usage. This applies to many AI applications, not just Whisper.
 
-In the case of `playlist4whisper.py` and `livestream_video.sh`, for now, **only whisper.cpp can be used as a backend**. It is a well-documented implementation of Whisper that replicates the results and improves the performance of OpenAI's original executable. A key advantage of this approach is its stability; in my experience, I have never encountered issues with whisper.cpp, either in long-running or multi-instance executions. Other benefits include its lightweight nature with fewer dependencies and its ability to run on more architectures and much more heterogeneous hardware. This flexibility is a major asset when running models of different sizes or for different languages. For example, one could use fine-tuned models optimized for various accents, slang, or technical terms. In countries like Spain, it is common to find many different accents, some of which are difficult to understand even for native Spanish speakers themselves. Furthermore, languages can be mixed, or different regional slang may be used.
+For `playlist4whisper.py` and `livestream_video.sh`, currently only `whisper.cpp` can be used as a backend. It's a stable, lightweight implementation with few dependencies and broad architecture support. I've never encountered stability issues in long-running or multi-instance executions. It allows using fine-tuned models for accents, slang, or technical terms—useful in diverse linguistic contexts like mixing languages or regional variations.
 
-Although for comparison, if one could choose to use faster-whisper as a backend, there would be no contest in terms of raw concurrency. It supports up to 16 instances with a single model loaded in memory. These figures represent geometric multiplications in gains that are unapproachable with whisper.cpp, although not all geometric multiplications from VRAM savings will be reflected in performance or execution times. Furthermore, there is still potential for whisper.cpp to be optimized further, particularly for live transcriptions within scripts like `playlist4whisper.py` and `livestream_video.sh`.
+If `faster-whisper` (based on CTranslate2) could be integrated, it would excel in raw concurrency (up to 16 instances with one model in memory), but `whisper.cpp` remains reliable for now.
 
-For now, for `playlist4whisper.py` and `livestream_video.sh` (which depend on `whisper.cpp`), quantized models **reduce VRAM consumption AND improve processing speed** on NVIDIA RTX GPUs.
+With `whisper.cpp` (current backend) on NVIDIA RTX GPUs:
+Quantized models reduce VRAM consumption AND often improve processing speed thanks to Tensor Core support for INT8/INT4.
 
-##### **VRAM Reduction - Guaranteed Benefit:**
+**VRAM Reduction - Guaranteed Benefit:**
+*   **Q8_0 (INT8):** ~50% less VRAM than FP16
+*   **Q5_0/Q5_1 (INT5):** ~65% less
+*   **Q4_0/Q4_1 (INT4):** ~75% less
 
-Quantization drastically reduces memory footprint:
-- **INT8 (Q8_0)**: ~50% less VRAM compared to FP16
-- **INT5 (Q5_0/Q5_1)**: ~65% less VRAM compared to FP16
-- **INT4 (Q4_0/Q4_1)**: ~75% less VRAM compared to FP16
+This enables more concurrent instances (e.g., 6-8 instead of 3-4 with `large-v2` on 16GB VRAM).
 
-This allows you to run more concurrent instances on the same GPU (e.g., 6-8 instead of 3-4 with large-v2 on 16GB).
+**Speed Performance - Verified Results:**
+Based on user benchmarks in the `whisper.cpp` repository (`ggml_mul_mat` and encode timings via CUDA), quantization typically provides gains on RTX GPUs with Tensor Cores (2000 series+). Q8_0 is often the fastest, with notable GFLOPS improvements in large matrix operations, though varying by GPU, threads, and workload.
 
-##### **Speed Performance - Verified Results:**
+Real user examples (from benchmark threads):
+*   On modern RTX GPUs (including 50xx series entries), Q8_0 achieves significantly higher GFLOPS than FP16 for large matrices.
+*   On RTX 4090, transcription times are very similar between FP16 and Q8_0, but with half the memory.
 
-According to official whisper.cpp benchmark data from real user testing on NVIDIA GPUs (ggml_mul_mat benchmark):
+**Key takeaway:** On RTX with Tensor Cores, Q8_0 is usually faster than FP16 with much less VRAM—ideal for most cases. Q4_0 is great for max concurrency when memory-limited (still faster than FP16 on many RTX, but below Q8_0). On older GPUs without Tensor Cores (e.g., GTX 10xx), speed may be similar or slightly worse, but VRAM savings remain.
 
-##### **Q8_0 (INT8) is the fastest on RTX GPUs with Tensor Cores:**
-- RTX 5060 Ti (ggml_mul_mat benchmark 4 threads): Q8_0 achieves 246.6 GFLOPS vs F16's 183.2 GFLOPS (~35% faster)
-- RTX 4070 Ti Super (1 thread): Q8_0 achieves 69.9 GFLOPS vs F16's 50.6 GFLOPS (~38% faster)
-- GTX 1080 Ti (older GPU without Tensor Cores): Q8_0 achieves 28.2 GFLOPS vs F16's 29.2 GFLOPS (slightly slower)
+**Deduced Performance for Older GPUs like GTX 1080 Ti:**
+*   **GTX 1080 Ti** (older GPU without Tensor Cores): Q8_0 ~28 GFLOPS vs FP16 ~29 GFLOPS (slightly slower, deduced from similar older GPU patterns and user reports).
 
-##### **Q4_0 (INT4) performance on RTX GPUs:**
-- RTX 5060 Ti (4 threads): Q4_0 achieves 207.9 GFLOPS vs F16's 183.2 GFLOPS (~13% faster)
-- RTX 4070 Ti Super (1 thread): Q4_0 achieves 57.1 GFLOPS vs F16's 50.6 GFLOPS (~13% faster)
+The primary benefit on such hardware is VRAM reduction, with neutral or minor speed impact from quantization.
 
-**Key takeaway:** On NVIDIA RTX GPUs with Tensor Cores (RTX 2000 series and newer), quantized models are faster than F16, with Q8_0 providing the best speed improvements (35-38% faster). Q4_0 is consistently faster than F16 on RTX GPUs, but slower than Q8_0. On older GPUs without Tensor Cores, quantized models may not show speed improvements.
+**Quality:**
+All quantization levels maintain high transcription accuracy, with no significant degradation in real tests.
 
-##### **Quality:**
-All quantization levels maintain high transcription accuracy with no significant degradation reported in user testing.
+**Understanding Whisper.cpp Quantization and GPU Acceleration**
+`whisper.cpp` uses integer quantization (INT4/INT5/INT8), not floating-point. It leverages Tensor Cores on RTX 2000+ for INT8 and INT4. The RTX 5000 series (Blackwell) adds FP4 support, but `whisper.cpp` benefits from existing INT support since Turing.
 
-##### **Understanding Whisper.cpp Quantization and GPU Acceleration**
+**NVIDIA Tensor Core Support Across RTX Generations:**
 
-Whisper.cpp is an AI inference engine that leverages integer quantization to deliver excellent accuracy, close to floating point models. In contrast, **floating-point quantization** is often preferred in other AI applications, **FP4** can also achieve excellent accuracy despite its extremely low precision, thanks to a new software design by NVIDIA that optimizes training in conjunction with its **Blackwell GPU architecture** (as seen in the **RTX 5000 series**).
+| Generation | Architecture | Supported Low-Precision Formats |
+| :--- | :--- | :--- |
+| RTX 2000 | Turing | INT8, INT4 |
+| RTX 3000 | Ampere | INT8, INT4 |
+| RTX 4000 | Ada Lovelace | INT8, INT4, FP8 |
+| RTX 5000 | Blackwell | INT8, INT4, FP8, FP4 (new) |
 
-##### **Whisper.cpp uses INTEGER quantization (INT), not floating-point (FP):**
-- `Q8_0` → **INT8** (8-bit integers)
-- `Q5_0` / `Q5_1` → **INT5** (5-bit integers)
-- `Q4_0` / `Q4_1` → **INT4** (4-bit integers)
+*   All RTX from 2000 support INT4/INT8 via Tensor Cores. Gains on 50xx for `whisper.cpp` come from the same INT support, not new FP4.
 
-##### **NVIDIA Tensor Core Support Across RTX Generations:**
+**Current optimization status:**
+`whisper.cpp` excels at INT8 (notable gains), but INT4 could be further optimized (modest gains). Potential remains for live transcription improvements in scripts like `playlist4whisper.py` and `livestream_video.sh`.
 
-| Generation       | Architecture | Supported Low-Precision Formats         |
-|------------------|--------------|----------------------------------------|
-| RTX 2000         | Turing       | INT8, **INT4**                         |
-| RTX 3000         | Ampere       | INT8, **INT4**                         |
-| RTX 4000         | Ada Lovelace | INT8, **INT4**, FP8                    |
-| **RTX 5000**     | **Blackwell**| INT8, **INT4**, FP8, **FP4** (new)     |
+**Note for older GPUs:**
+On NVIDIA GPUs without Tensor Cores (GTX 1000 series and older), quantized models may not show speed gains and could be slightly slower. VRAM reduction is the main advantage.
 
-> **All RTX GPUs from the 2000 series onward support INT4 and INT8 via Tensor Cores.**  
-> The **RTX 5000 series introduces FP4 (4-bit floating-point) acceleration** — a distinct format from INT4.  
-> This is why **RTX 5060 Ti and RTX 4070 Ti Super show identical ~13% performance gains in Q4_0**: both rely on the **same INT4 Tensor Core acceleration** introduced in the RTX 2000 series.
-
-##### **Current optimization status:**
-
-The benchmark results suggest whisper.cpp achieves:
-- **Excellent INT8 optimization**: 35-38% speed improvement on RTX GPUs
-- **Modest INT4 optimization**: Only 13% speed improvement, despite hardware support existing since RTX 2000
-
-This indicates whisper.cpp may not be fully leveraging Tensor Cores for INT4 operations, or other bottlenecks limit performance gains.
-
-##### **Note for older GPUs:**
-On NVIDIA GPUs without Tensor Cores (GTX 1000 series and older), quantized models may not show speed improvements and could be slightly slower. The primary benefit remains VRAM reduction.
-
-**In simple terms:** Use Q8_0 models (faster and half the memory). Only use Q4_0 if you need maximum concurrent streams and are running out of memory. Avoid Q5_0.
+**In simple terms:** Use **Q8_0** models (faster + half memory). Switch to **Q4_0** only for maximum concurrent streams when out of memory. Avoid Q5_0 unless specific needs.
 
 **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
 
