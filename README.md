@@ -17,7 +17,7 @@
 -   **Timeshift:** A fully configurable timeshift feature, exclusive to the VLC player.
 -   **Timeshift Recording:** Save and merge selected video segments directly from the timeshift buffer using the integrated video saver tool.
 -   **Broad Service Support:** Access a wide range of video services through `streamlink` or `yt-dlp`.
--   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model to improve transcription segmentation by cutting audio during silences.
+-   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
 
 ### Online Translation with Google Gemini API
@@ -516,7 +516,7 @@ https://github.com/ggerganov/whisper.cpp
 
 -   **Online Translation:** Translate transcriptions in real-time using either Google Translate or the high-quality Google Gemini API.
 -   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency.
--   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model to improve transcription segmentation by cutting audio during silences.
+-   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Text-to-Speech (TTS):** Read translated text aloud for a more immersive experience with [Translate Shell](https://github.com/soimort/translate-shell).
 -   **Subtitle Generation:** Automatically create `.srt` subtitle files from local media files.
 -   **Timeshift:** A fully configurable timeshift feature, exclusive to the VLC player (note: not all streams are compatible).
