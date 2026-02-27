@@ -27,10 +27,10 @@ The latest version introduces high-quality online translation using Google's Gem
 **Key Features:**
 
 *   **Superior Quality:** Gemini models often provide more accurate and context-aware translations than traditional services.
-*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-2.5-flash-lite` (default) or the more powerful `gemini-2.5-pro`, directly from the application's UI.
+*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-lite` (default) or the most powerful `gemini-3.1-pro-preview`, directly from the application's UI.
 *   **API Key Integration:** The system securely manages your Google Gemini API key.
 
-**Important Note on Models:** While many models like `gemini-2.5-flash` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
+**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
 
 #### Context Level Control
 
@@ -538,11 +538,11 @@ The latest version introduces high-quality online translation using Google's Gem
 **Key Features:**
 
 *   **Superior Quality:** Gemini models often provide more accurate and context-aware translations than traditional services.
-*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-2.5-flash-lite` (default) or the more powerful `gemini-2.5-pro`.
+*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-preview` (default) or the more powerful `gemini-3.1-pro-preview`.
 *   **Context Control:** Use the `--gemini-level` argument to adjust how much context the AI uses, allowing you to fine-tune the translation style from literal to highly fluent.
 *   **API Key Integration:** The system securely manages your Google Gemini API key, which is required to use this feature.
 
-**Important Note on Models:** While many models like `gemini-2.5-flash` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
+**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
 
 #### How to Enable Gemini Translation
 
@@ -697,7 +697,7 @@ Enables online translation. Must be followed by a language code.
 
 `--gemini-trans`
 Use the Google Gemini API for higher quality translation.
-- `gemini_model`: (Optional) Specify a Gemini model. Defaults to `gemini-2.5-flash-lite`.
+- `gemini_model`: (Optional) Specify a Gemini model. Defaults to `gemini-3-flash-preview`.
 
 `--gemini-level`
 Set the context level for Gemini translation (0-3). Default is 2.
@@ -1145,7 +1145,7 @@ A: Online translation issues with the Gemini API can stem from several factors, 
 *   **Model Recommendations & Strategies (for Free Tier users):**
     *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
     *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its massive daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
-    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests) using the default context level.
+    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests) using the default context level.
 
 **Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
 
