@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 4.30 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.10 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -56,6 +56,9 @@ SUBTITLES=""            # Generate subtitles flag
 AUDIO_SOURCE=""         # Audio source (pulse:index or avfoundation:index)
 AUDIO_INDEX="0"         # Default audio index
 WHISPER_EXECUTABLE=""   # Path to the Whisper executable
+VAD_SPLIT=""            # Enable VAD-based silence splitting for audio chunks
+VAD_EXECUTABLE=""       # Path to the whisper-vad-speech-segments executable
+VAD_MODEL_PATH=""       # Path to the Silero VAD model file
 
 #GEMINI_API_KEY=""      # Optional variable for the Gemni API Key
 
@@ -116,6 +119,8 @@ readonly OUTPUT_TEXT_LIST=( "original" "translation" "both" "none" )
 
 # Available Gemini models for translation
 AVAILABLE_GEMINI_MODELS=(
+    "gemini-3.1-pro-preview"
+    "gemini-3-flash-preview" 
     "gemini-2.5-pro"
     "gemini-2.5-flash"
     "gemini-2.5-flash-lite"
@@ -176,6 +181,52 @@ check_requirements() {
         fi
     fi
 
+    # VAD executable and model detection
+    if [[ "$VAD_SPLIT" == "vad" ]]; then
+        local vad_executables=("./build/bin/whisper-vad-speech-segments" "whisper-vad-speech-segments")
+        for exe in "${vad_executables[@]}"; do
+            if [[ -x "$(command -v "$exe")" ]]; then
+                VAD_EXECUTABLE="$exe"
+                break
+            fi
+        done
+
+        if [[ -z "$VAD_EXECUTABLE" ]]; then
+            echo "${ICON_WARN} VAD executable 'whisper-vad-speech-segments' not found. VAD splitting disabled."
+            VAD_SPLIT=""
+        else
+            echo "Found VAD executable: ${VAD_EXECUTABLE}"
+            # Detect existing VAD model safely
+            shopt -s nullglob
+            local vad_models=(./models/ggml-silero-*.bin)
+            shopt -u nullglob
+            
+            if [ ${#vad_models[@]} -gt 0 ]; then
+                VAD_MODEL_PATH=$(printf "%s\n" "${vad_models[@]}" | sort -V | tail -n 1)
+            else
+                VAD_MODEL_PATH=""
+            fi
+
+            if [[ -z "$VAD_MODEL_PATH" ]]; then
+                # No model found, get the latest name from the download script
+                if [ -f "./models/download-vad-model.sh" ]; then
+                    local vad_model_name
+                    vad_model_name=$(grep '^models=' ./models/download-vad-model.sh | sed 's/models="//;s/"//' | tr ' ' '\n' | tail -n 1)
+                    if [[ -n "$vad_model_name" ]]; then
+                        echo "Downloading VAD model (${vad_model_name})..."
+                        bash ./models/download-vad-model.sh "$vad_model_name"
+                        VAD_MODEL_PATH="./models/ggml-${vad_model_name}.bin"
+                    fi
+                fi
+
+                if [[ -z "$VAD_MODEL_PATH" ]] || [[ ! -f "$VAD_MODEL_PATH" ]]; then
+                    echo "${ICON_WARN} VAD model not found and could not be downloaded. VAD splitting disabled."
+                    VAD_SPLIT=""
+                fi
+            fi
+        fi
+    fi
+
     if ! command -v ffmpeg &>/dev/null; then
         echo "${ICON_ERROR} ffmpeg is required (https://ffmpeg.org)."
         exit 1
@@ -191,16 +242,16 @@ check_requirements() {
 # Prints usage instructions and exits.
 usage() {
     cat <<EOF
-Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] --trans trans_language [output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]
+Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--vad] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] --trans trans_language [output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]
 
 Example:
   $0 https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
   $0 ./my_video.mp4 --subtitles --trans es --gemini-trans
-  $0 ./my_video.mp4 --subtitles --trans fr --gemini-trans gemini-2.5-pro --gemini-level 3
+  $0 ./my_video.mp4 --subtitles --trans fr --gemini-trans gemini-3.1-pro-preview --gemini-level 3
 
 Help:
 
-  livestream_video.sh v. 4.30 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.10 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -235,6 +286,11 @@ Help:
 
   --subtitles     Generate subtitles (.srt) from audio/video, with language, Whisper AI translation, and online translation.
 
+  --vad           Enable VAD (Voice Activity Detection) to find silences near the step boundary and cut audio
+                  chunks there instead of at fixed intervals. Prevents cutting words mid-speech.
+                  Uses whisper.cpp's built-in Silero VAD model (auto-downloaded on first use).
+                  Not applicable in subtitle generation mode.
+
   --trans         Enables online translation. Must be followed by a language code.
                   Default engine is translate-shell. Use --gemini-trans to switch to the Gemini API.
     trans_language: Translation language (e.g., es, fr, de).
@@ -244,7 +300,7 @@ Help:
   --gemini-trans  Use the Google Gemini API for higher quality translation (replaces translate-shell).
                   Requires the '--trans' flag to be set with a language.
                   Requires the 'GEMINI_API_KEY' variable to be set.
-    gemini_model: (Optional) Specify a Gemini model. Defaults to 'gemini-2.5-flash-lite'.
+    gemini_model: (Optional) Specify a Gemini model. Defaults to 'gemini-3-flash-preview'.
                   Available models: ${AVAILABLE_GEMINI_MODELS[@]}
 
   --gemini-level  Set the context level for Gemini translation (0-3). Default is 2.
@@ -318,6 +374,116 @@ get_unique_port() {
 }
 
 
+# Finds the best silence-based cut point near a target time using Silero VAD.
+# Extracts a wider audio window around the target, runs whisper-vad-speech-segments,
+# and finds the silence gap closest to the target time.
+# Falls back to the original target time if no suitable silence is found.
+# Arguments: <source_audio> <target_time_s> <search_window_s>
+# Output: the adjusted cut time in seconds (printed to stdout)
+find_vad_cut_point() {
+    local source_audio="$1"
+    local target_time="$2"
+    local window="${3:-3}"
+
+    # If VAD is not enabled or tools are missing, return target as-is
+    if [[ -z "$VAD_EXECUTABLE" ]] || [[ -z "$VAD_MODEL_PATH" ]] || [[ ! -f "$VAD_MODEL_PATH" ]]; then
+        echo "$target_time"
+        return
+    fi
+
+    local search_start search_duration
+    search_start=$(echo "$target_time - $window" | bc -l)
+    if (( $(echo "$search_start < 0" | bc -l) )); then search_start=0; fi
+    search_duration=$(echo "$window * 2" | bc -l)
+
+    local vad_wav="/tmp/whisper-live_${MYPID}_vad_probe.wav"
+
+    # Extract the search window as a temporary WAV file
+    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "$source_audio" -y \
+        -ar 16000 -ac 1 -c:a pcm_s16le \
+        -ss "$search_start" -t "$search_duration" "$vad_wav" 2>/dev/null
+
+    if [ ! -f "$vad_wav" ]; then
+        echo "$target_time"
+        return
+    fi
+
+    # Overwrite search_duration with the actual length of the extracted audio
+    local actual_vad_dur
+    actual_vad_dur=$(ffprobe -i "$vad_wav" -show_entries format=duration -v quiet -of csv="p=0")
+    if [[ -n "$actual_vad_dur" ]] && (( $(echo "$actual_vad_dur < $search_duration" | bc -l) )); then
+        search_duration=$actual_vad_dur
+    fi
+
+    # Run whisper-vad-speech-segments
+    local vad_output
+    vad_output=$("$VAD_EXECUTABLE" -vm "$VAD_MODEL_PATH" -f "$vad_wav" -np 2>/dev/null)
+
+    local ends starts
+    ends=$(echo "$vad_output" | grep 'Speech segment' | sed 's/.*end = //' | tr -d ' ')
+    starts=$(echo "$vad_output" | grep 'Speech segment' | sed 's/.*start = \([0-9.]*\),.*/\1/')
+
+    if [[ -z "$ends" ]] || [[ -z "$starts" ]]; then
+        rm -f "$vad_wav"
+        echo "$target_time"
+        return
+    fi
+
+    local -a end_arr start_arr
+    while IFS= read -r line; do end_arr+=("$line"); done <<< "$ends"
+    while IFS= read -r line; do start_arr+=("$line"); done <<< "$starts"
+
+    local best_diff=999
+    local best_cut="$target_time"
+    local relative_target
+    relative_target=$(echo "$target_time - $search_start" | bc -l)
+
+    local gaps_start=()
+    local gaps_end=()
+
+    if [ ${#start_arr[@]} -gt 0 ]; then
+        if (( $(echo "${start_arr[0]} > 0.0" | bc -l) )); then
+            gaps_start+=("0.0")
+            gaps_end+=("${start_arr[0]}")
+        fi
+        
+        local idx=0
+        while [ $idx -lt $((${#start_arr[@]} - 1)) ]; do
+            gaps_start+=("${end_arr[$idx]}")
+            gaps_end+=("${start_arr[$((idx + 1))]}")
+            idx=$((idx + 1))
+        done
+        
+        local last_idx=$((${#end_arr[@]} - 1))
+        if (( $(echo "${end_arr[$last_idx]} < $search_duration" | bc -l) )); then
+            gaps_start+=("${end_arr[$last_idx]}")
+            gaps_end+=("$search_duration")
+        fi
+    else
+        gaps_start+=("0.0")
+        gaps_end+=("$search_duration")
+    fi
+
+    local idx=0
+    while [ $idx -lt ${#gaps_start[@]} ]; do
+        local gap_start="${gaps_start[$idx]}"
+        local gap_cut="$gap_start" # Cut at start of silence
+        
+        local diff
+        diff=$(echo "$gap_cut - $relative_target" | bc -l)
+        diff=${diff#-}
+        
+        if (( $(echo "$diff < $best_diff" | bc -l) )); then
+            best_diff="$diff"
+            best_cut=$(echo "$search_start + $gap_cut" | bc -l)
+        fi
+        idx=$((idx + 1))
+    done
+
+    rm -f "$vad_wav"
+    echo "$best_cut"
+}
+
 # Processes a single audio chunk with Whisper and handles translation/TTS.
 # Takes the path to the temporary WAV file as its first argument.
 process_audio_chunk() {
@@ -373,42 +539,64 @@ process_audio_chunk() {
 
     # Attempt translation with the primary engine (Gemini)
     if [[ -n "$GEMINI_TRANS_MODEL" ]] && [[ -n "$GEMINI_API_KEY" ]]; then
-        # --- Gemini Prompt Engineering based on Context Level ---
         local translated_context=""
-        local prompt_instructions=""
+        local full_prompt=""
 
         case "$GEMINI_CONTEXT_LEVEL" in
             0)
-                translated_context=""
-                prompt_instructions="You are an expert real-time translator. Your goal is to provide a literal and fluid translation of the 'New source text fragment' into ${TRANS_LANGUAGE}. Your output must be ONLY the new translation."
+                full_prompt="You are an expert linguist. If the following text is already in ${TRANS_LANGUAGE}, correct its grammar and flow. Otherwise, translate it to ${TRANS_LANGUAGE}. Respond ONLY with the final text in ${TRANS_LANGUAGE}, without quotes or explanations: \"${original_text}\""
                 ;;
             1)
                 if [ "${#translated_context_window[@]}" -gt 0 ]; then
-                    # macOS/Bash 3.2 compatible way to get the last element of an array
                     local last_index=$((${#translated_context_window[@]} - 1))
                     translated_context="${translated_context_window[last_index]}"
                 fi
-                prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. Your output must be ONLY the new translation."
+                full_prompt="You are an expert linguist. The previous context is: \"${translated_context}\". If the new text is already in ${TRANS_LANGUAGE}, correct it to be a coherent continuation. Otherwise, translate it to ${TRANS_LANGUAGE}. Respond ONLY with the final text, without explanations: \"${original_text}\""
                 ;;
             3)
                 translated_context=$(printf "%s " "${translated_context_window[@]}")
-                prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE}. Based on the 'Translated Context', you have the creative freedom to rephrase, complete sentences, or fix cut-off words in the 'New source text fragment' to ensure the final output is coherent and flows naturally. Your output must be ONLY the new, improved translation."
+                full_prompt="You are an expert linguist. The previous context is: \"${translated_context}\". If the new text is already in ${TRANS_LANGUAGE}, correct it. Otherwise, translate it to ${TRANS_LANGUAGE}. You have creative freedom to rephrase, complete broken sentences, or fix cut-off words to ensure natural flow with the context. Respond ONLY with the final text, without explanations: \"${original_text}\""
                 ;;
-            *)
+            *) # Level 2 (Default)
                 translated_context=$(printf "%s " "${translated_context_window[@]}")
-                prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. It is crucial that you translate the full meaning without omitting any information from the original fragment. Your output must be ONLY the new translation."
+                full_prompt="You are an expert linguist. The previous context is: \"${translated_context}\". If the new text is already in ${TRANS_LANGUAGE}, correct it to be a coherent continuation. Otherwise, translate it to ${TRANS_LANGUAGE}. Respond ONLY with the final text, without explanations: \"${original_text}\""
                 ;;
         esac
 
-        local full_prompt="${prompt_instructions}\n\nTranslated Context:\n${translated_context}\n\nNew source text fragment:\n${original_text}"
+        # --- Dynamic Thinking Control based on Model ---
+        local thinking_config_json=""
+        case "$GEMINI_TRANS_MODEL" in
+            gemini-3*pro* | gemini-3.1*pro*)
+                thinking_config_json='{ "thinkingLevel": "low" }'
+                ;;
+            gemini-3*flash*)
+                thinking_config_json='{ "thinkingLevel": "minimal" }'
+                ;;
+            gemini-2.5*flash*)
+                thinking_config_json='{ "thinkingBudget": 0 }'
+                ;;
+            gemini-2.5*pro*)
+                thinking_config_json='{ "thinkingBudget": 128 }'
+                ;;
+        esac
+        
+        local generation_config_json
+        if [[ -n "$thinking_config_json" ]]; then
+            generation_config_json=$(jq -n \
+                --argjson tc "$thinking_config_json" \
+                '{ "temperature": 0.2, "maxOutputTokens": 1024, "thinkingConfig": $tc }')
+        else
+            generation_config_json=$(jq -n '{ "temperature": 0.2, "maxOutputTokens": 1024 }')
+        fi
 
         local json_payload
         json_payload=$(jq -n \
             --arg prompt_text "$full_prompt" \
+            --argjson gen_config "$generation_config_json" \
             '{
                 "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
-                "generationConfig": { "temperature": 0.2, "maxOutputTokens": 1024 },
-                "safetySettings": [
+                "generationConfig": $gen_config,
+                "safetySettings":[
                     { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
                     { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
                     { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
@@ -416,9 +604,9 @@ process_audio_chunk() {
                 ]
             }')
 
-        # API call
         local api_response_raw
-        api_response_raw=$(curl --silent --no-buffer --max-time 2 -X POST \
+        # STRICT 2.5 second timeout for real-time translation
+        api_response_raw=$(curl --silent --no-buffer --max-time 2.5 -X POST \
             -H 'Content-Type: application/json' \
             -d "$json_payload" \
             "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
@@ -602,6 +790,7 @@ while [[ $# -gt 0 ]]; do
         --raw | --upper | --lower ) QUALITY=${1#--};;
         --streamlink ) STREAMLINK_FORCE=${1#--};;
         --yt-dlp ) YTDLP_FORCE=${1#--};;
+        --vad ) VAD_SPLIT="vad";;
         --trans )
             TRANS="trans"
             if ! command -v trans &>/dev/null; then
@@ -641,7 +830,7 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         --gemini-trans )
-            GEMINI_TRANS_MODEL="gemini-2.5-flash-lite" # Set default model
+            GEMINI_TRANS_MODEL="gemini-3-flash-preview" # Set default model
 
             # Check for an OPTIONAL model name as the next argument
             if [[ -n "$2" ]] && [[ "$2" != --* ]]; then
@@ -671,7 +860,7 @@ while [[ $# -gt 0 ]]; do
             if [[ $# -gt 1 ]]; then
                 while [[ $# -gt 1 ]]; do
                     case $2 in
-                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --trans | --gemini-trans | --gemini-level )
+                        --model | --language | --step | --translate | --subtitles | --playeronly | --timeshift | --segment_time | --segments | --sync | --raw | --upper | --lower | --streamlink | --yt-dlp | --vad | --trans | --gemini-trans | --gemini-level )
                             break
                             ;;
                         *)
@@ -1016,22 +1205,22 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         0) # Level 0: No context, batch only
                             context_start=$start_index
                             context_end=$end_index
-                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator."
+                            prompt_instructions="You are an expert subtitle editor. If a text block is already in ${TRANS_LANGUAGE}, correct its grammar and flow. Otherwise, translate it to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator EXACTLY in your output. Output ONLY the processed blocks joined by the separator, with no extra text."
                             ;;
                         1) # Level 1: Minimal bidirectional context
                             context_start=$((start_index - 1))
                             context_end=$((end_index + 1))
-                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}, using the surrounding blocks for context. Each block is separated by a delimiter. Maintain the separator exactly. Output only the translated blocks, joined by the separator."
+                            prompt_instructions="You are an expert subtitle editor. Using surrounding blocks for context, process each text block: if it is in ${TRANS_LANGUAGE}, correct it; if not, translate it to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator EXACTLY. Output ONLY the processed blocks joined by the separator."
                             ;;
                         3) # Level 3: Creative context
                             context_start=$((start_index - 3))
                             context_end=$((end_index + 2))
-                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Use surrounding blocks for context. You have creative freedom to slightly rephrase the translations to ensure they are coherent and flow naturally. Each block is separated by a delimiter. Maintain the separator exactly. Output only the improved translated blocks, joined by the separator."
+                            prompt_instructions="You are an expert subtitle editor. Using surrounding blocks for context, process each text block: if it is in ${TRANS_LANGUAGE}, correct it; if not, translate it to ${TRANS_LANGUAGE}. You have creative freedom to rephrase or fix cut-off words across blocks to ensure coherence. Each block is separated by a delimiter. Maintain the separator EXACTLY. Output ONLY the improved blocks joined by the separator."
                             ;;
                         *) # Level 2 (Default): Standard context
                             context_start=$((start_index - 3))
                             context_end=$((end_index + 2))
-                            prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator."
+                            prompt_instructions="You are an expert subtitle editor. Using surrounding blocks for context, process each text block: if it is in ${TRANS_LANGUAGE}, correct it; if not, translate it to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator EXACTLY in your output. Output ONLY the processed blocks joined by the separator."
                             ;;
                     esac
 
@@ -1053,11 +1242,38 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
                     full_prompt="${prompt_instructions}\n\n${text_to_translate}"
 
+                    # --- Dynamic Thinking Control based on Model ---
+                    thinking_config_json=""
+                    case "$GEMINI_TRANS_MODEL" in
+                        gemini-3*pro* | gemini-3.1*pro*)
+                            thinking_config_json='{ "thinkingLevel": "low" }'
+                            ;;
+                        gemini-3*flash*)
+                            thinking_config_json='{ "thinkingLevel": "minimal" }'
+                            ;;
+                        gemini-2.5*flash*)
+                            thinking_config_json='{ "thinkingBudget": 0 }'
+                            ;;
+                        gemini-2.5*pro*)
+                            thinking_config_json='{ "thinkingBudget": 128 }'
+                            ;;
+                    esac
+
+                    if [[ -n "$thinking_config_json" ]]; then
+                        generation_config_json=$(jq -n \
+                            --argjson tc "$thinking_config_json" \
+                            '{ "temperature": 0.2, "maxOutputTokens": 4096, "thinkingConfig": $tc }')
+                    else
+                        generation_config_json=$(jq -n '{ "temperature": 0.2, "maxOutputTokens": 4096 }')
+                    fi
+
                     json_payload=$(jq -n \
                         --arg prompt_text "$full_prompt" \
+                        --argjson gen_config "$generation_config_json" \
                         '{
                             "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
-                            "safetySettings": [
+                            "generationConfig": $gen_config,
+                            "safetySettings":[
                                 { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
                                 { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
                                 { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
@@ -1065,14 +1281,15 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             ]
                         }')
 
-                    max_retries=6
+                    max_retries=3
                     retry_count=0
                     batch_successful=false
 
                     while [[ $retry_count -lt $max_retries && "$batch_successful" == false ]]; do
                         ((retry_count++))
-
-                        api_response_raw=$(curl --silent --no-buffer --max-time 30 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                        
+                        # Generous 45-second timeout for large batches in offline subtitle mode
+                        api_response_raw=$(curl --silent --no-buffer --max-time 45 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
                         api_error=$(echo "$api_response_raw" | jq -r '.error.message // ""')
 
                         if [[ -n "$api_error" ]] || [[ -z "$api_response_raw" ]]; then
@@ -1142,9 +1359,24 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                 mini_text_to_translate+="${text_blocks[l]}${delimiter}"
                             done
 
-                            mini_prompt="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator exactly. Output only the translated blocks.\n\n${mini_text_to_translate}"
-                            mini_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts": [ { "text": $prompt_text } ] } ], "safetySettings": [ { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" } ] }')
-                            mini_response_raw=$(curl --silent --no-buffer --max-time 15 -X POST -H 'Content-Type: application/json' -d "$mini_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                            mini_prompt="You are an expert subtitle editor. If a text block is already in ${TRANS_LANGUAGE}, correct its grammar and flow. Otherwise, translate it to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator EXACTLY. Output ONLY the processed blocks.\n\n${mini_text_to_translate}"
+                            
+                            mini_json_payload=$(jq -n \
+                                --arg prompt_text "$mini_prompt" \
+                                --argjson gen_config "$generation_config_json" \
+                                '{
+                                    "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
+                                    "generationConfig": $gen_config,
+                                    "safetySettings":[
+                                        { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                                        { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                                        { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                                        { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                                    ]
+                                }')
+                            
+                            # Generous 30-second timeout for emergency batches.
+                            mini_response_raw=$(curl --silent --no-buffer --max-time 30 -X POST -H 'Content-Type: application/json' -d "$mini_json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
 
                             translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
 
@@ -1483,7 +1715,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
     TIMEPLAYED=0; tin=0
 
-    while [ $RUNNING -eq 1 ]; do
+     while [ $RUNNING -eq 1 ]; do
         if [ -f /tmp/whisper-live_${MYPID}_buf$nbuf.avi ]; then
             mv -f /tmp/whisper-live_${MYPID}_buf$abuf.avi /tmp/whisper-live_${MYPID}_$n.avi
             if [ $n -eq $((SEGMENTS-1)) ]; then n=-1; fi
@@ -1500,7 +1732,6 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
         POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
-        # Safety guard: if VLC is paused or not providing a valid time, skip this iteration.
         if ! [[ "$POSITION" =~ ^[0-9]+$ ]]; then
             sleep 0.1
             continue
@@ -1509,9 +1740,9 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         if [[ "$PLAYER_ONLY" == "" ]] && [[ -f "/tmp/$FILEPLAY" ]]; then
 
             file_mod_time=0
-            if [[ "$(uname)" == "Darwin" ]]; then # macOS compatible command
+            if [[ "$(uname)" == "Darwin" ]]; then
                 file_mod_time=$(stat -f %m "/tmp/$FILEPLAY")
-            else # GNU/Linux command
+            else
                 file_mod_time=$(date +%s -r "/tmp/$FILEPLAY")
             fi
 
@@ -1521,21 +1752,29 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 translated_context_window=()
                 transcribed_until=0; last_pos=0; tin=0
 
-                # This ffprobe check is only for the very first chunk of a new file segment.
                 segment_duration=$(ffprobe -i "/tmp/$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                 if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=$SEGMENT_TIME; fi
 
                 if (( $(echo "$segment_duration > 1" | bc -l) )); then
-                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
+                    vad_debt=0
+                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t "$STEP_S" /tmp/whisper-live_${MYPID}.wav
+                    chunk_duration=$STEP_S
+                    if [[ "$VAD_SPLIT" == "vad" ]]; then
+                        vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$STEP_S" 3)
+                        if (( $(echo "$vad_cut > 1.0 && $vad_cut < $STEP_S + 3" | bc -l) )); then
+                            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                            vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
+                            chunk_duration=$vad_cut
+                        fi
+                    fi
                     process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-                    transcribed_until=$STEP_S
+                    transcribed_until=$chunk_duration
                 fi
             elif [ "$file_mod_time" -gt "$((TIMEPLAYED + SEGMENT_TIME + 6))" ] && [ $tin -eq 0 ]; then
                 tin=1
             fi
 
             if [ $tin -eq 0 ]; then
-                # This logic correctly handles when the user seeks forward or backward in the video.
                 pos_diff=$(echo "$POSITION - $last_pos" | bc)
                 seek_threshold=$(echo "2 * $STEP_S" | bc)
                 if (( $(echo "$pos_diff > $seek_threshold" | bc -l) )) || (( $(echo "$pos_diff < -$seek_threshold" | bc -l) )); then
@@ -1543,17 +1782,48 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 fi
                 last_pos=$POSITION
 
-                # Main transcription trigger.
-                if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )); then
-                    # NOTE: 'local' keyword removed for shell compatibility.
+                if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
                     chunk_start=$transcribed_until
-                    chunk_duration=$STEP_S
+                    
+                    extract_duration=$(echo "$STEP_S + ${vad_debt:-0}" | bc -l)
+                    potential_end=$(echo "$chunk_start + $extract_duration" | bc -l)
 
-                    ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
-
-                    process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-
-                    transcribed_until=$((transcribed_until + STEP_S))
+                    # LÓGICA DE ÚLTIMO CHUNK CORREGIDA:
+                    # Si estamos cerca del final estimado, leemos HASTA EL FINAL DEL ARCHIVO sin límite (-t).
+                    # Esto arregla si el archivo dura 124s en vez de 120s.
+                    if (( $(echo "$potential_end >= $segment_duration" | bc -l) )); then
+                        # Leer hasta el final (sin -t)
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" /tmp/whisper-live_${MYPID}.wav
+                        
+                        # Medir lo que realmente obtuvimos
+                        actual_chunk_dur=$(ffprobe -i /tmp/whisper-live_${MYPID}.wav -show_entries format=duration -v quiet -of csv="p=0")
+                        
+                        if [[ -n "$actual_chunk_dur" ]] && (( $(echo "$actual_chunk_dur > 0.5" | bc -l) )); then
+                            process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                        fi
+                        
+                        # Actualizar transcribed_until al final real para detener el bucle de este archivo
+                        transcribed_until=$(echo "$chunk_start + $actual_chunk_dur + 1.0" | bc -l) 
+                        vad_debt=0
+                    else
+                        # Chunk normal
+                        chunk_duration=$extract_duration
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
+                        
+                        if [[ "$VAD_SPLIT" == "vad" ]]; then
+                            vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_duration" 3)
+                            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_duration + 3" | bc -l) )); then
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                                vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
+                                chunk_duration=$vad_cut
+                            else
+                                vad_debt=0
+                            fi
+                        fi
+                        
+                        process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                        transcribed_until=$(echo "$chunk_start + $chunk_duration" | bc -l)
+                    fi
                 fi
             elif [ $tin -eq 1 ]; then
                 echo
@@ -1588,7 +1858,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
         set +e
         FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
 
-        while [ $RUNNING -eq 1 ]; do
+         while [ $RUNNING -eq 1 ]; do
             vlc_check
             curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
             FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
@@ -1603,9 +1873,19 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=999999; fi
 
                     if (( $(echo "$segment_duration > 1" | bc -l) )); then
-                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t $STEP_S /tmp/whisper-live_${MYPID}.wav
+                        vad_debt=0
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t "$STEP_S" /tmp/whisper-live_${MYPID}.wav
+                        chunk_duration=$STEP_S
+                        if [[ "$VAD_SPLIT" == "vad" ]]; then
+                            vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$STEP_S" 3)
+                            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $STEP_S + 3" | bc -l) )); then
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                                vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
+                                chunk_duration=$vad_cut
+                            fi
+                        fi
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
-                        transcribed_until=$STEP_S
+                        transcribed_until=$chunk_duration
                     fi
                 fi
 
@@ -1618,18 +1898,40 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
 
                 if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
                     chunk_start=$transcribed_until
-                    chunk_duration=$STEP_S
 
-                    if (( $(echo "$chunk_start + $chunk_duration > $segment_duration" | bc -l) )); then
-                        chunk_duration=$(echo "$segment_duration - $chunk_start" | bc)
-                    fi
+                    extract_duration=$(echo "$STEP_S + ${vad_debt:-0}" | bc -l)
+                    potential_end=$(echo "$chunk_start + $extract_duration" | bc -l)
 
-                    if (( $(echo "$chunk_duration > 1" | bc -l) )); then
+                    # LÓGICA DE ÚLTIMO CHUNK CORREGIDA (Igual que arriba)
+                    if (( $(echo "$potential_end >= $segment_duration" | bc -l) )); then
+                        ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" /tmp/whisper-live_${MYPID}.wav
+                        
+                        actual_chunk_dur=$(ffprobe -i /tmp/whisper-live_${MYPID}.wav -show_entries format=duration -v quiet -of csv="p=0")
+                        
+                        if [[ -n "$actual_chunk_dur" ]] && (( $(echo "$actual_chunk_dur > 0.5" | bc -l) )); then
+                            process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                        fi
+                        
+                        transcribed_until=$(echo "$chunk_start + $actual_chunk_dur + 1.0" | bc -l)
+                        vad_debt=0
+                    else
+                        chunk_duration=$extract_duration
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
+                        
+                        if [[ "$VAD_SPLIT" == "vad" ]]; then
+                            vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_duration" 3)
+                            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_duration + 3" | bc -l) )); then
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                                vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
+                                chunk_duration=$vad_cut
+                            else
+                                vad_debt=0
+                            fi
+                        fi
+                        
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
+                        transcribed_until=$(echo "$chunk_start + $chunk_duration" | bc -l)
                     fi
-
-                    transcribed_until=$((transcribed_until + STEP_S))
                 fi
             fi
             sleep 0.1
@@ -1883,39 +2185,63 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
     fi
 
     printf "Buffering audio. Please wait...\n\n"
+    # Delay added for subtitle synchronization
     sleep $(($STEP_S))
 
     # do not stop script on error
     set +e
 
-    i=0
     SECONDS=0
     acceleration_factor="1.5"
+    
+    # Cursor for continuous audio tracking to avoid gaps
+    current_audio_cursor=0
+    vad_debt=0
 
     while [ $RUNNING -eq 1 ]; do
-        # extract the next piece from the main file above and transcode to wav. -ss sets start time, -0.x seconds adjust
-        err=1
-        tryed=0
-
-        while [ $err -ne 0 ] && [ $tryed -lt $STEP_S ]; do
-            if [ $i -gt 0 ]; then
-                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.${FMT} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss $(echo "$i * $STEP_S - 1" | bc -l) -t $(echo "$STEP_S" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-            else
-                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.${FMT} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to $(echo "$STEP_S - 1" | bc -l) /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
-            fi
-            err=$(cat /tmp/whisper-live_${MYPID}.err | wc -l)
-            ((tryed=tryed+1))
-            sleep 0.1
+        
+        extract_duration=$(echo "$STEP_S + $vad_debt" | bc -l)
+        
+        # Wait until the background recorder has written enough audio
+        # Using SECONDS as reference for elapsed time
+        while (( $(echo "$SECONDS < ($current_audio_cursor + $extract_duration)" | bc -l) )); do
+             if [ $RUNNING -eq 0 ]; then break 2; fi
+             sleep 0.1
         done
 
-        # Call the function to process the audio chunk
+        # Extract the next chunk starting exactly where the previous one ended
+        ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.${FMT} -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$current_audio_cursor" -t "$extract_duration" /tmp/whisper-live_${MYPID}.wav 2> /tmp/whisper-live_${MYPID}.err
+        
+        # Check for ffmpeg errors
+        if [ -s /tmp/whisper-live_${MYPID}.err ]; then
+             sleep 0.1
+             continue
+        fi
+
+        chunk_actual_duration=$extract_duration
+
+        # VAD Logic: If enabled, look for silence to cut
+        if [[ "$VAD_SPLIT" == "vad" ]]; then
+            vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_actual_duration" 3)
+            
+            # If a valid cut is found and it is shorter than the extracted duration
+            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_actual_duration" | bc -l) )); then
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                
+                # Calculate debt: what we wanted to process minus what we actually kept
+                # This will be added to the next chunk request
+                vad_debt=$(echo "$chunk_actual_duration - $vad_cut" | bc -l)
+                chunk_actual_duration=$vad_cut
+            else
+                vad_debt=0
+            fi
+        fi
+
+        # Process the resulting audio
         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
 
-        while [ $SECONDS -lt $((($i+1)*$STEP_S)) ]; do
-            sleep 0.1
-        done
-
-        ((i=i+1))
+        # Advance cursor by exactly the amount of audio we just processed
+        current_audio_cursor=$(echo "$current_audio_cursor + $chunk_actual_duration" | bc -l)
 
     done
 
