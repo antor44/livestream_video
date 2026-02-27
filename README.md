@@ -911,7 +911,7 @@ make base.en
 ```
   - Optional: Quantize for reduced memory/faster processing:  
 ```
-./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
+./build/bin/whisper-quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
 ```
@@ -937,7 +937,7 @@ make base.en
 ```
   - Optional: Quantize:  
 ```
-./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
+./build/bin/whisper-quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
 ```
@@ -1060,7 +1060,7 @@ make base.en
 ```
   - Optional: Quantize:  
 ```
-./build/bin/quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
+./build/bin/whisper-quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
 ```
