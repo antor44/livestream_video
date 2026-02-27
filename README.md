@@ -2,7 +2,7 @@
 
 ## playlist4whisper & livestream_video.sh
 
-`playlist4whisper` is a graphical application that allows you to easily manage and launch `livestream_video.sh`. It provides a user-friendly interface to configure all transcription and translation options, manage TV channel playlists, and store settings.
+`playlist4whisper` manages media streams playlists, plays media, and creates `.srt` subtitle files from local media files, and transcribes audio via AI with configurable timeshift, multi-instance/user support, translation, and TTS. `playlist4whisper` is a graphical application that allows you to easily manage and launch `livestream_video.sh`. It provides a user-friendly interface to configure all transcription and translation options, manage TV channel playlists, and store settings.
 
 *This new version of the Python application and the Bash script supports the latest versions of **whisper.cpp 1.8.x**, which introduces an internal **VAD (Voice Activity Detection)**. The code has also been updated to support changes in the whisper.cpp toolchain, such as the new `whisper-quantize` executable name.
 
