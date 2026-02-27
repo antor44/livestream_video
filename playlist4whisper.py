@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 4.30 License: GPL 3.0
+Author: Antonio R. Version: 5.10 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -200,7 +200,7 @@ def perform_startup_checks(results_queue):
         os.makedirs(models_dir)
 
     found_quantize_executable = None
-    quantize_paths = ["./build/bin/quantize", "./quantize"]
+    quantize_paths = ["./build/bin/whisper-quantize", "./build/bin/quantize", "./whisper-quantize", "./quantize"]
     for path in quantize_paths:
         if os.path.exists(path):
             found_quantize_executable = path
@@ -232,7 +232,7 @@ def perform_startup_checks(results_queue):
 rPadChars = 75
 default_executable_option = "./build/bin/whisper-cli"
 default_terminal_option = "xterm"
-default_bash_options = "9 base auto raw"
+default_bash_options = "9 base auto vad raw"
 default_timeshiftactive_option = False
 default_timeshift_options = "6 4 10"
 default_playeronly_option = False
@@ -243,7 +243,7 @@ default_trans_options = "en both speak"
 default_override_option = False
 default_engine_model_option = "Google Translate"
 default_gemini_api_key = ""
-default_gemini_model = "gemini-2.5-flash-lite"
+default_gemini_model = "gemini-3-flash-preview"
 default_gemini_level_option = "2"
 
 # Array of executable names in priority order
@@ -251,7 +251,7 @@ whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcp
 
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
-gemini_models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it"]
+gemini_models = ["gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"]
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 model_path = "./models/ggml-{}.bin"
@@ -1462,7 +1462,13 @@ class ApiKeyDialog(tk.Toplevel):
     def paste(self):
         if self.entry.selection_present():
             self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
-        clipboard_text = self.master.clipboard_get()
+        
+        try:
+            clipboard_text = self.master.clipboard_get()
+        except tk.TclError:
+            # Handle case where clipboard is empty or contains non-text data
+            clipboard_text = None
+
         if clipboard_text is not None:
             self.entry.insert(tk.INSERT, clipboard_text)
 
@@ -1552,7 +1558,13 @@ class EnhancedStringDialog(tk.Toplevel):
     def paste(self):
         if self.entry.selection_present():
             self.entry.delete(tk.SEL_FIRST, tk.SEL_LAST)  # Delete selected text
-        clipboard_text = self.master.clipboard_get()
+        
+        try:
+            clipboard_text = self.master.clipboard_get()
+        except tk.TclError:
+            # Handle case where clipboard is empty or contains non-text data
+            clipboard_text = None
+
         if clipboard_text is not None:
             self.entry.insert(tk.INSERT, clipboard_text)  # Insert clipboard text at cursor position
 
@@ -1844,7 +1856,7 @@ class M3uPlaylistPlayer(tk.Frame):
         def update_terminal_button():
             self.terminal_option_menu.configure(text=self.terminal.get())
             self.save_options()
-        self.terminal_option_menu = tk.Menubutton(self.terminal_frame, text=self.terminal.get(), width=10, anchor="w", indicatoron=True, relief="raised")
+        self.terminal_option_menu = tk.Menubutton(self.terminal_frame, text=self.terminal.get(), width=8, anchor="w", indicatoron=True, relief="raised")
         self.terminal_option_menu.pack(side=tk.LEFT)
         terminal_menu = tk.Menu(self.terminal_option_menu, tearoff=0)
         self.terminal_option_menu.configure(menu=terminal_menu)
@@ -1861,13 +1873,22 @@ class M3uPlaylistPlayer(tk.Frame):
         def update_executable_button():
             self.executable_option_menu.configure(text=self.executable.get())
             self.save_options()
-        self.executable_option_menu = tk.Menubutton(self.executable_frame, text=self.executable.get(), width=15, anchor="w", indicatoron=True, relief="raised")
+        self.executable_option_menu = tk.Menubutton(self.executable_frame, text=self.executable.get(), width=12, anchor="w", indicatoron=True, relief="raised")
         self.executable_option_menu.pack(side=tk.LEFT)
         executable_menu = tk.Menu(self.executable_option_menu, tearoff=0)
         self.executable_option_menu.configure(menu=executable_menu)
         for exe in whisper_executables:
             state = "normal" if shutil.which(exe) else "disabled"
             executable_menu.add_radiobutton(label=exe, value=exe, variable=self.executable, command=update_executable_button, state=state)
+        
+        # VAD
+        self.vad_label = tk.Label(self.options_frame0, text="VAD", padx=4)
+        self.vad_label.pack(side=tk.LEFT)
+        self.vad_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
+        self.vad_frame.pack(side=tk.LEFT)
+        self.vad = tk.BooleanVar(value=True)
+        self.vad_checkbox = tk.Checkbutton(self.vad_frame, variable=self.vad, onvalue=True, offvalue=False, command=self.save_options)
+        self.vad_checkbox.pack(side=tk.LEFT)
 
         # Step_s
         self.step_s_label = tk.Label(self.options_frame0, text="Step(sec)", padx=4)
@@ -1888,7 +1909,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.model_frame = tk.Frame(self.options_frame0, highlightthickness=1, highlightbackground="black")
         self.model_frame.pack(side=tk.LEFT)
         self.model = tk.StringVar(value="base")
-        self.model_option_menu = tk.Menubutton(self.model_frame, textvariable=self.model, width=14, anchor="w", indicatoron=True, relief="raised")
+        self.model_option_menu = tk.Menubutton(self.model_frame, textvariable=self.model, width=8, anchor="w", indicatoron=True, relief="raised")
         self.model_option_menu.pack(side=tk.LEFT)
         self.model_menu = tk.Menu(self.model_option_menu, tearoff=0)
         self.model_option_menu.configure(menu=self.model_menu)
@@ -1903,7 +1924,7 @@ class M3uPlaylistPlayer(tk.Frame):
         def update_language_button():
             self.language_option_menu.configure(text=self.language.get())
             self.save_options()
-        self.language_option_menu = tk.Menubutton(self.language_frame, text=self.language.get(), width=10, anchor="w", indicatoron=True, relief="raised")
+        self.language_option_menu = tk.Menubutton(self.language_frame, text=self.language.get(), width=8, anchor="w", indicatoron=True, relief="raised")
         self.language_option_menu.pack(side=tk.LEFT)
         language_menu = tk.Menu(self.language_option_menu, tearoff=0)
         self.language_option_menu.configure(menu=language_menu)
@@ -1951,7 +1972,7 @@ class M3uPlaylistPlayer(tk.Frame):
         def update_engine_model_selection():
             self.engine_model_option_menu.config(text=self.engine_model.get())
             self.save_options()
-        self.engine_model_option_menu = tk.Menubutton(self.engine_frame, text=self.engine_model.get(), width=12, indicatoron=True, relief="raised", anchor="w")
+        self.engine_model_option_menu = tk.Menubutton(self.engine_frame, text=self.engine_model.get(), width=10, indicatoron=True, relief="raised", anchor="w")
         self.engine_model_option_menu.pack(side=tk.LEFT)
         engine_menu = tk.Menu(self.engine_model_option_menu, tearoff=0)
         self.engine_model_option_menu.configure(menu=engine_menu)
@@ -1986,7 +2007,7 @@ class M3uPlaylistPlayer(tk.Frame):
         def update_trans_language_button():
             self.trans_language_option_menu.configure(text=self.trans_language.get())
             self.save_options()
-        self.trans_language_option_menu = tk.Menubutton(self.trans_language_frame, text=self.trans_language.get(), width=10, anchor="w", indicatoron=True, relief="raised")
+        self.trans_language_option_menu = tk.Menubutton(self.trans_language_frame, text=self.trans_language.get(), width=8, anchor="w", indicatoron=True, relief="raised")
         self.trans_language_option_menu.pack(side=tk.LEFT)
         trans_language_menu = tk.Menu(self.trans_language_option_menu, tearoff=0)
         self.trans_language_option_menu.configure(menu=trans_language_menu)
@@ -2145,7 +2166,7 @@ class M3uPlaylistPlayer(tk.Frame):
         self.sync_frame.pack(side=tk.LEFT)
 
         self.sync_options_id = None
-        self.sync = tk.StringVar(value="3")
+        self.sync = tk.StringVar(value="4")
         self.sync_spinner = tk.Spinbox(self.sync_frame, from_=0, to=57, width=2, textvariable=self.sync,
                                          command=self.schedule_save_options)
         self.sync_spinner.pack(side=tk.LEFT)
@@ -2646,7 +2667,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
         # Reset all frames to black border
         for frame in [self.executable_frame, self.terminal_frame, self.step_frame, self.model_frame, self.language_frame,
-                      self.translate_frame, self.quality_frame, self.playeronly_frame, self.player_frame,
+                      self.translate_frame, self.vad_frame, self.quality_frame, self.playeronly_frame, self.player_frame,
                       self.timeshiftactive_frame, self.sync_frame, self.segments_frame, self.segment_time_frame,
                       self.online_translation_frame, self.engine_frame, self.gemini_level_frame, self.trans_language_frame,
                       self.output_text_frame, self.speak_frame]:
@@ -2677,7 +2698,7 @@ class M3uPlaylistPlayer(tk.Frame):
 
                     # Set borders to red for all configurable options
                     for frame in [self.executable_frame, self.terminal_frame, self.step_frame, self.model_frame,
-                                  self.language_frame, self.translate_frame, self.quality_frame, self.playeronly_frame,
+                                  self.language_frame, self.translate_frame, self.vad_frame, self.quality_frame, self.playeronly_frame,
                                   self.player_frame, self.timeshiftactive_frame, self.sync_frame, self.segments_frame,
                                   self.segment_time_frame, self.online_translation_frame, self.engine_frame, self.gemini_level_frame,
                                   self.trans_language_frame, self.output_text_frame, self.speak_frame]:
@@ -2698,6 +2719,7 @@ class M3uPlaylistPlayer(tk.Frame):
             self.error_messages.put(("Whisper executable Not Installed", f"Warning: Whisper executable {executable_option} not found."))
 
         self.translate.set(False)
+        self.vad.set(False)
         temp_bash_options = bash_options.split()
         # Parse bash_options
         for option in temp_bash_options:
@@ -2705,6 +2727,8 @@ class M3uPlaylistPlayer(tk.Frame):
                 self.step_s.set(option)
             elif option == "translate":
                 self.translate.set(True)
+            elif option == "vad":
+                self.vad.set(True)
             elif option in ["raw", "upper", "lower"]:
                 self.quality.set(option)
                 self.quality_option_menu.config(text=option)
@@ -2837,6 +2861,8 @@ class M3uPlaylistPlayer(tk.Frame):
                 bash_options = bash_options + " --playeronly"
             if self.timeshiftactive.get():
                 bash_options = bash_options + " --timeshift --sync " + self.sync.get() + " --segments " + self.segments.get() + " --segment_time " + self.segment_time.get()
+            if self.vad.get():
+                bash_options = bash_options + " --vad"
             if self.spec == "streamlink":
                 bash_options = bash_options + " --streamlink"
             if self.spec == "yt-dlp":
@@ -3099,7 +3125,13 @@ class M3uPlaylistPlayer(tk.Frame):
     def paste(self, entry, event=None):
         if entry.selection_present():
             entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
-        clipboard_text = self.master.clipboard_get()
+        
+        try:
+            clipboard_text = self.master.clipboard_get()
+        except tk.TclError:
+            # Handle case where clipboard is empty or contains non-text data
+            clipboard_text = None
+
         if clipboard_text is not None:
             entry.insert(tk.INSERT, clipboard_text)
         else:
@@ -4121,7 +4153,7 @@ class M3uPlaylistPlayer(tk.Frame):
         settings_to_save = {
             "executable_option": self.executable.get(),
             "terminal_option": self.terminal.get(),
-            "bash_options": f"{self.step_s.get()} {self.model.get()} {self.language.get().split('(')[0].strip()} {'translate' if self.translate.get() else ''} {self.quality.get()}".strip(),
+            "bash_options": f"{self.step_s.get()} {self.model.get()} {self.language.get().split('(')[0].strip()} {'translate' if self.translate.get() else ''} {'vad' if self.vad.get() else ''} {self.quality.get()}".strip(),
             "playeronly_option": self.playeronly.get(),
             "player_option": self.player.get(),
             "mpv_options": self.mpv_options_entry.get(),
@@ -4173,7 +4205,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 4.30\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.10\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
