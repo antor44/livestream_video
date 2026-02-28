@@ -27,7 +27,7 @@ The latest version introduces high-quality online translation using Google's Gem
 **Key Features:**
 
 *   **Superior Quality:** Gemini models often provide more accurate and context-aware translations than traditional services.
-*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-lite` (default) or the most powerful `gemini-3.1-pro-preview`, directly from the application's UI.
+*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-preview` (default) or the most powerful `gemini-3.1-pro-preview`, directly from the application's UI.
 *   **API Key Integration:** The system securely manages your Google Gemini API key.
 
 **Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
