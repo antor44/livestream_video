@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.10 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.12 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -45,7 +45,7 @@ STREAMLINK_FORCE=""     # Force usage of Streamlink
 YTDLP_FORCE=""          # Force usage of yt-dlp
 SEGMENT_TIME=10         # Time for each segment file (minutes) in timeshift
 SEGMENTS=4              # Number of segment files for timeshift
-SYNC=6                  # Transcription/video sync time (seconds)
+SYNC=4                  # Transcription/video sync time (seconds)
 SPEAK=""                # Enable Text-to-Speech
 TRANS=""                # Enable online translation
 OUTPUT_TEXT="both"      # Output text during translation (original, translation, both, none)
@@ -251,7 +251,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.10 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.12 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -489,7 +489,6 @@ find_vad_cut_point() {
 process_audio_chunk() {
     local wav_file="$1"
 
-    # The processing pipe is designed to be robust across whisper.cpp versions
     if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
         "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' - | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
         err=$?
@@ -522,13 +521,9 @@ process_audio_chunk() {
         sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
     fi
 
-    # --- Translation and Output Logic ---
-
-    # Get the raw transcribed text from whisper.
     local original_text
     original_text=$(< "/tmp/output-whisper-live_${MYPID}.txt")
 
-    # Safety guard: if transcription is empty or too short, do nothing.
     if [[ $(wc -m <<< "$original_text") -lt 3 ]]; then
         return
     fi
@@ -537,75 +532,124 @@ process_audio_chunk() {
     local use_trans_fallback=true
     local fallback_indicator=""
 
-    # Attempt translation with the primary engine (Gemini)
     if [[ -n "$GEMINI_TRANS_MODEL" ]] && [[ -n "$GEMINI_API_KEY" ]]; then
-        local translated_context=""
-        local full_prompt=""
-
-        case "$GEMINI_CONTEXT_LEVEL" in
-            0)
-                full_prompt="You are an expert linguist. If the following text is already in ${TRANS_LANGUAGE}, correct its grammar and flow. Otherwise, translate it to ${TRANS_LANGUAGE}. Respond ONLY with the final text in ${TRANS_LANGUAGE}, without quotes or explanations: \"${original_text}\""
-                ;;
-            1)
-                if [ "${#translated_context_window[@]}" -gt 0 ]; then
-                    local last_index=$((${#translated_context_window[@]} - 1))
-                    translated_context="${translated_context_window[last_index]}"
-                fi
-                full_prompt="You are an expert linguist. The previous context is: \"${translated_context}\". If the new text is already in ${TRANS_LANGUAGE}, correct it to be a coherent continuation. Otherwise, translate it to ${TRANS_LANGUAGE}. Respond ONLY with the final text, without explanations: \"${original_text}\""
-                ;;
-            3)
-                translated_context=$(printf "%s " "${translated_context_window[@]}")
-                full_prompt="You are an expert linguist. The previous context is: \"${translated_context}\". If the new text is already in ${TRANS_LANGUAGE}, correct it. Otherwise, translate it to ${TRANS_LANGUAGE}. You have creative freedom to rephrase, complete broken sentences, or fix cut-off words to ensure natural flow with the context. Respond ONLY with the final text, without explanations: \"${original_text}\""
-                ;;
-            *) # Level 2 (Default)
-                translated_context=$(printf "%s " "${translated_context_window[@]}")
-                full_prompt="You are an expert linguist. The previous context is: \"${translated_context}\". If the new text is already in ${TRANS_LANGUAGE}, correct it to be a coherent continuation. Otherwise, translate it to ${TRANS_LANGUAGE}. Respond ONLY with the final text, without explanations: \"${original_text}\""
-                ;;
-        esac
-
-        # --- Dynamic Thinking Control based on Model ---
-        local thinking_config_json=""
-        case "$GEMINI_TRANS_MODEL" in
-            gemini-3*pro* | gemini-3.1*pro*)
-                thinking_config_json='{ "thinkingLevel": "low" }'
-                ;;
-            gemini-3*flash*)
-                thinking_config_json='{ "thinkingLevel": "minimal" }'
-                ;;
-            gemini-2.5*flash*)
-                thinking_config_json='{ "thinkingBudget": 0 }'
-                ;;
-            gemini-2.5*pro*)
-                thinking_config_json='{ "thinkingBudget": 128 }'
-                ;;
-        esac
-        
-        local generation_config_json
-        if [[ -n "$thinking_config_json" ]]; then
-            generation_config_json=$(jq -n \
-                --argjson tc "$thinking_config_json" \
-                '{ "temperature": 0.2, "maxOutputTokens": 1024, "thinkingConfig": $tc }')
-        else
-            generation_config_json=$(jq -n '{ "temperature": 0.2, "maxOutputTokens": 1024 }')
+        local is_english_correction=false
+        if [[ "$TRANS_LANGUAGE" == "en" ]]; then
+            is_english_correction=true
         fi
 
-        local json_payload
-        json_payload=$(jq -n \
-            --arg prompt_text "$full_prompt" \
-            --argjson gen_config "$generation_config_json" \
-            '{
-                "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
-                "generationConfig": $gen_config,
-                "safetySettings":[
-                    { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
-                    { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
-                    { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
-                    { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
-                ]
-            }')
+        local translated_context=""
+        local prompt_instructions=""
+
+        if [[ "$is_english_correction" == true ]]; then
+            case "$GEMINI_CONTEXT_LEVEL" in
+                0)
+                    translated_context=""
+                    prompt_instructions="You are an expert text editor. Correct the grammar and fix broken words in the 'New source text fragment'. Your output must be ONLY the corrected text."
+                    ;;
+                1)
+                    if [ "${#translated_context_window[@]}" -gt 0 ]; then
+                        local last_index=$((${#translated_context_window[@]} - 1))
+                        translated_context="${translated_context_window[last_index]}"
+                    fi
+                    prompt_instructions="You are an expert text editor. Your goal is to correct the grammar of the 'New source text fragment' so that it logically continues the 'Translated Context'. Your output must be ONLY the corrected text."
+                    ;;
+                3)
+                    translated_context=$(printf "%s " "${translated_context_window[@]}")
+                    prompt_instructions="You are an expert text editor. Your goal is to correct the 'New source text fragment'. Based on the 'Translated Context', you have creative freedom to rephrase, complete sentences, or fix cut-off words to ensure coherence. Your output must be ONLY the corrected text."
+                    ;;
+                *)
+                    translated_context=$(printf "%s " "${translated_context_window[@]}")
+                    prompt_instructions="You are an expert text editor. Your goal is to correct the grammar of the 'New source text fragment' so that it logically continues the 'Translated Context'. Your output must be ONLY the corrected text."
+                    ;;
+            esac
+        else
+            case "$GEMINI_CONTEXT_LEVEL" in
+                0)
+                    translated_context=""
+                    prompt_instructions="You are an expert real-time translator. Your goal is to provide a literal and fluid translation of the 'New source text fragment' into ${TRANS_LANGUAGE}. Your output must be ONLY the new translation."
+                    ;;
+                1)
+                    if [ "${#translated_context_window[@]}" -gt 0 ]; then
+                        local last_index=$((${#translated_context_window[@]} - 1))
+                        translated_context="${translated_context_window[last_index]}"
+                    fi
+                    prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. Your output must be ONLY the new translation."
+                    ;;
+                3)
+                    translated_context=$(printf "%s " "${translated_context_window[@]}")
+                    prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE}. Based on the 'Translated Context', you have the creative freedom to rephrase, complete sentences, or fix cut-off words in the 'New source text fragment' to ensure the final output is coherent and flows naturally. Your output must be ONLY the new, improved translation."
+                    ;;
+                *)
+                    translated_context=$(printf "%s " "${translated_context_window[@]}")
+                    prompt_instructions="You are an expert real-time translator. Your goal is to provide a fluid and natural translation of the 'New source text fragment' into ${TRANS_LANGUAGE} that logically continues the 'Translated Context'. It is crucial that you translate the full meaning without omitting any information from the original fragment. Your output must be ONLY the new translation."
+                    ;;
+            esac
+        fi
+
+        local full_prompt=""
+        if [[ "$GEMINI_CONTEXT_LEVEL" == "0" ]]; then
+            full_prompt="${prompt_instructions}\n\nNew source text fragment:\n${original_text}"
+        else
+            full_prompt="${prompt_instructions}\n\nTranslated Context:\n${translated_context}\n\nNew source text fragment:\n${original_text}"
+        fi
+
+        local json_payload=""
+
+        if [[ "$GEMINI_TRANS_MODEL" == *"gemma"* ]]; then
+            json_payload=$(jq -n \
+                --arg prompt_text "$full_prompt" \
+                '{
+                    "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
+                    "safetySettings":[
+                        { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                        { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                        { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                        { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                    ]
+                }')
+        else
+            local thinking_config_json=""
+            case "$GEMINI_TRANS_MODEL" in
+                gemini-3*pro* | gemini-3.1*pro*)
+                    thinking_config_json='{ "thinkingLevel": "low" }'
+                    ;;
+                gemini-3*flash*)
+                    thinking_config_json='{ "thinkingLevel": "minimal" }'
+                    ;;
+                gemini-2.5*flash*)
+                    thinking_config_json='{ "thinkingBudget": 0 }'
+                    ;;
+                gemini-2.5*pro*)
+                    thinking_config_json='{ "thinkingBudget": 128 }'
+                    ;;
+            esac
+            
+            local generation_config_json
+            if [[ -n "$thinking_config_json" ]]; then
+                generation_config_json=$(jq -n \
+                    --argjson tc "$thinking_config_json" \
+                    '{ "temperature": 0.2, "maxOutputTokens": 1024, "thinkingConfig": $tc }')
+            else
+                generation_config_json='{ "temperature": 0.2, "maxOutputTokens": 1024 }'
+            fi
+
+            json_payload=$(jq -n \
+                --arg prompt_text "$full_prompt" \
+                --argjson gen_config "$generation_config_json" \
+                '{
+                    "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
+                    "generationConfig": $gen_config,
+                    "safetySettings":[
+                        { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                        { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                        { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                        { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                    ]
+                }')
+        fi
 
         local api_response_raw
-        # STRICT 2.5 second timeout for real-time translation
         api_response_raw=$(curl --silent --no-buffer --max-time 2.5 -X POST \
             -H 'Content-Type: application/json' \
             -d "$json_payload" \
@@ -622,7 +666,6 @@ process_audio_chunk() {
         fi
     fi
 
-    # Fallback to the secondary translation engine (trans)
     if [[ "$use_trans_fallback" == true ]]; then
         if [[ $TRANS == "trans" ]]; then
             if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
@@ -632,13 +675,8 @@ process_audio_chunk() {
         fi
     fi
 
-    # --- Display, Context Update, and TTS Logic ---
-
-    # Log the raw, unwrapped original text
     echo "$original_text" >> "/tmp/transcription-whisper-live_${MYPID}.txt"
 
-    # Helper function to print text with smart wrapping.
-    # It gets the terminal width on every call to handle window resizing.
     print_wrapped() {
         local text_to_print="$1"
         local terminal_width
@@ -646,25 +684,20 @@ process_audio_chunk() {
         echo "$text_to_print" | fold -s -w "$terminal_width"
     }
 
-    # Display original text if enabled, using the wrapper
     if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]]; then
          print_wrapped "$original_text"
     fi
 
-    # Display translated text if available and enabled, using the wrapper
     if [[ -n "$translated_text" ]] && ([[ $OUTPUT_TEXT == "translation" ]] || [[ $OUTPUT_TEXT == "both" ]]); then
         if [[ $OUTPUT_TEXT == "both" ]]; then tput rev; fi
         print_wrapped "${fallback_indicator}${translated_text}"
         if [[ $OUTPUT_TEXT == "both" ]]; then tput sgr0; fi
 
-        # Log the raw, unwrapped translated text
         echo "${fallback_indicator}${translated_text}" >> "/tmp/translation-whisper-live_${MYPID}.txt"
 
-        # Sanitize the raw, unwrapped translated text before adding it to the context window
         local clean_translated_text
         clean_translated_text=$(echo "$translated_text" | sed 's/(\([^)]*\))//g; s/\[[^]]*\]//g; s/[$*#]//g')
 
-        # Update the context window ONLY with the cleaned text
         if [[ -n "$clean_translated_text" ]]; then
             translated_context_window+=("$clean_translated_text")
             if [ "${#translated_context_window[@]}" -gt 2 ]; then
@@ -673,9 +706,7 @@ process_audio_chunk() {
         fi
     fi
 
-    # Handle Text-to-Speech (TTS)
     if [[ $SPEAK == "speak" ]] && [[ -n "$translated_text" ]]; then
-        # TTS logic uses the raw, unwrapped text
         echo "$translated_text" | trans -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
 
         local audio_file="/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3"
@@ -1004,8 +1035,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
 fi
 
 
-# --- Subtitle Generation ---
-
 # Generate Subtitles from a local Audio/Video File.
 if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
@@ -1014,10 +1043,8 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     echo "  ${ICON_ROCKET} Starting Subtitle Generation  ${ICON_ROCKET}"
     echo "=========================================="
     echo ""
-    # do not stop script on error
     set +e
 
-    # Arrays to store information about translation fallbacks
     declare -a emergency_batches=()
     declare -a emergency_gemini_success=()
     declare -a trans_fallback_blocks=()
@@ -1025,11 +1052,8 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
     url_no_ext="${URL%.*}"
     skip_transcription=false
-    source_srt_file="" # This will hold the path to the SRT file to be used by 'trans'
+    source_srt_file=""
 
-    # --- Pre-flight Check: Ask about re-running the AI to save processing time ---
-
-    # Determine the destination file for Whisper's output
     if [[ "$TRANSLATE" == "--translate" ]]; then
         whisper_dest_file="${url_no_ext}.en.srt"
         whisper_file_description="Whisper AI Translated Subtitle (en)"
@@ -1045,7 +1069,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         echo ""
         read -p "Do you want to re-run the AI and overwrite this file? (Answering 'n' will use the existing file) [y/n]: " response
 
-        # Normalize user input: convert to lowercase and remove leading/trailing whitespace
         response_clean=$(echo "$response" | tr '[:upper:]' '[:lower:]' | xargs)
 
         case "$response_clean" in
@@ -1053,12 +1076,11 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 echo ""
                 echo "-> Skipping AI transcription. The existing file will be used for any further steps."
                 skip_transcription=true
-                source_srt_file="$whisper_dest_file" # Use this existing file for online translation
+                source_srt_file="$whisper_dest_file"
                 ;;
             y|yes)
                 echo ""
                 echo "-> OK. The existing file will be overwritten upon completion."
-                # Let the script proceed with skip_transcription=false
                 ;;
             *)
                 echo ""
@@ -1068,8 +1090,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 ;;
         esac
     fi
-
-    # --- Main Processing ---
 
     err=0
     temp_whisper_srt="/tmp/whisper-live_${MYPID}.wav.srt"
@@ -1114,11 +1134,8 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     err=$?
                 fi
                 mv /tmp/whisper-live_${MYPID}.srt "$temp_whisper_srt"
-
             fi
         fi
-
-        # 1. Save the Whisper AI subtitle file if it was newly generated
 
         echo ""
         echo "-> Saving new Whisper AI subtitle to: $whisper_dest_file"
@@ -1129,7 +1146,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             err=1
         fi
 
-        # The source for the next step is the newly generated temporary file.
         source_srt_file="$temp_whisper_srt"
     else
         echo ""
@@ -1139,13 +1155,9 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         echo ""
     fi
 
-    # --- ONLINE TRANSLATION LOGIC ---
-    # This is the main switch. If --trans was used, we proceed.
     if [[ "$TRANS" == "trans" ]] && [[ $err -eq 0 ]] && [[ -f "$source_srt_file" ]]; then
 
-        # This is the engine selector. If --gemini-trans was used, its model variable will be set.
         if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
-            # --- B. Google Gemini API method ---
             echo ""
             echo "---------------------------------------------------------------------------"
             echo "-> Step 3: Starting Online Translation (Gemini AI) to '${TRANS_LANGUAGE}'..."
@@ -1160,9 +1172,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 echo "${ICON_WARN} GEMINI_API_KEY environment variable not set. Skipping Gemini translation."
                 err=1
             else
-                # -- Deconstruction --
                 echo "--> Deconstructing source SRT file..."
-                # Use while-read loops for compatibility with older Bash versions (like on macOS)
                 declare -a srt_numbers=()
                 while IFS= read -r line; do
                     srt_numbers+=("$line")
@@ -1179,52 +1189,48 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 done < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); s=$3; for (i=4; i<=NF; i++) { s = s "_NL_" $i } print s; }' "$source_srt_file")
                 echo "Done."
 
-                # -- Batch Processing with Context Window --
                 temp_text_only_trans="/tmp/translated_text_only_${MYPID}.txt"
                 > "$temp_text_only_trans"
 
                 batch_size=20
                 total_blocks=${#text_blocks[@]}
 
-                # Flags to track failure levels for the final message
                 any_emergency_fallback=false
                 any_trans_fallback=false
                 any_original_fallback=false
+
+                is_english_correction=false
+                if [[ "$TRANS_LANGUAGE" == "en" ]]; then
+                    is_english_correction=true
+                fi
 
                 for (( i=0; i<total_blocks; i+=batch_size )); do
                     start_index=$i
                     end_index=$((i + batch_size - 1))
                     if (( end_index >= total_blocks )); then end_index=$((total_blocks - 1)); fi
 
-                    # --- Gemini Prompt Engineering for Subtitles based on Context Level ---
                     context_start=0
                     context_end=0
-                    prompt_instructions=""
-
+                    
                     case "$GEMINI_CONTEXT_LEVEL" in
-                        0) # Level 0: No context, batch only
+                        0)
                             context_start=$start_index
                             context_end=$end_index
-                            prompt_instructions="You are an expert subtitle editor. If a text block is already in ${TRANS_LANGUAGE}, correct its grammar and flow. Otherwise, translate it to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator EXACTLY in your output. Output ONLY the processed blocks joined by the separator, with no extra text."
                             ;;
-                        1) # Level 1: Minimal bidirectional context
+                        1)
                             context_start=$((start_index - 1))
                             context_end=$((end_index + 1))
-                            prompt_instructions="You are an expert subtitle editor. Using surrounding blocks for context, process each text block: if it is in ${TRANS_LANGUAGE}, correct it; if not, translate it to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator EXACTLY. Output ONLY the processed blocks joined by the separator."
                             ;;
-                        3) # Level 3: Creative context
+                        3)
                             context_start=$((start_index - 3))
                             context_end=$((end_index + 2))
-                            prompt_instructions="You are an expert subtitle editor. Using surrounding blocks for context, process each text block: if it is in ${TRANS_LANGUAGE}, correct it; if not, translate it to ${TRANS_LANGUAGE}. You have creative freedom to rephrase or fix cut-off words across blocks to ensure coherence. Each block is separated by a delimiter. Maintain the separator EXACTLY. Output ONLY the improved blocks joined by the separator."
                             ;;
-                        *) # Level 2 (Default): Standard context
+                        *)
                             context_start=$((start_index - 3))
                             context_end=$((end_index + 2))
-                            prompt_instructions="You are an expert subtitle editor. Using surrounding blocks for context, process each text block: if it is in ${TRANS_LANGUAGE}, correct it; if not, translate it to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator EXACTLY in your output. Output ONLY the processed blocks joined by the separator."
                             ;;
                     esac
 
-                    # Boundary checks for the context window
                     if (( context_start < 0 )); then context_start=0; fi
                     if (( context_end >= total_blocks )); then context_end=$((total_blocks - 1)); fi
 
@@ -1240,46 +1246,72 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
                     echo "--> Translating blocks $((start_index + 1)) to $((end_index + 1)) (with context window)..."
 
-                    full_prompt="${prompt_instructions}\n\n${text_to_translate}"
-
-                    # --- Dynamic Thinking Control based on Model ---
-                    thinking_config_json=""
-                    case "$GEMINI_TRANS_MODEL" in
-                        gemini-3*pro* | gemini-3.1*pro*)
-                            thinking_config_json='{ "thinkingLevel": "low" }'
-                            ;;
-                        gemini-3*flash*)
-                            thinking_config_json='{ "thinkingLevel": "minimal" }'
-                            ;;
-                        gemini-2.5*flash*)
-                            thinking_config_json='{ "thinkingBudget": 0 }'
-                            ;;
-                        gemini-2.5*pro*)
-                            thinking_config_json='{ "thinkingBudget": 128 }'
-                            ;;
-                    esac
-
-                    if [[ -n "$thinking_config_json" ]]; then
-                        generation_config_json=$(jq -n \
-                            --argjson tc "$thinking_config_json" \
-                            '{ "temperature": 0.2, "maxOutputTokens": 4096, "thinkingConfig": $tc }')
+                    prompt_instructions=""
+                    if [[ "$is_english_correction" == true ]]; then
+                        case "$GEMINI_CONTEXT_LEVEL" in
+                            0) prompt_instructions="You are an expert subtitle editor. Correct the grammar and fix broken words in every text block. Each block is separated by a delimiter. Maintain the delimiter exactly in your output. Output only the corrected blocks, joined by the delimiter." ;;
+                            1) prompt_instructions="You are an expert subtitle editor. Correct every text block, using the surrounding blocks for context. Each block is separated by a delimiter. Maintain the delimiter exactly. Output only the corrected blocks, joined by the delimiter." ;;
+                            3) prompt_instructions="You are an expert subtitle editor. Correct every text block. Use surrounding blocks for context. You have creative freedom to slightly rephrase to ensure they are coherent and flow naturally. Each block is separated by a delimiter. Maintain the delimiter exactly. Output only the improved blocks, joined by the delimiter." ;;
+                            *) prompt_instructions="You are an expert subtitle editor. Correct every text block, using the surrounding blocks for context. Each block is separated by a delimiter. Maintain the delimiter exactly. Output only the corrected blocks, joined by the delimiter." ;;
+                        esac
                     else
-                        generation_config_json=$(jq -n '{ "temperature": 0.2, "maxOutputTokens": 4096 }')
+                        case "$GEMINI_CONTEXT_LEVEL" in
+                            0) prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator." ;;
+                            1) prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}, using the surrounding blocks for context. Each block is separated by a delimiter. Maintain the separator exactly. Output only the translated blocks, joined by the separator." ;;
+                            3) prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Use surrounding blocks for context. You have creative freedom to slightly rephrase the translations to ensure they are coherent and flow naturally. Each block is separated by a delimiter. Maintain the separator exactly. Output only the improved translated blocks, joined by the separator." ;;
+                            *) prompt_instructions="You are an expert subtitle translator. Translate every text block to ${TRANS_LANGUAGE}. Each block is separated by a delimiter. Maintain the separator exactly in your output. Output only the translated blocks, joined by the separator." ;;
+                        esac
                     fi
 
-                    json_payload=$(jq -n \
-                        --arg prompt_text "$full_prompt" \
-                        --argjson gen_config "$generation_config_json" \
-                        '{
-                            "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
-                            "generationConfig": $gen_config,
-                            "safetySettings":[
-                                { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
-                                { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
-                                { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
-                                { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
-                            ]
-                        }')
+                    full_prompt="${prompt_instructions}\n\n${text_to_translate}"
+                    
+                    json_payload=""
+                    max_batch_timeout=45
+                    max_mini_timeout=30
+
+                    if [[ "$GEMINI_TRANS_MODEL" == *"gemma"* ]]; then
+                        json_payload=$(jq -n \
+                            --arg prompt_text "$full_prompt" \
+                            '{
+                                "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
+                                "safetySettings":[
+                                    { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                                    { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                                    { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                                    { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                                ]
+                            }')
+                        max_batch_timeout=30
+                        max_mini_timeout=15
+                    else
+                        thinking_config_json=""
+                        case "$GEMINI_TRANS_MODEL" in
+                            gemini-3*pro* | gemini-3.1*pro*) thinking_config_json='{ "thinkingLevel": "low" }' ;;
+                            gemini-3*flash*) thinking_config_json='{ "thinkingLevel": "minimal" }' ;;
+                            gemini-2.5*flash*) thinking_config_json='{ "thinkingBudget": 0 }' ;;
+                            gemini-2.5*pro*) thinking_config_json='{ "thinkingBudget": 128 }' ;;
+                        esac
+
+                        if [[ -n "$thinking_config_json" ]]; then
+                            generation_config_json=$(jq -n --argjson tc "$thinking_config_json" '{ "temperature": 0.2, "maxOutputTokens": 4096, "thinkingConfig": $tc }')
+                        else
+                            generation_config_json=$(jq -n '{ "temperature": 0.2, "maxOutputTokens": 4096 }')
+                        fi
+
+                        json_payload=$(jq -n \
+                            --arg prompt_text "$full_prompt" \
+                            --argjson gen_config "$generation_config_json" \
+                            '{
+                                "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
+                                "generationConfig": $gen_config,
+                                "safetySettings":[
+                                    { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                                    { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                                    { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                                    { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                                ]
+                            }')
+                    fi
 
                     max_retries=3
                     retry_count=0
@@ -1288,8 +1320,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     while [[ $retry_count -lt $max_retries && "$batch_successful" == false ]]; do
                         ((retry_count++))
                         
-                        # Generous 45-second timeout for large batches in offline subtitle mode
-                        api_response_raw=$(curl --silent --no-buffer --max-time 45 -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                        api_response_raw=$(curl --silent --no-buffer --max-time ${max_batch_timeout} -X POST -H 'Content-Type: application/json' -d "$json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
                         api_error=$(echo "$api_response_raw" | jq -r '.error.message // ""')
 
                         if [[ -n "$api_error" ]] || [[ -z "$api_response_raw" ]]; then
@@ -1333,7 +1364,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             current_block_index=$((start_index + j))
                             printf "%s\n" "${main_translations[j]}" >> "$temp_text_only_trans"
 
-                            # Print with timestamps
                             translated_text_nl=$(echo "${main_translations[j]}" | sed 's/_NL_/\n/g')
                             echo -e "${srt_numbers[current_block_index]}\n${srt_timestamps[current_block_index]}\n${translated_text_nl}\n"
                         done
@@ -1345,7 +1375,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         mini_batch_size=5
 
                         for (( j=start_index; j<=end_index; j+=mini_batch_size )); do
-                            # Wait between each emergency sub-batch to be rate-limit friendly
                             sleep 5
 
                             mini_start=$j
@@ -1359,24 +1388,28 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                 mini_text_to_translate+="${text_blocks[l]}${delimiter}"
                             done
 
-                            mini_prompt="You are an expert subtitle editor. If a text block is already in ${TRANS_LANGUAGE}, correct its grammar and flow. Otherwise, translate it to ${TRANS_LANGUAGE}. Each block is separated by '${delimiter}'. Maintain the separator EXACTLY. Output ONLY the processed blocks.\n\n${mini_text_to_translate}"
+                            mini_prompt="${prompt_instructions}\n\n${mini_text_to_translate}"
                             
-                            mini_json_payload=$(jq -n \
-                                --arg prompt_text "$mini_prompt" \
-                                --argjson gen_config "$generation_config_json" \
-                                '{
-                                    "contents": [ { "parts": [ { "text": $prompt_text } ] } ],
-                                    "generationConfig": $gen_config,
-                                    "safetySettings":[
-                                        { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
-                                        { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
-                                        { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
-                                        { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
-                                    ]
-                                }')
+                            mini_json_payload=""
+                            if [[ "$GEMINI_TRANS_MODEL" == *"gemma"* ]]; then
+                                mini_json_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts":[ { "text": $prompt_text } ] } ], "safetySettings":[ { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" } ] }')
+                            else
+                                mini_json_payload=$(jq -n \
+                                    --arg prompt_text "$mini_prompt" \
+                                    --argjson gen_config "$generation_config_json" \
+                                    '{
+                                        "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
+                                        "generationConfig": $gen_config,
+                                        "safetySettings":[
+                                            { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
+                                            { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
+                                            { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
+                                            { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
+                                        ]
+                                    }')
+                            fi
                             
-                            # Generous 30-second timeout for emergency batches.
-                            mini_response_raw=$(curl --silent --no-buffer --max-time 30 -X POST -H 'Content-Type: application/json' -d "$mini_json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
+                            mini_response_raw=$(curl --silent --no-buffer --max-time ${max_mini_timeout} -X POST -H 'Content-Type: application/json' -d "$mini_json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
 
                             translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
 
@@ -1391,10 +1424,9 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                 for (( l=mini_start; l<=mini_end; l++ )); do
                                     original_text_nl=$(echo "${text_blocks[l]}" | sed 's/_NL_/\n/g')
                                     echo "        -> Translating block $((l + 1)) with fallback..."
-                                    # Translate using trans, redirecting stderr to /dev/null
+                                    
                                     translated_text_nl=$(echo "$original_text_nl" | trans -b -no-warn :${TRANS_LANGUAGE} 2>/dev/null)
 
-                                    # Final fallback: if trans fails, use original text
                                     if [[ -z "$translated_text_nl" ]]; then
                                         any_original_fallback=true
                                         original_fallback_blocks+=("Block $((l + 1)) | ${srt_timestamps[l]}")
@@ -1407,15 +1439,12 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                         echo -e "${srt_numbers[l]}\n${srt_timestamps[l]}\n${translated_text_nl}\n"
                                     fi
 
-                                    # Convert back to placeholder format
                                     translated_text_placeholder=$(echo "$translated_text_nl" | awk 'ORS="_NL_"' | sed 's/_NL_$//')
                                     printf "%s\n" "$translated_text_placeholder" >> "$temp_text_only_trans"
                                 done
                             else
-                                # Show the successful translations and store the timestamp range
                                 start_ts_full="${srt_timestamps[mini_start]}"
                                 end_ts_full="${srt_timestamps[mini_end]}"
-                                # Extract start time from the first block and end time from the last block
                                 start_time=$(echo "$start_ts_full" | cut -d' ' -f1)
                                 end_time=$(echo "$end_ts_full" | cut -d' ' -f3)
                                 emergency_gemini_success+=("Blocks $((mini_start + 1)) to $((mini_end + 1)) | ${start_time} --> ${end_time}")
@@ -1431,7 +1460,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         echo "${ICON_WARN} Finished emergency handling for the problematic block."
                     fi
 
-                    # Wait before processing the next main batch to be rate-limit friendly
                     if [ $i -lt $((total_blocks - batch_size)) ]; then
                         sleep 1
                     fi
@@ -1448,14 +1476,13 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 for (( k=0; k<total_blocks; k++ )); do
                     line_number="${srt_numbers[k]}"
                     timestamp="${srt_timestamps[k]}"
-                    translated_text="${all_translated_lines[k]:-${text_blocks[k]}}" # Fallback to original text_block if line is empty
+                    translated_text="${all_translated_lines[k]:-${text_blocks[k]}}"
                     translated_text_final=$(printf "%s" "$translated_text" | sed 's/_NL_/\n/g')
                     echo -e "${line_number}\n${timestamp}\n${translated_text_final}\n" >> "$temp_online_trans_srt"
                 done
                 echo "Done."
             fi
         else
-            # --- A. Translate-shell (trans) method ---
             echo ""
             echo "---------------------------------------------------------------------------"
             echo "-> Step 3: Starting Online Translation (translate-shell / Simple Method)..."
@@ -1466,20 +1493,16 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             echo "---------------------------------------------------------------------------"
             echo ""
 
-            # Redirect stderr to /dev/null to hide gawk errors
             trans -b -e "${TRANS_ENGINE}" :"${TRANS_LANGUAGE}" -i "$source_srt_file" 2>/dev/null | tee "$temp_online_trans_srt"
             err=${PIPESTATUS[0]}
 
-            if [[ $err -ne 0 ]]; then
+            if [ $err -ne 0 ]; then
                 echo "${ICON_ERROR} translate-shell failed."
             fi
             echo ""
         fi
     fi
 
-    # --- Final File Saving Logic ---
-
-    # Helper function to manage saving/overwriting files for the online translation
     save_online_translation_file() {
         local source_file="$1"
         local dest_file="$2"
@@ -1527,7 +1550,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         echo "-> Finalizing File..."
         echo "=========================================="
 
-        # 1. Save the Whisper AI subtitle file if it was newly generated. No more questions here.
         if [[ "$skip_transcription" == false ]]; then
             if [ ! -e "$whisper_dest_file" ]; then
                 echo ""
@@ -1549,15 +1571,12 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
          fi
     fi
 
-    # --- Final Status ---
     if [ $err -eq 0 ]; then
         success=true
-        # Check for any issues and set success to false if any are found
         if [ ${#original_fallback_blocks[@]} -gt 0 ] || [ ${#trans_fallback_blocks[@]} -gt 0 ] || [ ${#emergency_batches[@]} -gt 0 ]; then
             success=false
         fi
 
-        # Informational: Gemini successes within emergency mode
         if [ ${#emergency_gemini_success[@]} -gt 0 ]; then
              echo ""; echo " ${ICON_OK} INFO: Gemini successfully translated the following sub-batches within emergency mode: ${ICON_OK}";
              printf "%-30s | %s\n" "Sub-Batch Range" "Timestamp Range"
@@ -1567,7 +1586,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             done
         fi
 
-        # Second most severe: Fallback to translate-shell
         if [ ${#trans_fallback_blocks[@]} -gt 0 ]; then
             echo ""; echo " ${ICON_WARN} WARNING: Some blocks failed with Gemini and fell back to translate-shell in these instances: ${ICON_WARN}";
             printf "%-20s | %s\n" "Block Number" "Timestamp"
@@ -1577,7 +1595,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             done
         fi
 
-        # Most severe issue: Using original text
         if [ ${#original_fallback_blocks[@]} -gt 0 ]; then
             echo ""; echo " ${ICON_ERROR} CRITICAL: Some blocks could not be translated by any engine. Original text was used in these instances: ${ICON_ERROR}";
             printf "%-20s | %s\n" "Block Number" "Timestamp"
@@ -1587,7 +1604,6 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             done
         fi
 
-        # General summary if emergency mode was triggered
         if [ ${#emergency_batches[@]} -gt 0 ]; then
             echo ""
             echo ""; echo " SUMMARY: The translation process encountered issues and entered emergency mode for the following main batches:";
