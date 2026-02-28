@@ -9,7 +9,7 @@
 ### Some Notable Features:
 
 -   **Online Translation:** Translate transcriptions in real-time using either Google Translate or the high-quality Google Gemini API.
--   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency.
+-   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency. This can also be used to improve the transcription.
 -   **Text-to-Speech (TTS):** Read translated text aloud for a more immersive experience.
 -   **Save Session Transcripts:** Save the complete transcription and translation logs from the current session with a single click.
 -   **Subtitle Generation:** Automatically create `.srt` subtitle files from local media files.
@@ -515,7 +515,7 @@ https://github.com/ggerganov/whisper.cpp
 ### Some Notable Features:
 
 -   **Online Translation:** Translate transcriptions in real-time using either Google Translate or the high-quality Google Gemini API.
--   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency.
+-   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency. This can also be used to improve the transcription.
 -   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Text-to-Speech (TTS):** Read translated text aloud for a more immersive experience with [Translate Shell](https://github.com/soimort/translate-shell).
 -   **Subtitle Generation:** Automatically create `.srt` subtitle files from local media files.
@@ -1130,22 +1130,25 @@ A: Fine-tuning a Whisper model might be more difficult and costly than expected;
 
 **Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
 
-A: Online translation issues with the Gemini API can stem from several factors, from API availability to the inherent behavior of AI models. Here are the most common causes:
+A: Online translation issues with the Gemini API can stem from several factors, ranging from API availability to the inherent behavior of AI models. Here are the most common causes:
 
 *   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
     *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
     *   In **Live Stream** mode, it will immediately fall back to `translate-shell` for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
 
 *   **API Rate Limits:** The primary cause of failures is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers have much higher limits, the following applies to free accounts:
-    *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (like long live streams), but they will fail on high-intensity tasks (like subtitle generation) that exceed the TPM limit.
-    *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them perfect for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted in a long live stream.
+    *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (such as long live streams), but they may fail on high-intensity tasks (such as subtitle generation) that exceed the TPM limit.
+    *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them ideal for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted during long live streams.
 
-*   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues like **confusing languages** (especially with multilingual source text), process previous sentences **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** can occur.
+*   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues such as **confusing languages** (especially with multilingual source text), processing previous sentences and **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** may occur.
 
-*   **Model Recommendations & Strategies (for Free Tier users):**
+*   **Model Recommendations & Strategies (for Free Tier Users):**
     *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
-    *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its massive daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
-    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a great balance of quality, speed, and a reasonable daily quota (1,000 requests) using the default context level.
+    *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its large daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or, if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
+    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a strong balance of quality, speed, and a reasonable daily quota (1,000 requests) when using the default context level.
+
+*   **Model Recommendations for High-Quality Subtitles for Long Media:**
+    *   **For subtitle generation, a paid API key is required:** For high-quality translations of subtitles generated from large media files (films, long audio, or videos longer than several minutes), configure mode **Level 2** or the more creative **Level 3** using **Gemini-3-Flash**. This model is sufficient for translations into major languages and for improving transcription quality when using the same language as the original audio. The **Gemini Pro 3.1** model is highly recommended for non-major languages.
 
 **Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
 
