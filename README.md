@@ -1011,7 +1011,7 @@ This option is designed to optimize performance on Intel processors and their in
     ```
     # Create and activate the virtual environment
     python3 -m venv openvino_conv_env
-    source openvino_conv_e```nv/bin/activate
+    source openvino_conv_env/bin/activate
     ```
     ```
     # Install conversion dependencies
