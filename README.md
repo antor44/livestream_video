@@ -72,7 +72,8 @@ You can select your preferred context level from the new dropdown menu in the "O
 2.  Use the **"Engine"** dropdown menu to select your desired Gemini model.
 3.  Use the **"Level"** dropdown menu to select your desired context level.
 
-The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine.
+The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a (*) prefix.
+
 
 **Note:** Using the Gemini API is subject to Google’s pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
 
@@ -613,7 +614,7 @@ The graphical application can store the key for you. This method is the most str
 *   (Optional) Specify a model: `--gemini-trans gemini-2.5-pro`.
 *   (Optional) Specify a context level: `--gemini-level 3`.
 
-The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine.
+The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a (*) prefix.
 
 **Note:** Using the Gemini API is subject to Google's pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
 
