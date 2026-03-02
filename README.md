@@ -30,8 +30,6 @@ The latest version introduces high-quality online translation using Google's Gem
 *   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-preview` (default) or the most powerful `gemini-3.1-pro-preview`, directly from the application's UI.
 *   **API Key Integration:** The system securely manages your Google Gemini API key.
 
-**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
-
 #### Context Level Control
 
 To further enhance translation quality, you can now control the amount of context the Gemini AI uses. This is crucial for achieving translations that are not only accurate but also fluent and coherent.
@@ -42,6 +40,14 @@ To further enhance translation quality, you can now control the amount of contex
 *   **Level 3 (Creative):** Uses the same wide context as Level 2 but gives the AI permission to intelligently fix or complete fragmented sentences, which is ideal for live streams where words might be cut off.
 
 You can select your preferred context level from the new dropdown menu in the "Online translation" section of the UI.
+
+**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
+
+**Model Recommendations for High-Quality Subtitles (Long Media):**
+
+*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
+
+*Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
 #### How to Enable Gemini Translation
 
@@ -70,7 +76,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 The Gemini API **free tier** is available with lower rate limits for testing purposes. Google AI Studio usage is completely free in all supported countries. The Gemini API **paid tier** provides higher rate limits, additional features, and different data handling.
 
 </br>
-Author: Antonio R. Version: 5.10 License: GPL 3.0
+Author: Antonio R. Version: 5.14 License: GPL 3.0
 </br>
 
 #
@@ -542,7 +548,15 @@ The latest version introduces high-quality online translation using Google's Gem
 *   **Context Control:** Use the `--gemini-level` argument to adjust how much context the AI uses, allowing you to fine-tune the translation style from literal to highly fluent.
 *   **API Key Integration:** The system securely manages your Google Gemini API key, which is required to use this feature.
 
+
 **Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. Please check your billing status if you intend to use Pro models.
+
+**Model Recommendations for High-Quality Subtitles (Long Media):**
+
+*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
+
+*Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
+
 
 #### How to Enable Gemini Translation
 
@@ -1147,8 +1161,10 @@ A: Online translation issues with the Gemini API can stem from several factors, 
     *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its large daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or, if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
     *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a strong balance of quality, speed, and a reasonable daily quota (1,000 requests) when using the default context level.
 
-*   **Model Recommendations for High-Quality Subtitles for Long Media:**
-    *   **For subtitle generation, a paid API key is required:** For high-quality translations of subtitles generated from large media files (films, long audio, or videos longer than several minutes), configure mode **Level 2** or the more creative **Level 3** using **Gemini-3-Flash**. This model is sufficient for translations into major languages and for improving transcription quality when using the same language as the original audio. The **Gemini Pro 3.1** model is highly recommended for non-major languages.
+*   **Model Recommendations for High-Quality Subtitles (Long Media):**
+    *   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
+
+*Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
 **Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
 
