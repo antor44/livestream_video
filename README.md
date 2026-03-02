@@ -20,6 +20,9 @@
 -   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
 
+
+**Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks with the integrated `Subtitle Video Editor`.
+
 ### Online Translation with Google Gemini API
 
 The latest version introduces high-quality online translation using Google's Gemini AI models. This feature serves as a powerful alternative to the standard translation provided by `translate-shell`.
@@ -536,6 +539,9 @@ https://github.com/ggerganov/whisper.cpp
 -   **Quantized Models:** Support for quantized models to improve performance on CPUs.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
 -   **Audio Inputs:** Transcribe from any audio input, including loopback devices to capture desktop audio. Supported on Linux (PulseAudio) and macOS (AVFoundation).
+
+
+**Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks.
 
 ### Online Translation with Google Gemini API
 
