@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.12 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.14 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -251,7 +251,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.12 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.14 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -417,7 +417,7 @@ find_vad_cut_point() {
 
     # Run whisper-vad-speech-segments
     local vad_output
-    vad_output=$("$VAD_EXECUTABLE" -vm "$VAD_MODEL_PATH" -f "$vad_wav" -np 2>/dev/null)
+    vad_output=$("$VAD_EXECUTABLE" -t 2 -vm "$VAD_MODEL_PATH" -f "$vad_wav" -np 2>/dev/null)
 
     local ends starts
     ends=$(echo "$vad_output" | grep 'Speech segment' | sed 's/.*end = //' | tr -d ' ')
@@ -1744,7 +1744,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         fi
 
         vlc_check
-        curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
+        curl_output=$(curl -s -m 1 -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
         FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
         POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
@@ -1876,7 +1876,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
 
          while [ $RUNNING -eq 1 ]; do
             vlc_check
-            curl_output=$(curl -s -N -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
+            curl_output=$(curl -s -m 1 -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
             FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
             POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
