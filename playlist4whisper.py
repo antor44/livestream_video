@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.10 License: GPL 3.0
+Author: Antonio R. Version: 5.20 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -251,7 +251,7 @@ whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcp
 
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
-gemini_models = ["gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it"]
+gemini_models = ["gemini-3.1-pro-preview", "gemini-3.1-flash-lite-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"]
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 model_path = "./models/ggml-{}.bin"
@@ -1402,6 +1402,7 @@ class ApiKeyDialog(tk.Toplevel):
         self.entry.insert(0, initial_value)
         self.entry.focus_set()
         self.entry.bind("<Button-3>", self.show_popup_menu) # Add context menu
+        self.entry.bind("<Return>", lambda e: self.save_current()) # Accept with Enter key
         body_frame.pack()
 
         # Button box
@@ -1516,6 +1517,7 @@ class EnhancedStringDialog(tk.Toplevel):
         self.entry.insert(0, self.initial_value)  # Insert initial value into the entry
         self.entry.focus_set()  # Set focus to the entry widget
         self.entry.bind("<Button-3>", self.show_popup_menu)  # Bind right-click to show popup menu
+        self.entry.bind("<Return>", self.ok)  # Accept with Enter key
 
     def buttonbox(self):
         box = tk.Frame(self)
@@ -2135,6 +2137,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.mpv_options_entry.bind("<KeyRelease>", self.schedule_save_options)
 
         self.mpv_options_entry.bind("<Button-3>", self.show_popup_menu)
+
+        self.mpv_options_entry.bind("<Return>", lambda e: self.save_options())  # Accept with Enter key
 
         self.mpv_fg = self.mpv_options_entry.cget("fg")
         self.mpv_bg = self.mpv_options_entry.cget("bg")
@@ -4205,7 +4209,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.10\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.20\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
