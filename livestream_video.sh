@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.14 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.20 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -59,6 +59,8 @@ WHISPER_EXECUTABLE=""   # Path to the Whisper executable
 VAD_SPLIT=""            # Enable VAD-based silence splitting for audio chunks
 VAD_EXECUTABLE=""       # Path to the whisper-vad-speech-segments executable
 VAD_MODEL_PATH=""       # Path to the Silero VAD model file
+VAD_CUT_MARKER=""       # Marker shown at start of text when chunk is NOT cut by VAD (fixed-time cut)
+vad_did_cut=0           # Internal tracker: 1 if the last chunk was cut by VAD
 
 #GEMINI_API_KEY=""      # Optional variable for the Gemni API Key
 
@@ -120,6 +122,7 @@ readonly OUTPUT_TEXT_LIST=( "original" "translation" "both" "none" )
 # Available Gemini models for translation
 AVAILABLE_GEMINI_MODELS=(
     "gemini-3.1-pro-preview"
+    "gemini-3.1-flash-lite-preview"
     "gemini-3-flash-preview" 
     "gemini-2.5-pro"
     "gemini-2.5-flash"
@@ -251,7 +254,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.14 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.20 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -375,9 +378,9 @@ get_unique_port() {
 
 
 # Finds the best silence-based cut point near a target time using Silero VAD.
-# Extracts a wider audio window around the target, runs whisper-vad-speech-segments,
-# and finds the silence gap closest to the target time.
-# Falls back to the original target time if no suitable silence is found.
+# Extracts an audio window BEFORE the target (target - window .. target),
+# runs whisper-vad-speech-segments, and finds the silence gap closest to the
+# target time. Falls back to the original target time if no suitable silence.
 # Arguments: <source_audio> <target_time_s> <search_window_s>
 # Output: the adjusted cut time in seconds (printed to stdout)
 find_vad_cut_point() {
@@ -394,7 +397,7 @@ find_vad_cut_point() {
     local search_start search_duration
     search_start=$(echo "$target_time - $window" | bc -l)
     if (( $(echo "$search_start < 0" | bc -l) )); then search_start=0; fi
-    search_duration=$(echo "$window * 2" | bc -l)
+    search_duration=$(echo "$target_time - $search_start" | bc -l)
 
     local vad_wav="/tmp/whisper-live_${MYPID}_vad_probe.wav"
 
@@ -489,6 +492,7 @@ find_vad_cut_point() {
 process_audio_chunk() {
     local wav_file="$1"
 
+    # The processing pipe is designed to be robust across whisper.cpp versions
     if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
         "$WHISPER_EXECUTABLE" -l ${LANGUAGE} ${TRANSLATE} -t 4 -m ./models/ggml-${MODEL}.bin -f "$wav_file" 2> /tmp/whisper-live_${MYPID}-err.err | tr '\r' '\n' | grep '^\[' | sed 's/^\[.*\] *//' | paste -s -d ' ' - | tr -d '<>^*_' | tee /tmp/output-whisper-live_${MYPID}.txt >/dev/null
         err=$?
@@ -521,9 +525,13 @@ process_audio_chunk() {
         sed 's/\[[^][]*\] *//g' /tmp/aout-whisper-live_${MYPID}.txt > /tmp/output-whisper-live_${MYPID}.txt
     fi
 
+    # --- Translation and Output Logic ---
+
+    # Get the raw transcribed text from whisper.
     local original_text
     original_text=$(< "/tmp/output-whisper-live_${MYPID}.txt")
 
+    # Safety guard: if transcription is empty or too short, do nothing.
     if [[ $(wc -m <<< "$original_text") -lt 3 ]]; then
         return
     fi
@@ -532,16 +540,18 @@ process_audio_chunk() {
     local use_trans_fallback=true
     local fallback_indicator=""
 
+    # Attempt translation with the primary engine (Gemini)
     if [[ -n "$GEMINI_TRANS_MODEL" ]] && [[ -n "$GEMINI_API_KEY" ]]; then
-        local is_english_correction=false
-        if [[ "$TRANS_LANGUAGE" == "en" ]]; then
-            is_english_correction=true
+        local is_correction=false
+        if [[ "$TRANS_LANGUAGE" == "$LANGUAGE" ]]; then
+            is_correction=true
         fi
 
         local translated_context=""
         local prompt_instructions=""
 
-        if [[ "$is_english_correction" == true ]]; then
+        # --- Gemini Prompt Engineering based on Context Level ---
+        if [[ "$is_correction" == true ]]; then
             case "$GEMINI_CONTEXT_LEVEL" in
                 0)
                     translated_context=""
@@ -549,6 +559,7 @@ process_audio_chunk() {
                     ;;
                 1)
                     if [ "${#translated_context_window[@]}" -gt 0 ]; then
+                        # macOS/Bash 3.2 compatible way to get the last element of an array
                         local last_index=$((${#translated_context_window[@]} - 1))
                         translated_context="${translated_context_window[last_index]}"
                     fi
@@ -614,7 +625,7 @@ process_audio_chunk() {
                 gemini-3*pro* | gemini-3.1*pro*)
                     thinking_config_json='{ "thinkingLevel": "low" }'
                     ;;
-                gemini-3*flash*)
+                gemini-3*flash* | gemini-3.1*flash*)
                     thinking_config_json='{ "thinkingLevel": "minimal" }'
                     ;;
                 gemini-2.5*flash*)
@@ -649,6 +660,7 @@ process_audio_chunk() {
                 }')
         fi
 
+        # API call
         local api_response_raw
         api_response_raw=$(curl --silent --no-buffer --max-time 2.5 -X POST \
             -H 'Content-Type: application/json' \
@@ -666,6 +678,7 @@ process_audio_chunk() {
         fi
     fi
 
+    # Fallback to the secondary translation engine (trans)
     if [[ "$use_trans_fallback" == true ]]; then
         if [[ $TRANS == "trans" ]]; then
             if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
@@ -675,8 +688,13 @@ process_audio_chunk() {
         fi
     fi
 
+    # --- Display, Context Update, and TTS Logic ---
+
+    # Log the raw, unwrapped original text
     echo "$original_text" >> "/tmp/transcription-whisper-live_${MYPID}.txt"
 
+    # Helper function to print text with smart wrapping.
+    # It gets the terminal width on every call to handle window resizing.
     print_wrapped() {
         local text_to_print="$1"
         local terminal_width
@@ -684,20 +702,35 @@ process_audio_chunk() {
         echo "$text_to_print" | fold -s -w "$terminal_width"
     }
 
-    if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]]; then
-         print_wrapped "$original_text"
+    # Append VAD marker to display text only (not sent to translation)
+    local display_original="$original_text"
+    if [[ -n "$VAD_CUT_MARKER" ]] && [[ "$VAD_SPLIT" == "vad" ]] && [[ $vad_did_cut -eq 0 ]]; then
+        display_original="${VAD_CUT_MARKER} ${original_text}"
     fi
 
+    # Display original text if enabled, using the wrapper
+    if [[ $OUTPUT_TEXT == "original" ]] || [[ $OUTPUT_TEXT == "both" ]]; then
+         print_wrapped "$display_original"
+    fi
+
+    # Display translated text if available and enabled, using the wrapper
     if [[ -n "$translated_text" ]] && ([[ $OUTPUT_TEXT == "translation" ]] || [[ $OUTPUT_TEXT == "both" ]]); then
+        local display_translated="${fallback_indicator}${translated_text}"
+        if [[ -n "$VAD_CUT_MARKER" ]] && [[ "$VAD_SPLIT" == "vad" ]] && [[ $vad_did_cut -eq 0 ]]; then
+            display_translated="${VAD_CUT_MARKER} ${display_translated}"
+        fi
         if [[ $OUTPUT_TEXT == "both" ]]; then tput rev; fi
-        print_wrapped "${fallback_indicator}${translated_text}"
+        print_wrapped "$display_translated"
         if [[ $OUTPUT_TEXT == "both" ]]; then tput sgr0; fi
 
+        # Log the raw, unwrapped translated text
         echo "${fallback_indicator}${translated_text}" >> "/tmp/translation-whisper-live_${MYPID}.txt"
 
+        # Sanitize the raw, unwrapped translated text before adding it to the context window
         local clean_translated_text
         clean_translated_text=$(echo "$translated_text" | sed 's/(\([^)]*\))//g; s/\[[^]]*\]//g; s/[$*#]//g')
 
+        # Update the context window ONLY with the cleaned text
         if [[ -n "$clean_translated_text" ]]; then
             translated_context_window+=("$clean_translated_text")
             if [ "${#translated_context_window[@]}" -gt 2 ]; then
@@ -706,7 +739,12 @@ process_audio_chunk() {
         fi
     fi
 
+    # Reset VAD cut tracker after displaying
+    vad_did_cut=0
+
+    # Handle Text-to-Speech (TTS)
     if [[ $SPEAK == "speak" ]] && [[ -n "$translated_text" ]]; then
+        # TTS logic uses the raw, unwrapped text
         echo "$translated_text" | trans -b :${TRANS_LANGUAGE} -download-audio-as /tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3 >/dev/null 2>&1
 
         local audio_file="/tmp/whisper-live_${MYPID}_$(((i+2)%2)).mp3"
@@ -1038,14 +1076,17 @@ fi
 # Generate Subtitles from a local Audio/Video File.
 if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
 
+    # --- Subtitle Generation ---
     echo ""
     echo "=========================================="
     echo "  ${ICON_ROCKET} Starting Subtitle Generation  ${ICON_ROCKET}"
     echo "=========================================="
     echo ""
+    
+    # do not stop script on error
     set +e
 
-    declare -a emergency_batches=()
+    # Arrays to store information about translation fallbacks
     declare -a emergency_gemini_success=()
     declare -a trans_fallback_blocks=()
     declare -a original_fallback_blocks=()
@@ -1054,6 +1095,9 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     skip_transcription=false
     source_srt_file=""
 
+    # --- Pre-flight Check: Ask about re-running the AI to save processing time ---
+
+    # Determine the destination file for Whisper's output
     if [[ "$TRANSLATE" == "--translate" ]]; then
         whisper_dest_file="${url_no_ext}.en.srt"
         whisper_file_description="Whisper AI Translated Subtitle (en)"
@@ -1069,10 +1113,12 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         echo ""
         read -p "Do you want to re-run the AI and overwrite this file? (Answering 'n' will use the existing file) [y/n]: " response
 
+        # Normalize user input: convert to lowercase and remove leading/trailing whitespace
         response_clean=$(echo "$response" | tr '[:upper:]' '[:lower:]' | xargs)
 
         case "$response_clean" in
             n|no)
+                # Let the script proceed with skip_transcription=false
                 echo ""
                 echo "-> Skipping AI transcription. The existing file will be used for any further steps."
                 skip_transcription=true
@@ -1094,6 +1140,8 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     err=0
     temp_whisper_srt="/tmp/whisper-live_${MYPID}.wav.srt"
     temp_online_trans_srt="/tmp/whisper-live_${MYPID}.wav.${TRANS_LANGUAGE}.srt"
+
+    # --- Main Processing ---
 
     if [[ "$skip_transcription" == false ]]; then
         echo ""
@@ -1136,7 +1184,10 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 mv /tmp/whisper-live_${MYPID}.srt "$temp_whisper_srt"
             fi
         fi
+    fi
 
+    # 1. Save the Whisper AI subtitle file if it was newly generated
+    if [[ "$skip_transcription" == false ]]; then
         echo ""
         echo "-> Saving new Whisper AI subtitle to: $whisper_dest_file"
         cp "$temp_whisper_srt" "$whisper_dest_file"
@@ -1146,6 +1197,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
             err=1
         fi
 
+        # The source for the next step is the newly generated temporary file.
         source_srt_file="$temp_whisper_srt"
     else
         echo ""
@@ -1155,9 +1207,14 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         echo ""
     fi
 
+    # --- ONLINE TRANSLATION LOGIC ---
+    # This is the main switch. If --trans was used, we proceed.
     if [[ "$TRANS" == "trans" ]] && [[ $err -eq 0 ]] && [[ -f "$source_srt_file" ]]; then
 
+        # This is the engine selector. If --gemini-trans was used, its model variable will be set.
         if [[ -n "$GEMINI_TRANS_MODEL" ]]; then
+            # --- B. Google Gemini API method ---
+
             echo ""
             echo "---------------------------------------------------------------------------"
             echo "-> Step 3: Starting Online Translation (Gemini AI) to '${TRANS_LANGUAGE}'..."
@@ -1172,7 +1229,10 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 echo "${ICON_WARN} GEMINI_API_KEY environment variable not set. Skipping Gemini translation."
                 err=1
             else
+                # -- Deconstruction --
                 echo "--> Deconstructing source SRT file..."
+                
+                # Use while-read loops for compatibility with older Bash versions (like on macOS)
                 declare -a srt_numbers=()
                 while IFS= read -r line; do
                     srt_numbers+=("$line")
@@ -1183,6 +1243,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     srt_timestamps+=("$line")
                 done < <(awk 'BEGIN { RS=""; FS="\n" } { gsub(/\r/,""); print $2 }' "$source_srt_file")
 
+                # Redirect stderr to /dev/null to hide gawk errors
                 declare -a text_blocks=()
                 while IFS= read -r line; do
                     text_blocks+=("$line")
@@ -1192,16 +1253,18 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 temp_text_only_trans="/tmp/translated_text_only_${MYPID}.txt"
                 > "$temp_text_only_trans"
 
+                # -- Batch Processing with Context Window --
                 batch_size=20
                 total_blocks=${#text_blocks[@]}
 
+                # Flags to track failure levels for the final message
                 any_emergency_fallback=false
                 any_trans_fallback=false
                 any_original_fallback=false
 
-                is_english_correction=false
-                if [[ "$TRANS_LANGUAGE" == "en" ]]; then
-                    is_english_correction=true
+                local is_correction=false
+                if [[ "$TRANS_LANGUAGE" == "$LANGUAGE" ]]; then
+                    is_correction=true
                 fi
 
                 for (( i=0; i<total_blocks; i+=batch_size )); do
@@ -1212,6 +1275,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     context_start=0
                     context_end=0
                     
+                    # --- Gemini Prompt Engineering for Subtitles based on Context Level ---
                     case "$GEMINI_CONTEXT_LEVEL" in
                         0)
                             context_start=$start_index
@@ -1231,6 +1295,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             ;;
                     esac
 
+                    # Boundary checks for the context window
                     if (( context_start < 0 )); then context_start=0; fi
                     if (( context_end >= total_blocks )); then context_end=$((total_blocks - 1)); fi
 
@@ -1287,7 +1352,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         thinking_config_json=""
                         case "$GEMINI_TRANS_MODEL" in
                             gemini-3*pro* | gemini-3.1*pro*) thinking_config_json='{ "thinkingLevel": "low" }' ;;
-                            gemini-3*flash*) thinking_config_json='{ "thinkingLevel": "minimal" }' ;;
+                            gemini-3*flash* | gemini-3.1*flash*) thinking_config_json='{ "thinkingLevel": "minimal" }' ;;
                             gemini-2.5*flash*) thinking_config_json='{ "thinkingBudget": 0 }' ;;
                             gemini-2.5*pro*) thinking_config_json='{ "thinkingBudget": 128 }' ;;
                         esac
@@ -1375,6 +1440,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                         mini_batch_size=5
 
                         for (( j=start_index; j<=end_index; j+=mini_batch_size )); do
+                            # Wait between each emergency sub-batch to be rate-limit friendly
                             sleep 5
 
                             mini_start=$j
@@ -1425,9 +1491,11 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                     original_text_nl=$(echo "${text_blocks[l]}" | sed 's/_NL_/\n/g')
                                     echo "        -> Translating block $((l + 1)) with fallback..."
                                     
+                                    # Translate using trans, redirecting stderr to /dev/null
                                     translated_text_nl=$(echo "$original_text_nl" | trans -b -no-warn :${TRANS_LANGUAGE} 2>/dev/null)
 
                                     if [[ -z "$translated_text_nl" ]]; then
+                                        # Final fallback: if trans fails, use original text
                                         any_original_fallback=true
                                         original_fallback_blocks+=("Block $((l + 1)) | ${srt_timestamps[l]}")
                                         echo "            -> translate-shell also failed. Using original text as a last resort."
@@ -1439,12 +1507,16 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                                         echo -e "${srt_numbers[l]}\n${srt_timestamps[l]}\n${translated_text_nl}\n"
                                     fi
 
+                                    # Convert back to placeholder format
                                     translated_text_placeholder=$(echo "$translated_text_nl" | awk 'ORS="_NL_"' | sed 's/_NL_$//')
                                     printf "%s\n" "$translated_text_placeholder" >> "$temp_text_only_trans"
                                 done
                             else
+                                # Show the successful translations and store the timestamp range
                                 start_ts_full="${srt_timestamps[mini_start]}"
                                 end_ts_full="${srt_timestamps[mini_end]}"
+                                
+                                # Extract start time from the first block and end time from the last block
                                 start_time=$(echo "$start_ts_full" | cut -d' ' -f1)
                                 end_time=$(echo "$end_ts_full" | cut -d' ' -f3)
                                 emergency_gemini_success+=("Blocks $((mini_start + 1)) to $((mini_end + 1)) | ${start_time} --> ${end_time}")
@@ -1461,6 +1533,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                     fi
 
                     if [ $i -lt $((total_blocks - batch_size)) ]; then
+                        # Wait before processing the next main batch to be rate-limit friendly
                         sleep 1
                     fi
                 done
@@ -1483,6 +1556,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 echo "Done."
             fi
         else
+            # --- A. Translate-shell (trans) method ---
             echo ""
             echo "---------------------------------------------------------------------------"
             echo "-> Step 3: Starting Online Translation (translate-shell / Simple Method)..."
@@ -1545,11 +1619,13 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
     }
 
     if [ $err -eq 0 ]; then
+        # --- Final File Saving Logic ---
         echo ""
         echo "=========================================="
         echo "-> Finalizing File..."
         echo "=========================================="
 
+        # 1. Save the Whisper AI subtitle file if it was newly generated. No more questions here.
         if [[ "$skip_transcription" == false ]]; then
             if [ ! -e "$whisper_dest_file" ]; then
                 echo ""
@@ -1565,19 +1641,23 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
              trans_dest_file="${url_no_ext}.${TRANS_LANGUAGE}.srt"
              trans_file_description="Online Translated Subtitle (${TRANS_LANGUAGE})"
 
+             # Helper function to manage saving/overwriting files for the online translation
              save_online_translation_file "$temp_online_trans_srt" "$trans_dest_file" "$trans_file_description"
 
              set +x
          fi
     fi
 
+    # --- Final Status ---
     if [ $err -eq 0 ]; then
         success=true
+        # Check for any issues and set success to false if any are found
         if [ ${#original_fallback_blocks[@]} -gt 0 ] || [ ${#trans_fallback_blocks[@]} -gt 0 ] || [ ${#emergency_batches[@]} -gt 0 ]; then
             success=false
         fi
 
         if [ ${#emergency_gemini_success[@]} -gt 0 ]; then
+             # Informational: Gemini successes within emergency mode
              echo ""; echo " ${ICON_OK} INFO: Gemini successfully translated the following sub-batches within emergency mode: ${ICON_OK}";
              printf "%-30s | %s\n" "Sub-Batch Range" "Timestamp Range"
              printf -- "-%.0s" {1..80}; echo ""
@@ -1587,6 +1667,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         fi
 
         if [ ${#trans_fallback_blocks[@]} -gt 0 ]; then
+            # Second most severe: Fallback to translate-shell
             echo ""; echo " ${ICON_WARN} WARNING: Some blocks failed with Gemini and fell back to translate-shell in these instances: ${ICON_WARN}";
             printf "%-20s | %s\n" "Block Number" "Timestamp"
             printf -- "-%.0s" {1..50}; echo ""
@@ -1596,6 +1677,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         fi
 
         if [ ${#original_fallback_blocks[@]} -gt 0 ]; then
+            # Most severe issue: Using original text
             echo ""; echo " ${ICON_ERROR} CRITICAL: Some blocks could not be translated by any engine. Original text was used in these instances: ${ICON_ERROR}";
             printf "%-20s | %s\n" "Block Number" "Timestamp"
             printf -- "-%.0s" {1..50}; echo ""
@@ -1605,6 +1687,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
         fi
 
         if [ ${#emergency_batches[@]} -gt 0 ]; then
+            # General summary if emergency mode was triggered 
             echo ""
             echo ""; echo " SUMMARY: The translation process encountered issues and entered emergency mode for the following main batches:";
             echo ""
@@ -1706,13 +1789,13 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
     done
 
     if [ -f "$file_path" ]; then
-        sleep 10
+        if [[ "$PLAYER_ONLY" == "" ]]; then printf "Buffering audio. Please wait...\n\n"; fi
+        sleep 20
         ln -f -s /tmp/whisper-live_${MYPID}_buf000.avi /tmp/whisper-live_${MYPID}_0.avi
     else
         printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n" && exit 1
     fi
 
-    if [[ "$PLAYER_ONLY" == "" ]]; then printf "Buffering audio. Please wait...\n\n"; fi
     if ! ps -p $FFMPEG_PID > /dev/null; then printf "${ICON_ERROR} Error: ffmpeg failed to capture the stream\n" && exit 1; fi
 
     sleep 2
@@ -1748,6 +1831,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
         POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
+        # Safety guard: if VLC is paused or not providing a valid time, skip this iteration.
         if ! [[ "$POSITION" =~ ^[0-9]+$ ]]; then
             sleep 0.1
             continue
@@ -1768,29 +1852,30 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 translated_context_window=()
                 transcribed_until=0; last_pos=0; tin=0
 
+                # This ffprobe check is only for the very first chunk of a new file segment.
                 segment_duration=$(ffprobe -i "/tmp/$FILEPLAY" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                 if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=$SEGMENT_TIME; fi
 
                 if (( $(echo "$segment_duration > 1" | bc -l) )); then
-                    vad_debt=0
                     ffmpeg -loglevel quiet -v error -noaccurate_seek -i "/tmp/$FILEPLAY" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t "$STEP_S" /tmp/whisper-live_${MYPID}.wav
                     chunk_duration=$STEP_S
                     if [[ "$VAD_SPLIT" == "vad" ]]; then
                         vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$STEP_S" 3)
-                        if (( $(echo "$vad_cut > 1.0 && $vad_cut < $STEP_S + 3" | bc -l) )); then
+                        if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $STEP_S" | bc -l) )); then
                             ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
-                            vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
                             chunk_duration=$vad_cut
+                            vad_did_cut=1
                         fi
                     fi
                     process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
                     transcribed_until=$chunk_duration
                 fi
-            elif [ "$file_mod_time" -gt "$((TIMEPLAYED + SEGMENT_TIME + 6))" ] && [ $tin -eq 0 ]; then
+            elif [ "$file_mod_time" -gt "$((TIMEPLAYED + SEGMENT_TIME + 16))" ] && [ $tin -eq 0 ]; then
                 tin=1
             fi
 
             if [ $tin -eq 0 ]; then
+                # This logic correctly handles when the user seeks forward or backward in the video.
                 pos_diff=$(echo "$POSITION - $last_pos" | bc)
                 seek_threshold=$(echo "2 * $STEP_S" | bc)
                 if (( $(echo "$pos_diff > $seek_threshold" | bc -l) )) || (( $(echo "$pos_diff < -$seek_threshold" | bc -l) )); then
@@ -1798,10 +1883,12 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                 fi
                 last_pos=$POSITION
 
+                # Main transcription trigger.
                 if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
+                    # NOTE: 'local' keyword removed for shell compatibility.
                     chunk_start=$transcribed_until
                     
-                    extract_duration=$(echo "$STEP_S + ${vad_debt:-0}" | bc -l)
+                    extract_duration=$STEP_S
                     potential_end=$(echo "$chunk_start + $extract_duration" | bc -l)
 
                     # LÓGICA DE ÚLTIMO CHUNK CORREGIDA:
@@ -1820,7 +1907,6 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                         
                         # Actualizar transcribed_until al final real para detener el bucle de este archivo
                         transcribed_until=$(echo "$chunk_start + $actual_chunk_dur + 1.0" | bc -l) 
-                        vad_debt=0
                     else
                         # Chunk normal
                         chunk_duration=$extract_duration
@@ -1828,12 +1914,10 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                         
                         if [[ "$VAD_SPLIT" == "vad" ]]; then
                             vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_duration" 3)
-                            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_duration + 3" | bc -l) )); then
+                            if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $chunk_duration" | bc -l) )); then
                                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
-                                vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
                                 chunk_duration=$vad_cut
-                            else
-                                vad_debt=0
+                                vad_did_cut=1
                             fi
                         fi
                         
@@ -1885,19 +1969,19 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     FILEPLAYED="$FILEPLAY"
                     translated_context_window=()
                     transcribed_until=0; last_pos=0
+                    # This ffprobe check is only for the very first chunk of a new file segment.
                     segment_duration=$(ffprobe -i "${URL}" -show_format -v quiet | sed -n 's/duration=//p' 2>/dev/null)
                     if ! [[ "$segment_duration" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then segment_duration=999999; fi
 
                     if (( $(echo "$segment_duration > 1" | bc -l) )); then
-                        vad_debt=0
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -t "$STEP_S" /tmp/whisper-live_${MYPID}.wav
                         chunk_duration=$STEP_S
                         if [[ "$VAD_SPLIT" == "vad" ]]; then
                             vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$STEP_S" 3)
-                            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $STEP_S + 3" | bc -l) )); then
+                            if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $STEP_S" | bc -l) )); then
                                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
-                                vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
                                 chunk_duration=$vad_cut
+                                vad_did_cut=1
                             fi
                         fi
                         process_audio_chunk "/tmp/whisper-live_${MYPID}.wav"
@@ -1905,6 +1989,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     fi
                 fi
 
+                # This logic correctly handles when the user seeks forward or backward in the video.
                 pos_diff=$(echo "$POSITION - $last_pos" | bc)
                 seek_threshold=$(echo "2 * $STEP_S" | bc)
                 if (( $(echo "$pos_diff > $seek_threshold" | bc -l) )) || (( $(echo "$pos_diff < -$seek_threshold" | bc -l) )); then
@@ -1912,10 +1997,12 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                 fi
                 last_pos=$POSITION
 
+                # Main transcription trigger.
                 if (( $(echo "$POSITION + $SYNC > $transcribed_until" | bc -l) )) && (( $(echo "$transcribed_until < $segment_duration" | bc -l) )); then
+                    # NOTE: 'local' keyword removed for shell compatibility.
                     chunk_start=$transcribed_until
 
-                    extract_duration=$(echo "$STEP_S + ${vad_debt:-0}" | bc -l)
+                    extract_duration=$STEP_S
                     potential_end=$(echo "$chunk_start + $extract_duration" | bc -l)
 
                     # LÓGICA DE ÚLTIMO CHUNK CORREGIDA (Igual que arriba)
@@ -1929,19 +2016,16 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                         fi
                         
                         transcribed_until=$(echo "$chunk_start + $actual_chunk_dur + 1.0" | bc -l)
-                        vad_debt=0
                     else
                         chunk_duration=$extract_duration
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" -t "$chunk_duration" /tmp/whisper-live_${MYPID}.wav
                         
                         if [[ "$VAD_SPLIT" == "vad" ]]; then
                             vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_duration" 3)
-                            if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_duration + 3" | bc -l) )); then
+                            if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $chunk_duration" | bc -l) )); then
                                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
-                                vad_debt=$(echo "$chunk_duration - $vad_cut" | bc -l)
                                 chunk_duration=$vad_cut
-                            else
-                                vad_debt=0
+                                vad_did_cut=1
                             fi
                         fi
                         
@@ -2201,7 +2285,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
     fi
 
     printf "Buffering audio. Please wait...\n\n"
-    # Delay added for subtitle synchronization
+    # Delay added to prevent errors
     sleep $(($STEP_S))
 
     # do not stop script on error
@@ -2212,11 +2296,10 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
     
     # Cursor for continuous audio tracking to avoid gaps
     current_audio_cursor=0
-    vad_debt=0
 
     while [ $RUNNING -eq 1 ]; do
         
-        extract_duration=$(echo "$STEP_S + $vad_debt" | bc -l)
+        extract_duration=$STEP_S
         
         # Wait until the background recorder has written enough audio
         # Using SECONDS as reference for elapsed time
@@ -2244,12 +2327,8 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_actual_duration" | bc -l) )); then
                 ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
                 
-                # Calculate debt: what we wanted to process minus what we actually kept
-                # This will be added to the next chunk request
-                vad_debt=$(echo "$chunk_actual_duration - $vad_cut" | bc -l)
                 chunk_actual_duration=$vad_cut
-            else
-                vad_debt=0
+                vad_did_cut=1
             fi
         fi
 
