@@ -44,7 +44,13 @@ To further enhance translation quality, you can now control the amount of contex
 
 You can select your preferred context level from the new dropdown menu in the "Online translation" section of the UI.
 
-**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. The paid API is a pay per use service, if you don't use it you don't pay. Please check your billing status if you intend to use Pro models. Under normal use, the cost would be no more than a few cents per day, even with heavy use.
+> **Important Note on Models**
+>
+> While many models such as `gemini-3-flash-preview` or the `gemma` family offer generous free tiers, advanced models like **`gemini-3.1-pro`** are typically available only through the **paid tier** of the Gemini API.
+>
+> The paid API operates on a **pay-per-use basis**: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models.
+>
+> Under normal usage, the cost is typically **no more than a few cents per day**, even with relatively heavy use.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
 
@@ -556,7 +562,13 @@ The latest version introduces high-quality online translation using Google's Gem
 *   **API Key Integration:** The system securely manages your Google Gemini API key, which is required to use this feature.
 
 
-**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. The paid API is a pay per use service, if you don't use it you don't pay. Please check your billing status if you intend to use Pro models. Under normal use, the cost would be no more than a few cents per day, even with heavy use.
+> **Important Note on Models**
+>
+> While many models such as `gemini-3-flash-preview` or the `gemma` family offer generous free tiers, advanced models like **`gemini-3.1-pro`** are typically available only through the **paid tier** of the Gemini API.
+>
+> The paid API operates on a **pay-per-use basis**: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models.
+>
+> Under normal usage, the cost is typically **no more than a few cents per day**, even with relatively heavy use.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
 
