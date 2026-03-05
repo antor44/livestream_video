@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.20 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.22 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -254,7 +254,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.20 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.22 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -1827,12 +1827,17 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
         fi
 
         vlc_check
-        curl_output=$(curl -s -m 1 -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
-        FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
-        POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
 
-        # Safety guard: if VLC is paused or not providing a valid time, skip this iteration.
-        if ! [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+        curl_output=$(curl -s -m 1 -u :playlist4whisper "http://127.0.0.1:${MYPORT}/requests/status.xml")
+        status_oneline=$(printf "%s" "$curl_output" | tr '\n' ' ')
+
+        FILEPLAY=$(printf "%s" "$status_oneline" | sed -n "s:.*<info name=['\"]filename['\"]>\([^<]*\)</info>.*:\1:p")
+        FILEPLAY=${FILEPLAY##*/}
+
+        POSITION=$(printf "%s" "$status_oneline" | sed -n "s:.*<time>[[:space:]]*\([0-9][0-9]*\)[[:space:]]*</time>.*:\1:p")
+
+        # Safety guard: VLC pausado o sin dato válido -> saltar iteración
+        if [[ -z "$FILEPLAY" ]] || ! [[ "$POSITION" =~ ^[0-9]+$ ]]; then
             sleep 0.1
             continue
         fi
@@ -1958,11 +1963,23 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
         set +e
         FILEPLAYED=""; transcribed_until=0; segment_duration=0; last_pos=0
 
-         while [ $RUNNING -eq 1 ]; do
+        while [ $RUNNING -eq 1 ]; do
+        
             vlc_check
-            curl_output=$(curl -s -m 1 -u :playlist4whisper http://127.0.0.1:${MYPORT}/requests/status.xml)
-            FILEPLAY=$(echo "$curl_output" | sed -n 's/.*<info name='"'"'filename'"'"'>\([^<]*\).*$/\1/p')
-            POSITION=$(echo "$curl_output" | sed -n 's/.*<time>\([^<]*\).*$/\1/p')
+            
+            curl_output=$(curl -s -m 1 -u :playlist4whisper "http://127.0.0.1:${MYPORT}/requests/status.xml")
+            status_oneline=$(printf "%s" "$curl_output" | tr '\n' ' ')
+
+            FILEPLAY=$(printf "%s" "$status_oneline" | sed -n "s:.*<info name=['\"]filename['\"]>\([^<]*\)</info>.*:\1:p")
+            FILEPLAY=${FILEPLAY##*/}
+
+            POSITION=$(printf "%s" "$status_oneline" | sed -n "s:.*<time>[[:space:]]*\([0-9][0-9]*\)[[:space:]]*</time>.*:\1:p")
+            
+            # Safety guard: VLC pausado o sin dato válido -> saltar iteración
+            if [[ -z "$FILEPLAY" ]] || ! [[ "$POSITION" =~ ^[0-9]+$ ]]; then
+                sleep 0.1
+                continue
+            fi
 
             if [[ -n "$FILEPLAY" ]]; then
                 if [ "$FILEPLAY" != "$FILEPLAYED" ]; then
@@ -2005,7 +2022,6 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                     extract_duration=$STEP_S
                     potential_end=$(echo "$chunk_start + $extract_duration" | bc -l)
 
-                    # LÓGICA DE ÚLTIMO CHUNK CORREGIDA (Igual que arriba)
                     if (( $(echo "$potential_end >= $segment_duration" | bc -l) )); then
                         ffmpeg -loglevel quiet -v error -noaccurate_seek -i "${URL}" -y -ar 16000 -ac 1 -c:a pcm_s16le -ss "$chunk_start" /tmp/whisper-live_${MYPID}.wav
                         
