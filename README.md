@@ -44,11 +44,11 @@ To further enhance translation quality, you can now control the amount of contex
 
 You can select your preferred context level from the new dropdown menu in the "Online translation" section of the UI.
 
-**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. The paid API is a pay per use service, if you don't use it you don't pay. Please check your billing status if you intend to use Pro models.
+**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. The paid API is a pay per use service, if you don't use it you don't pay. Please check your billing status if you intend to use Pro models. Under normal use, the cost would be no more than a few cents per day, even with heavy use.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
 
-*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major. Within a normal use, you could expect a cost of no more than a few cents per session.
+*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
 
 *Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
@@ -556,11 +556,11 @@ The latest version introduces high-quality online translation using Google's Gem
 *   **API Key Integration:** The system securely manages your Google Gemini API key, which is required to use this feature.
 
 
-**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. The paid API is a pay per use service, if you don't use it you don't pay. Please check your billing status if you intend to use Pro models.
+**Important Note on Models:** While many models like `gemini-3-flash-preview` or `gemma` families have generous free tiers, advanced models such as **`gemini-3.1-pro`** are typically available only under the **paid tier** of the Gemini API. The paid API is a pay per use service, if you don't use it you don't pay. Please check your billing status if you intend to use Pro models. Under normal use, the cost would be no more than a few cents per day, even with heavy use.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
 
-*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major. Within a normal use, you could expect a cost of no more than a few cents per session.
+*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
 
 *Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
