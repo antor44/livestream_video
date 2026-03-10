@@ -97,12 +97,12 @@ Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that al
 
 This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhisperLive, an implementation of OpenAI Whisper different from whisper.cpp. This browser extension is a fork of a [WhisperLive extension](https://github.com/collabora/WhisperLive) with significant aesthetic changes and powerful enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the [README](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/README.md) file in its directory.
 
-**New in Version 2.3.0:**
-We have massively expanded the extension's capabilities beyond standard Whisper transcription:
+The extension's capabilities go beyond standard Whisper transcription:
 - **Real-Time Gemini Translation:** Translate live transcriptions into dozens of target languages on the fly using the Google Gemini API.
-- **Text-to-Speech (TTS):** Automatically read the translated text aloud in real time with adjustable speed settings.
+- **Native Whisper Translation:** When selecting an Audio Language different from the source audio, larger Whisper models (like large-v2 or large-v3) often provide an excellent direct translation natively, without the need for external APIs.
+- **Text-to-Speech (TTS):** Automatically read the text aloud in real time with adjustable speed settings. It seamlessly reads Gemini's translations, or if Gemini is disabled, it reads the original Whisper transcription (automatically matching the source language's accent, or English if Whisper's translate feature is used).
 - **Flexible UI Modes:** Choose between viewing the transcription in a floating, resizable in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
-- **Side-by-Side Viewing:** New display modes allow you to view the original transcription and the translation side-by-side, or isolate either one.
+- **Side-by-Side Viewing:** Display modes allow you to view the original transcription and the translation side-by-side, or isolate either one.
 - **Advanced Text Manipulation & Server Config:** Customize text output formatting (raw, joined, or advanced paragraphs) and easily configure custom server IP addresses and ports with one-click default resets.
 </br>
 </br>
