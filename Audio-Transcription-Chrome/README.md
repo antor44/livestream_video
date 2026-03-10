@@ -20,7 +20,7 @@ The UI is divided into several sections to give you full control over transcript
 
 - **General Settings:**
   - **Speech (TTS) Speed & Enable TTS:** Enable Text-to-Speech to have the extension read the translated text aloud in real time. You can adjust the reading speed.
-  - **Show in Standalone Window:** Choose between displaying the text in a floating overlay inside the webpage, or in a dedicated, resizable standalone popup window.
+  - **Show in Standalone Window:** Choose between viewing the transcription in a floating, resizable in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
   - **Voice Activity Detection (VAD):** Enable this to stop processing audio during silent periods, saving CPU/GPU resources.
 
 - **Audio Server:**
