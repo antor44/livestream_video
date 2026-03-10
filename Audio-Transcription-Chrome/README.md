@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 1.8.0
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.0.0
 
 Audio Transcription is a Chrome/Chromium/Microsoft Edge extension that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user can choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid processing audio on the server when there is no speech.
 

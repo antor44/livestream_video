@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Standalone Transcription</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: #0f172a;
+      --panel-2: #111827;
+      --panel-3: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+      --accent: #3b82f6;
+      --accent-2: #60a5fa;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 30%),
+        linear-gradient(180deg, #0b1220 0%, #020617 100%);
+    }
+
+    #topbar {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 10px 0 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-app-region: drag;
+    }
+
+    #topbar-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 32px;
+    }
+
+    #status-line {
+      font-size: 10px;
+      color: #94a3b8;
+      letter-spacing: 0.03em;
+      line-height: 1.5;
+      padding: 3px 0 5px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+
+    #topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    #topbar-left img {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      flex: 0 0 18px;
+    }
+
+    #window-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.01em;
+    }
+
+    #topbar-controls {
+      display: flex;
+      gap: 6px;
+      -webkit-app-region: no-drag;
+    }
+
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 30px;
+      padding: 0 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+    }
+
+    .toolbar-btn:hover {
+      background: rgba(59, 130, 246, 0.16);
+      border-color: rgba(96, 165, 250, 0.4);
+      transform: translateY(-1px);
+    }
+
+    #transcription-shell {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      padding: 10px;
+      gap: 10px;
+    }
+
+    #transcription-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.98));
+      box-shadow: var(--shadow);
+    }
+
+    #transcription-header {
+      flex: 0 0 auto;
+      background: rgba(30, 41, 59, 0.5);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #transcription-original,
+    #transcription-translated {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px 0;
+      word-break: break-word;
+      white-space: normal;
+      scrollbar-width: thin;
+      scrollbar-color: #475569 transparent;
+    }
+
+    #transcription-original {
+      flex: 1 1 0%;
+      color: var(--text);
+      background: transparent;
+    }
+
+    #transcription-translated {
+      flex: 1 1 0%;
+      color: #a7f3d0;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    #transcription-divider {
+      flex: 0 0 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+      cursor: row-resize;
+      transition: background 0.2s ease;
+    }
+
+    #transcription-divider:hover {
+      background: rgba(59, 130, 246, 0.5);
+    }
+
+    #footer-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 2px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    #footer-note .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="topbar">
+      <div id="topbar-main">
+        <div id="topbar-left">
+          <img src="./icon128.png" alt="Icon">
+          <div id="window-title">Standalone Transcription Window</div>
+        </div>
+
+        <div id="topbar-controls">
+          <button id="btn-decrease" class="toolbar-btn" type="button" title="Decrease font size">A-</button>
+          <button id="btn-increase" class="toolbar-btn" type="button" title="Increase font size">A+</button>
+          <button id="btn-copy" class="toolbar-btn" type="button" title="Copy transcript">Copy</button>
+        </div>
+      </div>
+      <div id="status-line"></div>
+    </div>
+
+    <div id="transcription-shell">
+      <div id="transcription-content">
+        <div id="transcription-header"></div>
+        <div id="transcription-original"></div>
+        <div id="transcription-divider"></div>
+        <div id="transcription-translated"></div>
+      </div>
+
+      <div id="footer-note">
+        <span class="pill">Live transcript</span>
+        <span class="pill">Standalone mode</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="standalone.js"></script>
+</body>
+
+</html>

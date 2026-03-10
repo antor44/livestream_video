@@ -1,661 +1,768 @@
-(function(){
-  // Prevent duplicate loading.
-  // if (window.__contentJS_loaded) return;
-  // window.__contentJS_loaded = true;
+if (window.__audioTranscriptionOverlayApi) {
+  window.__audioTranscriptionOverlayApi.reactivate();
+} else {
+  window.__audioTranscriptionOverlayApi = (function () {
+    const TEXT_BLOCK_STYLE =
+      "padding:0 16px 10px 16px;display:block;white-space:pre-wrap;word-break:break-word;";
+    const BUTTON_STYLE =
+      "padding:2px 8px;cursor:pointer;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.22);color:#fff;border-radius:6px;font-size:12px;font-weight:700;";
 
-  // If there are no multimedia elements on the page (video/audio), remove the overlay.
-  if (!document.querySelector('video, audio')) {
-    remove_element();
-    return;
-  }
+    const MANIFEST_VERSION = chrome.runtime.getManifest?.()?.version || "";
+    const CONTAINER_STYLE = (style) => `
+      position:fixed;
+      top:${style.top};
+      left:${style.left};
+      width:${style.width};
+      height:${style.height};
+      z-index:2147483647;
+      background:rgba(2,6,23,0.96);
+      color:#f8fafc;
+      border:1px solid #334155;
+      border-radius:12px;
+      overflow:hidden;
+      resize:both;
+      display:flex;
+      flex-direction:column;
+      box-shadow:0 12px 28px rgba(0,0,0,0.45);
+      backdrop-filter:blur(6px);
+    `;
 
-  // -------------------- Constants for Styles -------------------- //
-  const TEXT_SPAN_STYLE = "padding-left:16px; padding-right:16px; display:block;";
-  const TITLE_SPAN_STYLE = "padding-left:16px; padding-right:16px; display:block; font-weight: bold; margin-bottom: 8px;";
-  const BUTTON_STYLE = "margin-right:4px; padding:2px 8px; cursor:pointer; background:transparent; border:none; outline:none; font:inherit; color:inherit;";
-  const COPY_BUTTON_STYLE = "margin-right:10px; padding:2px 8px; cursor:pointer; background:transparent; border:none; outline:none; font:inherit; color:inherit;";
-  const POPUP_CONTAINER_STYLE = "position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; color:black; padding:16px; border-radius:10px; box-shadow:0px 0px 10px rgba(0,0,0,1); display:none; text-align:center;";
-  const CONTENT_STYLE = "width:100%; height:100%; padding:10px; box-sizing:border-box; overflow-y:auto; position:relative;";
-  const CONTAINER_STYLE = (style) =>
-    `font-size:20px; position:absolute; top:${style.top}; left:${style.left}; width:${style.width}; height:${style.height}; opacity:1; z-index:2147483647; background:black; border-radius:10px; color:white; overflow:auto; resize:both;`;
+    let containerElement = null;
+    let transcriptionHeaderEl = null;
+    let transcriptionOriginalEl = null;
+    let transcriptionTranslatedEl = null;
+    let dividerEl = null;
+    let mainWrapperEl = null;
+    let waitPopupEl = null;
+    let resizeObserver = null;
 
-  // -------------------- Global Variables -------------------- //
-  let containerElement = null; // Main transcription container.
-  let transcriptionCurrentEl = null; // Current transcription area.
-  let transcriptionHistoryEl = null; // Transcription history container.
-  let transcriptionHeaderEl = null; // Header container.
-  let segments = [];  // Current transcription segments.
-  let previousSegments = []; // Previously received segments.
-  let historySegments = [];  // Stored historical segments (raw, unformatted).
-  let windowStartTime = null; // Timestamp when the current transcription window started.
-  let currentUrl = window.location.href;  // Track current URL for navigation changes.
+    let segments = [];
+    let previousSegments = [];
+    let historyChunks = [];
+    let translatedChunks = [];
+    let pendingStableText = "";
+    let windowStartTime = Date.now();
+    let currentFormatting = "advanced";
+    let currentDisplayMode = "both";
+    let currentFontSize = 20;
+    let lastReceivedTime = Date.now();
+    let silenceFlushTimer = null;
+    let isDraggingDivider = false;
+    let translationQueue = [];
+    let isTranslatingLocal = false;
+    let listenerBound = false;
+    let statusClearTimer = null;
 
-  // -------------------- Helper Functions for Storage -------------------- //
-  // Retrieves a setting from Chrome's local storage.
-  function getSetting(key, callback) {
-    chrome.storage.local.get(key, (data) => callback(data[key]));
-  }
-  // Saves a setting to Chrome's local storage.
-  function setSetting(key, value) {
-    chrome.storage.local.set({ [key]: value });
-  }
+    let enableGeminiTranslation = false;
+    let dedupTail = [];
 
-  // -------------------- Debounce Function -------------------- //
-  // Debounces a function call.
-  function debounce(func, delay) {
-    let timeout;
-    return function(...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), delay);
+    function normalizeText(text) { return String(text || "").replace(/\s+/g, " ").trim(); }
+    function splitWords(text) { return normalizeText(text).toLowerCase().split(" ").filter(Boolean); }
+    function escapeHtml(value) {
+      return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
     }
-  }
-  const debouncedSaveWindowStyle = debounce(saveWindowStyle, 300);
-
-  // -------------------- Popup Functions -------------------- //
-  // Initializes the popup element.
-  function initPopupElement() {
-    if (document.getElementById('popupElement')) return;
-    const popupContainer = document.createElement('div');
-    popupContainer.id = 'popupElement';
-    popupContainer.style.cssText = POPUP_CONTAINER_STYLE;
-    const popupText = document.createElement('span');
-    popupText.textContent = 'Default Text';
-    popupText.className = 'popupText';
-    popupText.style.fontSize = '24px';
-    popupContainer.appendChild(popupText);
-    document.body.appendChild(popupContainer);
-  }
-  // Shows the popup with custom text.
-  function showPopup(customText) {
-    const popup = document.getElementById('popupElement');
-    const popupText = popup && popup.querySelector('.popupText');
-    if (popup && popupText) {
-      popupText.textContent = customText || 'Default Text';
-      popup.style.display = 'block';
+    function stripPunctuation(text) {
+      return String(text || "").toLowerCase().replace(/[^\w\s']/g, " ").replace(/\s+/g, " ").trim();
     }
-  }
+    function setSetting(key, value) { chrome.storage.local.set({ [key]: value }); }
+    function debounce(fn, delay) {
+      let timer = null;
+      return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+    }
+    const debouncedSaveWindowStyle = debounce(saveWindowStyle, 200);
 
-  // -------------------- Initialization Subfunctions -------------------- //
-  // Creates the main transcription container.
-  function createContainer() {
-    containerElement = document.createElement('div');
-    containerElement.id = 'transcription';
-    // Calculate default styles based on the viewport.
-    const defaultWidth = Math.min(700, Math.floor(window.innerWidth * 0.8));
-    const defaultHeight = Math.min(120, Math.floor(window.innerHeight * 0.5));
-    const defaultTop = Math.floor((window.innerHeight - defaultHeight) / 1.1);
-    const defaultLeft = Math.floor((window.innerWidth - defaultWidth) / 2.5);
-    const defaultStyle = {
-      top: defaultTop + 'px',
-      left: defaultLeft + 'px',
-      width: defaultWidth + 'px',
-      height: defaultHeight + 'px'
-    };
-    containerElement.style.cssText = CONTAINER_STYLE(defaultStyle);
+    function calculateTextSimilarity(a, b) {
+      const wa = splitWords(a);
+      const wb = splitWords(b);
+      if (!wa.length || !wb.length) return 0;
+      const setA = new Set(wa);
+      let matches = 0;
+      for (const word of wb) { if (setA.has(word)) matches++; }
+      return matches / Math.max(wa.length, wb.length);
+    }
 
-    // Retrieve stored windowStyle; if valid, update; otherwise save default.
-    chrome.storage.local.get('windowStyle', (data) => {
-      if (data.windowStyle) {
-        const stored = data.windowStyle;
-        const sWidth = parseInt(stored.width);
-        const sHeight = parseInt(stored.height);
-        const sTop = parseInt(stored.top);
-        const sLeft = parseInt(stored.left);
-        const valid = !isNaN(sWidth) && !isNaN(sHeight) && !isNaN(sTop) && !isNaN(sLeft) &&
-                      sWidth > 0 && sHeight > 0 &&
-                      sWidth <= window.innerWidth && sHeight <= window.innerHeight &&
-                      sLeft >= 0 && sTop >= 0 &&
-                      (sLeft + sWidth) <= window.innerWidth &&
-                      (sTop + sHeight) <= window.innerHeight;
-        if (valid) {
-          containerElement.style.top = sTop + 'px';
-          containerElement.style.left = sLeft + 'px';
-          containerElement.style.width = sWidth + 'px';
-          containerElement.style.height = sHeight + 'px';
-        } else {
-          containerElement.style.top = defaultStyle.top;
-          containerElement.style.left = defaultStyle.left;
-          containerElement.style.width = defaultStyle.width;
-          containerElement.style.height = defaultStyle.height;
-          setSetting('windowStyle', defaultStyle);
+    function trimPrefixOverlap(baseText, candidateText, maxWords = 80, minWords = 3) {
+      const baseWords = splitWords(baseText);
+      const rawCandidateWords = normalizeText(candidateText).split(/\s+/).filter(Boolean);
+      const candidateWords = splitWords(candidateText);
+      const max = Math.min(maxWords, baseWords.length, candidateWords.length);
+      for (let size = max; size >= minWords; size--) {
+        let ok = true;
+        for (let i = 0; i < size; i++) {
+          if (baseWords[baseWords.length - size + i] !== candidateWords[i]) { ok = false; break; }
         }
-      } else {
-        setSetting('windowStyle', defaultStyle);
+        if (ok) return rawCandidateWords.slice(size).join(" ").trim();
       }
-    });
-  }
-
-  // Creates the content area within the transcription container.
-  function createContentArea() {
-    const content = document.createElement('div');
-    content.id = 'transcription-content';
-    content.style.cssText = CONTENT_STYLE;
-
-    // Create header container for initial information.
-    transcriptionHeaderEl = document.createElement('div');
-    transcriptionHeaderEl.id = 'transcription-header';
-    transcriptionHeaderEl.style.cssText = 'display:block;';
-
-    // Create history container for accumulated transcription text.
-    transcriptionHistoryEl = document.createElement('div');
-    transcriptionHistoryEl.id = 'transcription-history';
-    transcriptionHistoryEl.style.cssText = 'display:block;';
-
-    // Add header information (this will not be overwritten later).
-    chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
-      const language = data.selectedLanguage || 'auto-detect';
-      const task = data.selectedTask === 'translate' ? 'translate to English' : 'NO translate to English';
-      const model = data.selectedModelSize || 'unknown';
-      const webpageTitle = document.title;
-      const spanElem1 = document.createElement('span');
-      spanElem1.style.cssText = TITLE_SPAN_STYLE;
-      spanElem1.textContent = `Transcription of ${webpageTitle}`;
-      transcriptionHeaderEl.appendChild(spanElem1);
-      const spanElem2 = document.createElement('span');
-      spanElem2.style.cssText = TITLE_SPAN_STYLE;
-      spanElem2.textContent = `Transcribing stream with model ${model}, language ${language}, ${task}`;
-      transcriptionHeaderEl.appendChild(spanElem2);
-    });
-
-    // Create current transcription container.
-    transcriptionCurrentEl = document.createElement('div');
-    transcriptionCurrentEl.id = 'transcription-current';
-    transcriptionCurrentEl.style.cssText = 'display:block;';
-
-    // Append the header, history, and current transcription areas.
-    content.appendChild(transcriptionHeaderEl);
-    content.appendChild(transcriptionHistoryEl);
-    content.appendChild(transcriptionCurrentEl);
-    containerElement.appendChild(content);
-  }
-
-  // Configures control buttons (adjust font size, copy).
-  function configureControls() {
-    const controls = document.createElement('div');
-    controls.style.cssText = "position:absolute; top:4px; right:4px; z-index:10; display:flex; align-items:center;";
-    const decreaseBtn = document.createElement('button');
-    decreaseBtn.textContent = '–';
-    decreaseBtn.style.cssText = BUTTON_STYLE;
-    const increaseBtn = document.createElement('button');
-    increaseBtn.textContent = '+';
-    increaseBtn.style.cssText = BUTTON_STYLE;
-    const copyBtn = document.createElement('button');
-    copyBtn.textContent = 'Copy';
-    copyBtn.style.cssText = COPY_BUTTON_STYLE;
-    decreaseBtn.addEventListener('click', () => adjustFontSize(-2));
-    increaseBtn.addEventListener('click', () => adjustFontSize(2));
-    copyBtn.addEventListener('click', copyAllTextToClipboard);
-    controls.appendChild(decreaseBtn);
-    controls.appendChild(increaseBtn);
-    controls.appendChild(copyBtn);
-    containerElement.appendChild(controls);
-  }
-
-  // Configures movement for the transcription window.
-  function configureMovement() {
-    let x = 0, y = 0;
-    const ele = containerElement;
-    const mouseDownHandler = function(e) {
-      if (e.target.tagName.toLowerCase() === 'button') return;
-      const rect = ele.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
-      if (rect.width - offsetX < 16 && rect.height - offsetY < 16) return;
-      x = e.clientX;
-      y = e.clientY;
-      document.addEventListener('mousemove', mouseMoveHandler);
-      document.addEventListener('mouseup', mouseUpHandler);
-    };
-    const mouseMoveHandler = function(e) {
-      const dx = e.clientX - x;
-      const dy = e.clientY - y;
-      const newTop = Math.max(0, ele.offsetTop + dy);
-      const newLeft = Math.max(0, ele.offsetLeft + dx);
-      ele.style.top = `${newTop}px`;
-      ele.style.left = `${newLeft}px`;
-      x = e.clientX;
-      y = e.clientY;
-    };
-    const mouseUpHandler = function() {
-      document.removeEventListener('mousemove', mouseMoveHandler);
-      document.removeEventListener('mouseup', mouseUpHandler);
-      debouncedSaveWindowStyle();
-    };
-    ele.addEventListener('mousedown', mouseDownHandler);
-  }
-
-  // -------------------- Functions for Adjusting and Saving Style -------------------- //
-  // Adjusts the font size of transcription text.
-  function adjustFontSize(delta) {
-    if (!transcriptionCurrentEl || !transcriptionHistoryEl) return;
-    const currentSize = parseInt(transcriptionCurrentEl.style.fontSize || 20);
-    const newSize = Math.max(10, currentSize + delta);
-    const newLineHeight = Math.round(newSize * 1.2) + 'px';
-    transcriptionCurrentEl.style.fontSize = `${newSize}px`;
-    transcriptionHistoryEl.style.fontSize = `${newSize}px`;
-    transcriptionCurrentEl.style.lineHeight = newLineHeight;
-    transcriptionHistoryEl.style.lineHeight = newLineHeight;
-    setSetting('fontSize', newSize);
-  }
-
-  // Saves the current window style (position and size) to storage.
-  function saveWindowStyle() {
-    if (!containerElement) return;
-    const style = {
-      top: containerElement.style.top,
-      left: containerElement.style.left,
-      width: containerElement.style.width,
-      height: containerElement.style.height,
-    };
-    setSetting('windowStyle', style);
-  }
-
-  // Recalculates window style ensuring it fits within the viewport.
-  function recalcWindowStyle() {
-    if (!containerElement) return;
-    let top = parseInt(containerElement.style.top) || 0;
-    let left = parseInt(containerElement.style.left) || 0;
-    let width = parseInt(containerElement.style.width) || 720;
-    let height = parseInt(containerElement.style.height) || 120;
-    width = Math.min(width, window.innerWidth);
-    height = Math.min(height, window.innerHeight);
-    if (left + width > window.innerWidth) {
-      left = Math.max(0, window.innerWidth - width);
+      return normalizeText(candidateText);
     }
-    if (top + height > window.innerHeight) {
-      top = Math.max(0, window.innerHeight - height);
+
+    function formatText(text, formatting) {
+      const clean = normalizeText(text);
+      if (!clean) return "";
+      if (formatting === "none") return clean.replace(/([.!?\u2026])\s+/g, "$1\n");
+      if (formatting === "join") return clean;
+      return clean.replace(/([.!?\u2026])\s+(?=[A-Za-z¿¡])/g, "$1\n").replace(/([.!?\u2026])\s*(¿|¡)/g, "$1\n$2");
     }
-    containerElement.style.top = top + 'px';
-    containerElement.style.left = left + 'px';
-    containerElement.style.width = width + 'px';
-    containerElement.style.height = height + 'px';
-    containerElement.style.transform = 'none';
-    setSetting('windowStyle', {
-      top: containerElement.style.top,
-      left: containerElement.style.left,
-      width: containerElement.style.width,
-      height: containerElement.style.height
-    });
-  }
 
-  // -------------------- Viewport Resize Listener -------------------- //
-  window.addEventListener('resize', recalcWindowStyle);
+    function splitIntoFlushableChunks(text, forceFlush = false) {
+      let rest = normalizeText(text);
+      const chunks = [];
+      if (!rest) return { chunks, remainder: "" };
 
-  // -------------------- History Update and Display Functions -------------------- //
+      const sentenceRegex = /[^.!?\u2026]+[.!?\u2026]+(?:["')\]]+)?/g;
+      let consumedLength = 0;
+      let match;
 
-  // Updates historySegments with new stable segments from newSegments.
-  function updateHistory(newSegments) {
-    if (!previousSegments.length) {
-      previousSegments = newSegments.slice();
+      while ((match = sentenceRegex.exec(rest)) !== null) {
+        const sentence = normalizeText(match[0]);
+        if (sentence) chunks.push(sentence);
+        consumedLength = sentenceRegex.lastIndex;
+      }
+
+      rest = normalizeText(rest.slice(consumedLength));
+      const words = rest.split(/\s+/).filter(Boolean);
+
+      while (words.length >= 10) {
+        const piece = normalizeText(words.splice(0, 10).join(" "));
+        if (piece) chunks.push(piece);
+      }
+
+      if (forceFlush && words.length) {
+        chunks.push(normalizeText(words.join(" ")));
+        return { chunks, remainder: "" };
+      }
+
+      return { chunks, remainder: normalizeText(words.join(" ")) };
+    }
+
+    function getCurrentWindowText(segArray) {
+      if (!Array.isArray(segArray)) return "";
+      return normalizeText(segArray.map((s) => s?.text || "").join(" "));
+    }
+
+    function saveWindowStyle() {
+      if (!containerElement) return;
+      setSetting("windowStyle", {
+        top: containerElement.style.top,
+        left: containerElement.style.left,
+        width: containerElement.style.width,
+        height: containerElement.style.height
+      });
+    }
+
+    function clearSilenceMonitor() {
+      if (silenceFlushTimer) { clearInterval(silenceFlushTimer); silenceFlushTimer = null; }
+    }
+
+    function stopTtsNow() {
+      try { chrome.tts?.stop(); } catch (e) {}
+      try { window.speechSynthesis?.cancel(); } catch (e) {}
+      try { chrome.runtime.sendMessage({ action: "stopTts" }); } catch (e) {}
+    }
+
+    function resetTranslationContext() {
+      try { chrome.runtime.sendMessage({ action: "resetTranslationContext" }); } catch (e) {}
+    }
+
+    function resetRuntimeState() {
+      segments = [];
+      previousSegments = [];
+      dedupTail = historyChunks.slice(-40);
+      historyChunks = [];
+      translatedChunks = [];
+      pendingStableText = "";
       windowStartTime = Date.now();
-      return;
+      currentFormatting = currentFormatting || "advanced";
+      currentDisplayMode = currentDisplayMode || "both";
+      currentFontSize = currentFontSize || 20;
+      lastReceivedTime = Date.now();
+      translationQueue = [];
+      isTranslatingLocal = false;
+      if (statusClearTimer) { clearTimeout(statusClearTimer); statusClearTimer = null; }
+      window.__transcriptionStatusText = "";
+      resetTranslationContext();
     }
-    // Consider the window stable if there are at least 5 segments or 8 seconds have passed.
-    const isStable = newSegments.length >= 5 || (Date.now() - windowStartTime) >= 8000;
-    if (!isStable) {
-      previousSegments = newSegments.slice();
-      return;
-    }
-    let index = previousSegments.findIndex(seg => seg.text === newSegments[0].text);
-    if (index === -1) {
-      index = previousSegments.length;
-    }
-    
-    // Process stable segments for addition to history
-    for (let i = 0; i < index; i++) {
-      const text = previousSegments[i].text;
-      
-      // Skip empty segments
-      if (!text || text.trim().length === 0) {
-        continue;
-      }
-      
-      // Skip hallucination check for very short texts
-      if (text.split(/\s+/).length <= 3) {
-        if (!historySegments.includes(text)) {
-          historySegments.push(text);
-        }
-        continue;
-      }
-      
-      // Check similarity with existing history segments to detect hallucinations
-      let isHallucination = false;
-      
-      // If history is empty, add the segment
-      if (historySegments.length === 0) {
-        historySegments.push(text);
-        continue;
-      }
-      
-      // Compare with the last few history segments to detect hallucinations
-      const similarityThreshold = 0.9; // 90% similarity threshold
-      const lastSegmentsToCheck = Math.min(2, historySegments.length);
-      
-      for (let j = 1; j <= lastSegmentsToCheck; j++) {
-        const prevHistorySegment = historySegments[historySegments.length - j];
-        const similarity = calculateTextSimilarity(text, prevHistorySegment);
-        
-        // If too similar to existing content, consider it a hallucination or duplicate
-        if (similarity > similarityThreshold) {
-          isHallucination = true;
-          break;
-        }
-      }
-      
-      if (!isHallucination && !historySegments.includes(text)) {
-        historySegments.push(text);
-      }
-    }
-    
-    windowStartTime = Date.now();
-    previousSegments = newSegments.slice();
-  }
 
-  // -------------------- Text Similarity Function -------------------- //
-  // Calculate similarity between two texts using word comparison
-  function calculateTextSimilarity(text1, text2) {
-    if (!text1 || !text2) return 0;
-    
-    // Convert texts to word arrays and filter out empty strings
-    const words1 = text1.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-    const words2 = text2.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-    
-    // If either text has very few words, similarity is less relevant
-    if (words1.length <= 3 || words2.length <= 3) {
-      return words1.length > 0 && words2.length > 0 ? 0.9 : 0; // Consider short non-empty texts as similar
+    function queueTranslation(text) {
+      if (!enableGeminiTranslation) return;
+      const clean = normalizeText(text);
+      if (!clean) return;
+      if (translationQueue.length > 0) {
+        translationQueue[0] = normalizeText(translationQueue[0] + " " + clean);
+      } else {
+        translationQueue.push(clean);
+      }
+      processTranslationQueue();
     }
-    
-    // Count matching words
-    const wordSet = new Set(words1);
-    const matchingWords = words2.filter(word => wordSet.has(word)).length;
-    
-    // Calculate similarity as percentage of matching words relative to the longer text
-    return matchingWords / Math.max(words1.length, words2.length);
-  }
-  
-  // Advanced formatting function.
-  // This simplified approach inserts a newline after a punctuation mark
-  // (period, exclamation, question mark, or ellipsis) if it is followed by at least one space.
-  // In cases like acronyms or numbers, there is no space after the punctuation.
-  function advancedFormat(text) {
-    return text.replace(/([.!?…])\s+/g, '$1\n');
-  }
 
-  // Displays the current transcription segments and updates the history display.
-  function displaySegments() {
-    // Basic validation
-    if (!transcriptionCurrentEl) return;
-    
-    // Create backup of current content in case rendering fails
-    const currentContent = transcriptionCurrentEl.innerHTML;
-    
-    try {
-      // Update history with current raw segments
-      updateHistory(segments);
+    function processTranslationQueue() {
+      if (isTranslatingLocal || translationQueue.length === 0) return;
+      const text = translationQueue.shift();
+      isTranslatingLocal = true;
       
-      // Validate segments arrays
-      const validHistorySegments = Array.isArray(historySegments) ? historySegments : [];
-      const validSegments = Array.isArray(segments) ? segments : [];
-      
-      // Use a promise to ensure we don't have race conditions with settings retrieval
-      new Promise((resolve) => {
-        chrome.storage.local.get("textFormatting", resolve);
-      })
-      .then((result) => {
-        const formatType = result.textFormatting || "none";
+      chrome.runtime.sendMessage({ action: "processTranslation", text }, (response) => {
+        const runtimeErr = chrome.runtime.lastError?.message || "";
+        isTranslatingLocal = false;
         
-        // Don't clear content until we're ready to actually add new content
-        let newContent = document.createDocumentFragment();
-        
-        if (formatType === "none") {
-          // In "none" mode, render each history segment and current segment individually.
-          validHistorySegments.forEach((text) => {
-            if (text && text.trim()) { // Skip empty segments
-              const spanElem = document.createElement('span');
-              spanElem.style.cssText = TEXT_SPAN_STYLE;
-              spanElem.innerText = text;
-              newContent.appendChild(spanElem);
-            }
-          });
-          
-          validSegments.forEach((seg, i) => {
-            if (seg && seg.text && seg.text.trim()) { // Skip empty segments
-              const elemText = document.createElement('span');
-              elemText.style.cssText = TEXT_SPAN_STYLE;
-              elemText.id = 't' + i;
-              elemText.innerText = seg.text; // Use innerText instead of innerHTML for security
-              newContent.appendChild(elemText);
-            }
-          });
+        if (!runtimeErr && response?.success) {
+          if (response.data) {
+            addTranslatedChunk(response.data);
+            updateHeaderStatusText("Translation Active");
+          }
         } else {
-          // In "join" and "advanced" modes, join history and current segments.
-          const historyText = validHistorySegments.filter(text => text && text.trim()).map(text => text.trim()).join(" ");
-          const currentText = validSegments.filter(seg => seg && seg.text && seg.text.trim()).map(seg => seg.text.trim()).join(" ");
-          let fullText = (historyText + " " + currentText).trim();
-          
-          if (formatType === "advanced") {
-            fullText = advancedFormat(fullText);
-            const lines = fullText.split('\n');
-            const mergedLines = [];
-            let currentLine = '';
-            for (let line of lines) {
-              if (currentLine.length + line.length + 1 < 12) {
-                currentLine += (currentLine ? ' ' : '') + line.trim();
-              } else {
-                if (currentLine) mergedLines.push(currentLine);
-                currentLine = line.trim();
-              }
+          const errMsg = response?.error || runtimeErr || "Translation failed";
+          updateHeaderStatusText(`Translation Error: ${errMsg}`);
+          console.error("Translation failed:", errMsg, response || null);
+        }
+        
+        if (translationQueue.length > 0) processTranslationQueue();
+      });
+    }
+
+    function addTranslatedChunk(text) {
+      const clean = normalizeText(text);
+      if (clean) {
+        const last = translatedChunks[translatedChunks.length - 1] || "";
+        if (!last || calculateTextSimilarity(last, clean) <= 0.9) {
+          translatedChunks.push(clean);
+          if (translatedChunks.length > 200) translatedChunks.shift();
+        }
+      }
+      renderText();
+    }
+
+    function appendCommittedChunk(text) {
+      const incoming = normalizeText(text);
+      if (!incoming) return;
+
+      const allHistory = [...dedupTail, ...historyChunks];
+      let deduped = trimPrefixOverlap(allHistory.slice(-12).join(" "), incoming);
+      deduped = normalizeText(deduped);
+      if (!deduped) return;
+
+      const lastChunks = allHistory.slice(-6).join(" ");
+      if (calculateTextSimilarity(lastChunks, deduped) > 0.80) return;
+
+      const dedupedWords = deduped.split(/\s+/).filter(Boolean);
+      if (dedupedWords.length <= 5) {
+        const dedupedStripped = stripPunctuation(deduped);
+        const recentHistoryStripped = stripPunctuation(allHistory.slice(-50).join(" "));
+        if (dedupedStripped && recentHistoryStripped.includes(dedupedStripped)) return;
+      }
+
+      const startAnchor = stripPunctuation(normalizeText(deduped).split(/\s+/).slice(0, 7).join(" "));
+      if (startAnchor.split(" ").length >= 5) {
+        const historySearchable = stripPunctuation(allHistory.join(" "));
+        if (historySearchable.includes(startAnchor)) return;
+      }
+
+      historyChunks.push(deduped);
+      if (historyChunks.length > 160) historyChunks.shift();
+
+      queueTranslation(deduped);
+    }
+
+    function absorbStableText(text, forceFlush = false) {
+      pendingStableText = normalizeText(`${pendingStableText ? `${pendingStableText} ` : ""}${text || ""}`);
+      if (!pendingStableText) return;
+
+      const { chunks, remainder } = splitIntoFlushableChunks(pendingStableText, forceFlush);
+      for (const chunk of chunks) appendCommittedChunk(chunk);
+      pendingStableText = remainder;
+    }
+
+    function updateHistory(newSegments) {
+      if (!Array.isArray(newSegments) || newSegments.length === 0) return;
+      lastReceivedTime = Date.now();
+
+      if (!previousSegments.length) {
+        previousSegments = newSegments.slice();
+        windowStartTime = Date.now();
+        return;
+      }
+
+      const currentWindowText = getCurrentWindowText(newSegments);
+      const wordCount = splitWords(currentWindowText).length;
+      const elapsed = Date.now() - windowStartTime;
+      const isStable = wordCount >= 10 || elapsed >= 2500 || newSegments.length >= 5;
+
+      if (!isStable) {
+        previousSegments = newSegments.slice();
+        return;
+      }
+
+      let alignmentShift = -1;
+      const samplesToTry = Math.min(4, newSegments.length);
+      
+      for (let i = 0; i < samplesToTry; i++) {
+        const newSegText = newSegments[i].text.trim();
+        if (!newSegText) continue;
+        const foundIdx = previousSegments.findIndex(s => s.text.trim() === newSegText);
+        if (foundIdx !== -1) { alignmentShift = foundIdx - i; break; }
+      }
+
+      if (alignmentShift > 0) {
+        for (let i = 0; i < alignmentShift; i++) {
+          const txt = previousSegments[i]?.text;
+          if (txt && txt.trim()) appendCommittedChunk(txt.trim());
+        }
+        previousSegments = newSegments.slice();
+        windowStartTime = Date.now();
+      } else if (alignmentShift === 0) {
+        previousSegments = newSegments.slice();
+      } else if (alignmentShift === -1) {
+        if (elapsed > 6000) {
+          previousSegments.forEach(seg => {
+            if (seg.text && seg.text.trim()) appendCommittedChunk(seg.text.trim());
+          });
+          previousSegments = newSegments.slice();
+          windowStartTime = Date.now();
+        } else {
+          previousSegments = newSegments.slice();
+        }
+      }
+    }
+
+    function getVisibleOriginalText() {
+      const allHistoryWords = splitWords(historyChunks.join(" "));
+      const historyText = normalizeText(allHistoryWords.slice(-400).join(" "));
+      return normalizeText(`${historyText ? `${historyText} ` : ""}${pendingStableText || ""}`);
+    }
+
+    function applyDisplayMode() {
+      if (!transcriptionOriginalEl || !transcriptionTranslatedEl || !dividerEl) return;
+      
+      if (mainWrapperEl) {
+         mainWrapperEl.style.display       = "flex";
+         mainWrapperEl.style.flexDirection = "column";
+         mainWrapperEl.style.flex          = "1 1 0%";
+         mainWrapperEl.style.overflow      = "hidden";
+      }
+
+      const hasTranslation = translatedChunks.length > 0;
+      const showTranslation = (enableGeminiTranslation || hasTranslation) &&
+        (currentDisplayMode === "translation" || currentDisplayMode === "both");
+      const showOriginal = currentDisplayMode === "original" || currentDisplayMode === "both" || !showTranslation;
+
+      if (showOriginal && !showTranslation) {
+        transcriptionOriginalEl.style.display = "flex";
+        transcriptionOriginalEl.style.flex = "1 1 0%";
+        transcriptionTranslatedEl.style.display = "none";
+        dividerEl.style.display = "none";
+      } else if (!showOriginal && showTranslation) {
+        transcriptionOriginalEl.style.display = "none";
+        dividerEl.style.display = "none";
+        transcriptionTranslatedEl.style.display = "flex";
+        transcriptionTranslatedEl.style.flex = "1 1 0%";
+      } else {
+        transcriptionOriginalEl.style.display = "block";
+        transcriptionTranslatedEl.style.display = "block";
+        dividerEl.style.display = "block";
+
+        if (!transcriptionOriginalEl.style.flex || transcriptionOriginalEl.style.flex === "0 1 0%") {
+          transcriptionOriginalEl.style.flex = "1 1 0%";
+        }
+        if (!transcriptionTranslatedEl.style.flex || transcriptionTranslatedEl.style.flex === "0 1 0%") {
+          transcriptionTranslatedEl.style.flex = "1 1 0%";
+        }
+      }
+    }
+
+    function renderBlock(el, text, extraStyle = "") {
+      if (!el) return;
+      el.innerHTML = `<span style="${TEXT_BLOCK_STYLE}${extraStyle}">${escapeHtml(text)}</span>`;
+    }
+
+    function renderText() {
+      if (!transcriptionOriginalEl || !transcriptionTranslatedEl) return;
+      updateHistory(segments);
+
+      const committedText = getVisibleOriginalText();
+      const originalFormatted = formatText(committedText, currentFormatting);
+
+      let livePreviewHtml = "";
+      if (segments.length > 0) {
+        const liveRaw = normalizeText(getCurrentWindowText(segments));
+        if (liveRaw) {
+          const historyTail = normalizeText(committedText).split(/\s+/).slice(-60).join(" ");
+          const trimmed = normalizeText(trimPrefixOverlap(historyTail, liveRaw, 80, 2));
+          if (trimmed) {
+            const liveFormatted = formatText(trimmed, currentFormatting);
+            const liveLines = liveFormatted.split("\n");
+            const liveCapped = liveLines.slice(-3).join("\n");
+            livePreviewHtml = `<span style="opacity:0.35;font-style:italic;">${escapeHtml(liveCapped)}</span>`;
+          }
+        }
+      }
+
+      if (transcriptionOriginalEl) {
+        transcriptionOriginalEl.innerHTML =
+          `<span style="${TEXT_BLOCK_STYLE}">${escapeHtml(originalFormatted)}${livePreviewHtml ? "\n" + livePreviewHtml : ""}</span>`;
+      }
+
+      const translatedFull = formatText(normalizeText(translatedChunks.join(" ")), currentFormatting);
+      renderBlock(transcriptionTranslatedEl, translatedFull, "color:#a7f3d0;font-style:italic;");
+
+      applyDisplayMode();
+
+      transcriptionOriginalEl.scrollTop = transcriptionOriginalEl.scrollHeight;
+      transcriptionTranslatedEl.scrollTop = transcriptionTranslatedEl.scrollHeight;
+    }
+
+    function startSilenceMonitor() {
+      clearSilenceMonitor();
+      silenceFlushTimer = setInterval(() => {
+        const now = Date.now();
+        if (now - lastReceivedTime > 1200) {
+          if (previousSegments.length > 0) {
+            previousSegments.forEach(seg => {
+              if (seg.text && seg.text.trim()) appendCommittedChunk(seg.text.trim());
+            });
+            previousSegments = [];
+            segments = [];
+            renderText();
+          } else if (pendingStableText) {
+            absorbStableText("", true);
+            renderText();
+          }
+        }
+      }, 800);
+    }
+
+    function updateHeaderAndStatus(settings) {
+      if (!transcriptionHeaderEl) return;
+      const model = (settings.selectedModelSize || "small").toLowerCase();
+      const lang = (settings.selectedLanguage || "AUTO").toUpperCase();
+      const task = settings.selectedTask === "translate" ? "TRANSLATE" : "TRANSCRIBE";
+      const geminiModel = settings.geminiModel || "";
+      const target = (settings.targetLanguage || "ES").toUpperCase();
+      const vad = settings.useVad ? "ON" : "OFF";
+      const tts = settings.enableTts ? "ON" : "OFF";
+      const geminiOn = enableGeminiTranslation;
+      const statusText = window.__transcriptionStatusText || "";
+      const isError = statusText && statusText.toLowerCase().includes("error");
+      const statusBg = isError ? "rgba(220,38,38,0.25)" : "rgba(34,197,94,0.18)";
+      const statusBorder = isError ? "rgba(248,113,113,0.4)" : "rgba(74,222,128,0.35)";
+      const statusColor = isError ? "#fca5a5" : "#86efac";
+      const versionText = MANIFEST_VERSION ? ` · v${MANIFEST_VERSION}` : "";
+      const G = "#4ade80";
+      const Mu = "#94a3b8";
+
+      const pill = (label, value) => `<span style="color:${Mu};">${label}</span> <span style="color:${G};">${escapeHtml(value)}</span>`;
+      const sep = `&nbsp;&nbsp;`;
+
+      const statsHtml =
+        pill("Model", model) + sep +
+        pill("Language", lang) + sep +
+        pill("Task", task) + sep +
+        pill("Gemini", geminiOn ? "ON" : "OFF") + sep +
+        (geminiOn && geminiModel ? pill("Model", geminiModel) + sep : "") +
+        pill("Target", target) + sep +
+        pill("VAD", vad) + sep +
+        pill("TTS", tts) +
+        `<span style="color:#475569;">${escapeHtml(versionText)}</span>`;
+
+      transcriptionHeaderEl.innerHTML = `
+        <div style="padding:8px 16px 10px 16px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(30,41,59,0.45);width:100%;box-sizing:border-box;">
+          <div style="display:flex;align-items:center;min-height:22px;margin-bottom:3px;padding-right:10px;">
+            <div style="font-size:13px;font-weight:700;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">
+              ${escapeHtml(document.title || "Live Transcription")}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:#94a3b8;letter-spacing:0.03em;line-height:1.5;min-height:18px;width:100%;">
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;">${statsHtml}</span>
+            ${statusText ? `<span style="flex-shrink:0;padding:2px 8px;border-radius:999px;background:${statusBg};border:1px solid ${statusBorder};color:${statusColor};font-weight:700;font-size:10px;white-space:nowrap;display:inline-flex;align-items:center;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(statusText)}</span>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function updateHeaderStatusText(text) {
+      window.__transcriptionStatusText = text;
+      if (statusClearTimer) clearTimeout(statusClearTimer);
+      const keys = ["selectedModelSize", "selectedLanguage", "selectedTask", "targetLanguage", "useVad", "enableTts", "geminiModel"];
+      statusClearTimer = setTimeout(() => {
+        window.__transcriptionStatusText = "";
+        chrome.storage.local.get(keys, (res) => updateHeaderAndStatus(res || {}));
+      }, 5000);
+      chrome.storage.local.get(keys, (res) => updateHeaderAndStatus(res || {}));
+    }
+
+    function adjustFontSize(delta) {
+      currentFontSize = Math.max(12, currentFontSize + delta);
+      const lineHeight = `${Math.round(currentFontSize * 1.25)}px`;
+      if (transcriptionOriginalEl) {
+        transcriptionOriginalEl.style.fontSize = `${currentFontSize}px`;
+        transcriptionOriginalEl.style.lineHeight = lineHeight;
+      }
+      if (transcriptionTranslatedEl) {
+        transcriptionTranslatedEl.style.fontSize = `${Math.max(12, Math.round(currentFontSize * 0.92))}px`;
+        transcriptionTranslatedEl.style.lineHeight = lineHeight;
+      }
+      setSetting("fontSize", currentFontSize);
+    }
+
+    function showWaitPopup(text) {
+      if (!waitPopupEl) {
+        waitPopupEl = document.createElement("div");
+        waitPopupEl.id = "transcription-wait-popup";
+        waitPopupEl.style.cssText = `
+          position:fixed; z-index:2147483647; left:50%; top:50%; transform:translate(-50%, -50%);
+          background:rgba(15,23,42,0.96); color:#f8fafc; border:1px solid #334155; border-radius:12px;
+          padding:16px 20px; min-width:260px; max-width:420px; box-shadow:0 16px 40px rgba(0,0,0,0.45);
+          text-align:center; font-size:16px; line-height:1.4;
+        `;
+        document.body.appendChild(waitPopupEl);
+      }
+      waitPopupEl.textContent = String(text || "").trim() || "Please wait...";
+      waitPopupEl.style.display = "block";
+      setTimeout(() => { if (waitPopupEl) waitPopupEl.style.display = "none"; }, 3500);
+    }
+
+    function createContainer() {
+      containerElement = document.createElement("div");
+      containerElement.id = "transcription";
+      const defaultWidth = Math.min(820, Math.floor(window.innerWidth * 0.78));
+      const defaultHeight = Math.min(320, Math.floor(window.innerHeight * 0.55));
+      const defaultStyle = {
+        top: `${Math.max(16, Math.floor(window.innerHeight - defaultHeight - 48))}px`,
+        left: `${Math.max(16, Math.floor((window.innerWidth - defaultWidth) / 2))}px`,
+        width: `${defaultWidth}px`,
+        height: `${defaultHeight}px`
+      };
+      containerElement.style.cssText = CONTAINER_STYLE(defaultStyle);
+      chrome.storage.local.get(["windowStyle"], (data) => {
+        const s = data.windowStyle;
+        if (s?.top && s?.left && s?.width && s?.height) {
+          containerElement.style.top = s.top; containerElement.style.left = s.left;
+          containerElement.style.width = s.width; containerElement.style.height = s.height;
+        }
+      });
+    }
+
+    function createContentArea() {
+      transcriptionHeaderEl = document.createElement("div");
+      transcriptionHeaderEl.id = "transcription-header";
+      containerElement.appendChild(transcriptionHeaderEl);
+
+      mainWrapperEl = document.createElement("div");
+      mainWrapperEl.style.cssText = "display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative;";
+
+      transcriptionOriginalEl = document.createElement("div");
+      transcriptionOriginalEl.id = "transcription-original";
+      transcriptionOriginalEl.style.cssText = "flex:1 1 0%;overflow-y:auto;padding-top:8px;";
+
+      dividerEl = document.createElement("div");
+      dividerEl.id = "transcription-divider";
+      dividerEl.style.cssText = "height:4px;background:rgba(255,255,255,0.1);cursor:row-resize;border-top:1px solid rgba(255,255,255,0.16);border-bottom:1px solid rgba(0,0,0,0.4);transition:background 0.2s;";
+
+      transcriptionTranslatedEl = document.createElement("div");
+      transcriptionTranslatedEl.id = "transcription-translated";
+      transcriptionTranslatedEl.style.cssText = "flex:1 1 0%;overflow-y:auto;background:rgba(255,255,255,0.03);padding-top:8px;";
+
+      dividerEl.addEventListener("mouseover", () => { dividerEl.style.background = "rgba(59,130,246,0.45)"; });
+      dividerEl.addEventListener("mouseout", () => { if (!isDraggingDivider) dividerEl.style.background = "rgba(255,255,255,0.1)"; });
+
+      dividerEl.addEventListener("mousedown", (e) => {
+        isDraggingDivider = true;
+        document.body.style.cursor = "row-resize";
+        const startY = e.clientY;
+        const startH = transcriptionOriginalEl.offsetHeight;
+        const totalH = mainWrapperEl.offsetHeight;
+
+        const onMouseMove = (ev) => {
+          const delta = ev.clientY - startY;
+          const newH = Math.max(40, Math.min(totalH - 40, startH + delta));
+          const ratio = newH / totalH;
+          transcriptionOriginalEl.style.flex = `${ratio} 1 0%`;
+          transcriptionTranslatedEl.style.flex = `${1 - ratio} 1 0%`;
+        };
+
+        const onMouseUp = () => {
+          isDraggingDivider = false;
+          document.body.style.cursor = "default";
+          dividerEl.style.background = "rgba(255,255,255,0.1)";
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+          const ratio = transcriptionOriginalEl.offsetHeight / mainWrapperEl.offsetHeight;
+          setSetting("dividerPos", ratio);
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      });
+
+      mainWrapperEl.appendChild(transcriptionOriginalEl);
+      mainWrapperEl.appendChild(dividerEl);
+      mainWrapperEl.appendChild(transcriptionTranslatedEl);
+      containerElement.appendChild(mainWrapperEl);
+    }
+
+    function configureControls() {
+      const controls = document.createElement("div");
+      controls.style.cssText = "position:absolute;top:6px;right:6px;z-index:100;display:flex;gap:6px;";
+      const makeButton = (label, onClick) => {
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.textContent = label; btn.style.cssText = BUTTON_STYLE;
+        btn.addEventListener("click", onClick);
+        return btn;
+      };
+      controls.appendChild(makeButton("A-", () => adjustFontSize(-2)));
+      controls.appendChild(makeButton("A+", () => adjustFontSize(2)));
+      controls.appendChild(makeButton("Copy", async () => {
+        const text = `Original:\n${transcriptionOriginalEl?.innerText || ""}\n\nTranslation:\n${transcriptionTranslatedEl?.innerText || ""}`;
+        try { await navigator.clipboard.writeText(text); } catch (e) {}
+      }));
+      containerElement.appendChild(controls);
+    }
+
+    function configureMovement() {
+      let x = 0; let y = 0;
+      containerElement.addEventListener("mousedown", (e) => {
+        const tag = e.target?.tagName?.toLowerCase?.() || "";
+        if (tag === "button" || e.target === dividerEl) return;
+        const rect = containerElement.getBoundingClientRect();
+        const nearResizeCorner = rect.width - (e.clientX - rect.left) < 18 && rect.height - (e.clientY - rect.top) < 18;
+        if (nearResizeCorner) return;
+
+        x = e.clientX; y = e.clientY;
+        const onMove = (ev) => {
+          containerElement.style.top = `${Math.max(0, containerElement.offsetTop + (ev.clientY - y))}px`;
+          containerElement.style.left = `${Math.max(0, containerElement.offsetLeft + (ev.clientX - x))}px`;
+          x = ev.clientX; y = ev.clientY;
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp);
+          debouncedSaveWindowStyle();
+        };
+        document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
+      });
+
+      if (window.ResizeObserver) {
+        resizeObserver = new ResizeObserver(() => debouncedSaveWindowStyle());
+        resizeObserver.observe(containerElement);
+      }
+    }
+
+    function applySavedUiSettings() {
+      chrome.storage.local.get(
+        ["textFormatting", "fontSize", "displayMode", "dividerPos", "selectedModelSize",
+         "selectedLanguage", "selectedTask", "targetLanguage", "useVad", "enableTts",
+         "enableGeminiTranslation", "geminiModel"],
+        (res) => {
+          currentFormatting = res.textFormatting || "advanced";
+          currentDisplayMode = res.displayMode || "both";
+          currentFontSize = res.fontSize || 20;
+          enableGeminiTranslation = !!res.enableGeminiTranslation;
+
+          if (res.dividerPos) {
+            const pos = parseFloat(res.dividerPos);
+            if (Number.isFinite(pos) && pos > 0.1 && pos < 0.9) {
+              if (transcriptionOriginalEl) transcriptionOriginalEl.style.flex = `${pos} 1 0%`;
+              if (transcriptionTranslatedEl) transcriptionTranslatedEl.style.flex = `${1 - pos} 1 0%`;
             }
-            if (currentLine) mergedLines.push(currentLine);
-            fullText = mergedLines.join('\n');
           }
-          
-          if (fullText.trim()) { // Only create element if there's actual text
-            const elemText = document.createElement('span');
-            elemText.style.cssText = TEXT_SPAN_STYLE;
-            elemText.innerText = fullText;
-            newContent.appendChild(elemText);
-          }
+
+          adjustFontSize(0);
+          updateHeaderAndStatus(res || {});
+          applyDisplayMode();
+          renderText();
         }
-        
-        // Only replace content if we successfully generated new content
-        if (newContent.childNodes.length > 0) {
-          transcriptionCurrentEl.innerHTML = '';
-          transcriptionCurrentEl.appendChild(newContent);
-        } else if (currentContent) {
-          // If no new content but we had previous content, restore it
-          transcriptionCurrentEl.innerHTML = currentContent;
+      );
+    }
+
+    function ensureOverlay() {
+      let existing = document.getElementById("transcription");
+      if (existing) {
+        containerElement = existing;
+        transcriptionHeaderEl = document.getElementById("transcription-header");
+        transcriptionOriginalEl = document.getElementById("transcription-original");
+        transcriptionTranslatedEl = document.getElementById("transcription-translated");
+        dividerEl = document.getElementById("transcription-divider");
+        mainWrapperEl = transcriptionOriginalEl?.parentElement || null;
+        return;
+      }
+      createContainer();
+      createContentArea();
+      configureControls();
+      configureMovement();
+      document.body.appendChild(containerElement);
+      applySavedUiSettings();
+    }
+
+    function hardRemoveOverlay() {
+      clearSilenceMonitor();
+      if (resizeObserver) { try { resizeObserver.disconnect(); } catch (e) {} resizeObserver = null; }
+      if (containerElement?.parentNode) containerElement.parentNode.removeChild(containerElement);
+      if (waitPopupEl?.parentNode) waitPopupEl.parentNode.removeChild(waitPopupEl);
+      containerElement = null; transcriptionHeaderEl = null; transcriptionOriginalEl = null;
+      transcriptionTranslatedEl = null; dividerEl = null; mainWrapperEl = null; waitPopupEl = null;
+    }
+
+    function stopAndCloseOverlay() { stopTtsNow(); resetRuntimeState(); hardRemoveOverlay(); }
+    function resetSessionView() { ensureOverlay(); resetRuntimeState(); startSilenceMonitor(); applySavedUiSettings(); renderText(); }
+
+    function handleTranscriptPayload(raw) {
+      ensureOverlay();
+      let parsed;
+      try { parsed = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (e) { parsed = null; }
+      segments = Array.isArray(parsed?.segments) ? parsed.segments : [];
+      lastReceivedTime = Date.now();
+
+      chrome.storage.local.get(
+        ["displayMode", "textFormatting", "fontSize", "selectedModelSize", "selectedLanguage",
+         "selectedTask", "targetLanguage", "useVad", "enableTts", "enableGeminiTranslation", "geminiModel"],
+        (res) => {
+          currentDisplayMode = res.displayMode || "both";
+          currentFormatting = res.textFormatting || "advanced";
+          currentFontSize = res.fontSize || 20;
+          enableGeminiTranslation = !!res.enableGeminiTranslation;
+          adjustFontSize(0);
+          updateHeaderAndStatus(res || {});
+          renderText();
         }
-        
-        // Scroll to the bottom of the content area
-        const content = document.getElementById('transcription-content');
-        if (content) content.scrollTop = content.scrollHeight;
-      })
-      .catch((error) => {
-        console.error("Error displaying segments:", error);
-        // Restore previous content if rendering fails
-        if (currentContent) {
-          transcriptionCurrentEl.innerHTML = currentContent;
+      );
+    }
+
+    function onMessage(request, sender, sendResponse) {
+      try {
+        if (request.type === "resetSession") { resetSessionView(); sendResponse({ success: true }); return true; }
+        if (request.type === "showWaitPopup") { ensureOverlay(); showWaitPopup(request.data); sendResponse({ success: true }); return true; }
+        if (request.type === "transcript") { handleTranscriptPayload(request.data); sendResponse({ success: true }); return true; }
+        if (request.type === "translationResult") { addTranslatedChunk(request.data); sendResponse({ success: true }); return true; }
+        if (request.type === "STOP") { stopAndCloseOverlay(); sendResponse({ success: true }); return true; }
+        sendResponse({ success: false });
+      } catch (e) {
+        sendResponse({ success: false, error: e.message });
+      }
+      return true;
+    }
+
+    function bindMessageListenerOnce() {
+      if (listenerBound) return;
+      chrome.runtime.onMessage.addListener(onMessage);
+      listenerBound = true;
+    }
+
+    function bindStorageListener() {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+        let needsRender = false;
+        if ("enableGeminiTranslation" in changes) {
+          enableGeminiTranslation = !!changes.enableGeminiTranslation.newValue;
+          if (!enableGeminiTranslation) { translatedChunks = []; translationQueue = []; isTranslatingLocal = false; }
+          needsRender = true;
         }
+        if ("displayMode" in changes) { currentDisplayMode = changes.displayMode.newValue || "both"; needsRender = true; }
+        if ("textFormatting" in changes) { currentFormatting = changes.textFormatting.newValue || "advanced"; needsRender = true; }
+        if (needsRender && transcriptionOriginalEl) renderText();
       });
-    } catch (error) {
-      console.error("Error in displaySegments:", error);
-      // Restore previous content if processing fails
-      if (currentContent) {
-        transcriptionCurrentEl.innerHTML = currentContent;
-      }
     }
-  }
 
-  // Removes the transcription element from the DOM.
-  function remove_element() {
-    const elem = document.getElementById('transcription');
-    if (elem) {
-      elem.remove();
-    }
-    chrome.storage.local.set({ capturingState: { isCapturing: false } });
-    chrome.runtime.sendMessage({ action: "toggleCaptureButtons" });
-    window.__contentJS_loaded = false;
-  }
+    function reactivate() { ensureOverlay(); startSilenceMonitor(); applySavedUiSettings(); renderText(); }
+    function init() { bindMessageListenerOnce(); bindStorageListener(); ensureOverlay(); startSilenceMonitor(); applySavedUiSettings(); }
 
-  // -------------------- Copy-to-Clipboard -------------------- //
-  // Copies all transcribed text (including history) to the clipboard.
-  function copyAllTextToClipboard() {
-    const transcriptionContent = document.getElementById('transcription-content');
-    if (!transcriptionContent) return;
-    const textToCopy = transcriptionContent.innerText;
-    navigator.clipboard.writeText(textToCopy)
-      .then(() => {
-        initPopupElement();
-        showPopup("Text copied to clipboard!");
-        setTimeout(() => {
-          const popup = document.getElementById('popupElement');
-          if (popup) popup.style.display = 'none';
-        }, 2000);
-      })
-      .catch(err => {
-        console.error('Failed to copy text: ', err);
-        showPopup("Failed to copy text!");
-      });
-  }
-
-  // Checks for visible media elements.
-  function hasVisibleMediaElements() {
-    const mediaElements = document.querySelectorAll('video, audio');
-    for (const media of mediaElements) {
-      const rect = media.getBoundingClientRect();
-      const style = window.getComputedStyle(media);
-      if (rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden") {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Stub function for adding an initialization header.
-  function addInitializationHeader() {
-    return true;
-  }
-
-  // Override pushState to detect SPA navigation.
-  (function(history){
-    const pushState = history.pushState;
-    history.pushState = function(state) {
-      const result = pushState.apply(history, arguments);
-      window.dispatchEvent(new Event('locationchange'));
-      return result;
-    };
-  })(window.history);
-
-  window.addEventListener('popstate', function(){
-    window.dispatchEvent(new Event('locationchange'));
-  });
-
-  window.addEventListener('hashchange', function(){
-    window.dispatchEvent(new Event('locationchange'));
-  });
-
-  window.addEventListener('locationchange', function(){
-    if (window.location.href !== currentUrl) {
-      if (!hasVisibleMediaElements()) {
-        remove_element();
-      } else {
-        addInitializationHeader();
-      }
-      currentUrl = window.location.href;
-    }
-  });
-
-  let currentTitle = document.title;
-  const titleObserver = new MutationObserver(mutations => {
-    if (document.title !== currentTitle) {
-      currentTitle = document.title;
-      if (hasVisibleMediaElements()) {
-        addInitializationHeader();
-      } else {
-        remove_element();
-      }
-    }
-  });
-  const titleElement = document.querySelector('title');
-  if (titleElement) {
-    titleObserver.observe(titleElement, { childList: true });
-  }
-
-  const mediaObserver = new MutationObserver(mutations => {
-    if (!hasVisibleMediaElements()) {
-      remove_element();
-      mediaObserver.disconnect();
-    }
-  });
-  mediaObserver.observe(document.body, { childList: true, subtree: true });
-
-  // -------------------- Initialize and Setup Listeners -------------------- //
-  function init_element() {
-    if (document.getElementById('transcription')) return;
-    createContainer();
-    createContentArea();
-    configureControls();
-    document.body.appendChild(containerElement);
-    if (window.ResizeObserver) {
-      const resizeObserver = new ResizeObserver(() => {
-        debouncedSaveWindowStyle();
-      });
-      resizeObserver.observe(containerElement);
-    }
-    getSetting('fontSize', (fontSizeValue) => {
-      const fontSize = fontSizeValue || 20;
-      const lineHeight = Math.round(fontSize * 1.2) + 'px';
-      if (transcriptionCurrentEl && transcriptionHistoryEl) {
-        transcriptionCurrentEl.style.fontSize = `${fontSize}px`;
-        transcriptionHistoryEl.style.fontSize = `${fontSize}px`;
-        transcriptionCurrentEl.style.lineHeight = lineHeight;
-        transcriptionHistoryEl.style.lineHeight = lineHeight;
-      }
-    });
-    configureMovement();
-  }
-
-  window.addEventListener('beforeunload', () => {
-    try {
-      chrome.runtime.sendMessage({
-        action: "pageUnloading",
-        stopCapture: true,
-        toggleButtons: true
-      }).catch((e) => { console.error("Error during page unload:", e); });
-      remove_element();
-    } catch (e) {
-      console.error("Ignoring error during page unload:", e);
-    }
-  });
-
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const { type, data } = request;
-    if (type === 'resetSession') {
-      if (transcriptionHistoryEl) {
-        addInitializationHeader();
-      }
-      sendResponse({ success: true });
-      return true;
-    }
-    if (type === 'STOP') {
-      remove_element();
-      sendResponse({ data: 'STOPPED' });
-      return true;
-    } else if (type === 'showWaitPopup') {
-      initPopupElement();
-      showPopup(`Estimated wait time ~ ${Math.round(data)} minutes`);
-      sendResponse({ data: 'popup' });
-      return true;
-    } else if (type === 'transcript') {
-      segments = JSON.parse(data).segments;
-      displaySegments();
-      sendResponse({});
-      return true;
-    }
-    sendResponse({});
-    return true;
-  });
-
-  init_element();
-})();
+    init();
+    return { reactivate, stopAndCloseOverlay };
+  })();
+}

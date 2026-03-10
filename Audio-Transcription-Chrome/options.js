@@ -1,21 +1,15 @@
-// Check if this tab was created during browser startup and should be closed
 (function detectStartupTab() {
-  // If window already marked as startup tab by the executeScript in background.js
   if (window.isStartupTab) {
-    console.log("This is a startup tab detected by background script - closing");
     window.close();
     return;
   }
-  
-  // Secondary check using storage API
+
   chrome.storage.local.get(["browserJustStarted", "capturingState"], (result) => {
     const isStartupPeriod = result.browserJustStarted === true;
-    const wasCapturing = result.capturingState && result.capturingState.isCapturing === true;
-    
-    // If browser just started and we weren't in the middle of capturing
+    const wasCapturing =
+      result.capturingState && result.capturingState.isCapturing === true;
+
     if (isStartupPeriod && !wasCapturing) {
-      console.log("This is an unwanted startup tab - closing");
-      // Add a small delay to ensure this doesn't interfere with normal operation
       setTimeout(() => {
         window.close();
       }, 500);
@@ -23,348 +17,460 @@
   });
 })();
 
-/**
- * Captures audio from the active tab in Google Chrome.
- * @returns {Promise<MediaStream>} A promise that resolves with the captured audio stream.
- */
+let cleanupDone = false;
+let isServerReady = false;
+let lastForwardedText = "";
+let currentUuid = "";
+let socketOpenHandled = false;
+
+window.socket = null;
+window.stream = null;
+window.audioContext = null;
+window.mediaStream = null;
+window.recorder = null;
+window.audioDataCache = [];
+window.currentCaptureTargetId = null;
+window.socketErrorHandled = false;
+
 function captureTabAudio() {
   return new Promise((resolve) => {
-    chrome.tabCapture.capture(
-      {
-        audio: true,
-        video: false,
-      },
-      (stream) => {
-        resolve(stream);
-      }
-    );
-  });
-}
-
-
-/**
- * Sends a message to a specific tab in Google Chrome.
- * @param {number} tabId - The ID of the tab to send the message to.
- * @param {any} data - The data to be sent as the message.
- * @returns {Promise<any>} A promise that resolves with the response from the tab.
- */
-function sendMessageToTab(tabId, data) {
-  return new Promise((resolve) => {
     try {
-      chrome.tabs.sendMessage(tabId, data, (response) => {
-        if (chrome.runtime.lastError) {
-          // Silently resolve with null if there's an error
-          console.log(`Message error in options.js: ${chrome.runtime.lastError.message}`);
-          resolve(null);
-          return;
+      chrome.tabCapture.capture(
+        {
+          audio: true,
+          video: false
+        },
+        (stream) => {
+          if (chrome.runtime.lastError) {
+            resolve(null);
+            return;
+          }
+          resolve(stream || null);
         }
-        resolve(response);
-      });
-    } catch (err) {
-      console.log("Error sending message from options.js:", err);
+      );
+    } catch (e) {
       resolve(null);
     }
   });
 }
 
+function sendMessageToTab(tabId, data) {
+  return new Promise((resolve) => {
+    if (!tabId) {
+      resolve({ ok: false, error: "Missing tab id", response: null });
+      return;
+    }
 
-/**
- * Resamples the audio data to a target sample rate of 16kHz.
- * @param {Array|ArrayBuffer|TypedArray} audioData - The input audio data.
- * @param {number} [origSampleRate=44100] - The original sample rate of the audio data.
- * @returns {Float32Array} The resampled audio data at 16kHz.
- */
+    try {
+      chrome.tabs.sendMessage(tabId, data, (response) => {
+        const err = chrome.runtime.lastError?.message || "";
+        if (err) {
+          resolve({ ok: false, error: err, response: null });
+          return;
+        }
+        resolve({ ok: true, error: "", response: response ?? null });
+      });
+    } catch (err) {
+      resolve({ ok: false, error: err?.message || String(err), response: null });
+    }
+  });
+}
+
+function getTabSafe(tabId) {
+  return new Promise((resolve) => {
+    if (!tabId) {
+      resolve(null);
+      return;
+    }
+
+    try {
+      chrome.tabs.get(tabId, (tab) => {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(tab || null);
+      });
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+async function resolveValidTargetId(preferredId, fallbackId = null) {
+  const preferred = await getTabSafe(preferredId);
+  if (preferred?.id) return preferred.id;
+
+  const fallback = await getTabSafe(fallbackId);
+  if (fallback?.id) return fallback.id;
+
+  return null;
+}
+
+function normalizeWhitespace(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
 function resampleTo16kHZ(audioData, origSampleRate = 44100) {
-  // Convert the audio data to a Float32Array
   const data = new Float32Array(audioData);
-
-  // Calculate the desired length of the resampled data
   const targetLength = Math.round(data.length * (16000 / origSampleRate));
 
-  // Create a new Float32Array for the resampled data
-  const resampledData = new Float32Array(targetLength);
+  if (targetLength <= 1 || data.length <= 1) {
+    return new Float32Array(data);
+  }
 
-  // Calculate the spring factor and initialize the first and last values
+  const resampledData = new Float32Array(targetLength);
   const springFactor = (data.length - 1) / (targetLength - 1);
+
   resampledData[0] = data[0];
   resampledData[targetLength - 1] = data[data.length - 1];
 
-  // Resample the audio data
   for (let i = 1; i < targetLength - 1; i++) {
     const index = i * springFactor;
-    const leftIndex = Math.floor(index).toFixed();
-    const rightIndex = Math.ceil(index).toFixed();
+    const leftIndex = Math.floor(index);
+    const rightIndex = Math.ceil(index);
     const fraction = index - leftIndex;
-    resampledData[i] = data[leftIndex] + (data[rightIndex] - data[leftIndex]) * fraction;
+    resampledData[i] =
+      data[leftIndex] + (data[rightIndex] - data[leftIndex]) * fraction;
   }
 
-  // Return the resampled data
   return resampledData;
 }
 
-/**
- * Generates a universally unique identifier (UUID).
- *
- * @returns {string} The generated UUID.
- */
 function generateUUID() {
   let dt = new Date().getTime();
-  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (dt + Math.random() * 16) % 16 | 0;
     dt = Math.floor(dt / 16);
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
-  return uuid;
 }
 
+function extractTranscriptText(payload) {
+  let data = payload;
 
-/**
- * Starts recording audio from the captured tab.
- * @param {Object} option - The options object containing the currentTabId, host, port, language, task, modelSize, and useVad.
- */
-async function startRecord(option) {
-  const stream = await captureTabAudio();
-  const uuid = generateUUID();
-
-  if (stream) {
-    // call when the stream inactive
-    stream.oninactive = () => {
-      cleanupAndClose();
-    };
-    
-    // Declare variables at function scope so they're available to all code in the function
-    let isServerReady = false;
-    let language = option.language;
-    let socket;
-    
-    // Create WebSocket and store in global variable for cleanup access
-    try {
-      window.socket = new WebSocket(`ws://${option.host}:${option.port}/`);
-      socket = window.socket;
-      
-      // Handle WebSocket lifecycle errors
-      window.socketErrorHandled = false;
-      
-      socket.onopen = function(e) {
-        try { 
-          socket.send(
-            JSON.stringify({
-              uid: uuid,
-              language: option.language,
-              task: option.task,
-              model: option.modelSize,
-              use_vad: option.useVad
-            })
-          );
-        } catch (err) {
-          console.log("Error sending initial socket message:", err);
-        }
-      };
-      
-      // Add error handler
-      socket.onerror = function(error) {
-        console.log("WebSocket error:", error);
-        window.socketErrorHandled = true;
-        cleanupAndClose();
-      };
-      
-      // Add close handler
-      socket.onclose = function(event) {
-        console.log("WebSocket closed:", event.code, event.reason);
-        window.socketErrorHandled = true;
-        try {
-          chrome.runtime.sendMessage({ action: "toggleCaptureButtons" }, () => {
-            if (chrome.runtime.lastError) {
-              console.log("Error notifying socket close:", chrome.runtime.lastError.message);
-            }
-          });
-        } catch (e) {
-          console.log("Error sending socket close message:", e);
-        }
-      };
-    } catch (err) {
-      console.log("Error creating WebSocket:", err);
-      window.close();
-      return;
-    }
-    
-    // WebSocket handlers already defined above
-
-    socket.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-      if (data["uid"] !== uuid)
-        return;
-      
-      if (data["status"] === "WAIT"){
-        await sendMessageToTab(option.currentTabId, {
-          type: "showWaitPopup",
-          data: data["message"],
-        });
-        chrome.runtime.sendMessage({ action: "toggleCaptureButtons", data: false }) 
-        chrome.runtime.sendMessage({ action: "stopCapture" })
-        return;
-      }
-        
-      if (isServerReady === false){
-        isServerReady = true;
-        return;
-      }
-
-      if (data["message"] === "DISCONNECT"){
-        try {
-          chrome.runtime.sendMessage({ action: "toggleCaptureButtons", data: false });
-        } catch (e) {
-          console.error("Error sending message:", e);
-        }       
-        return;
-      }
-
-      try {
-        await sendMessageToTab(option.currentTabId, {
-          type: "transcript",
-          data: event.data,
-        });
-      } catch (e) {
-        console.error("Error sending transcript to tab:", e);
-      }
-    };
-
-    // Store context and other elements in window for cleanup access
-    const context = new AudioContext();
-    window.audioContext = context;
-    window.audioDataCache = [];
-    window.stream = stream;
-    
-    const mediaStream = context.createMediaStreamSource(stream);
-    
-    // Note: ScriptProcessorNode is deprecated, but AudioWorkletNode requires more complex setup
-    // and isn't fully supported in all browsers. We'll continue using ScriptProcessorNode for now.
-    const recorder = context.createScriptProcessor(4096, 1, 1);
-    
-    // Store for cleanup
-    window.mediaStream = mediaStream;
-    window.recorder = recorder;
-
-    recorder.onaudioprocess = (event) => {
-      // Use a regular function, not async, to avoid promise rejections
-      if (!context || !isServerReady) return;
-      
-      try {
-        const inputData = event.inputBuffer.getChannelData(0);
-        const audioData16kHz = resampleTo16kHZ(inputData, context.sampleRate);
-  
-        // Update cache (used for debugging)
-        if (window.audioDataCache) {
-          window.audioDataCache.push(inputData);
-        }
-  
-        // Only send if socket still exists and is open
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          try {
-            socket.send(audioData16kHz);
-          } catch (e) {
-            console.log("Error sending audio data:", e);
-            // Don't rethrow, just continue
-          }
-        }
-      } catch (e) {
-        console.log("Error processing audio:", e);
-        // Don't rethrow, just continue
-      }
-    };
-
-    // Prevent page mute
-    mediaStream.connect(recorder);
-    recorder.connect(context.destination);
-    mediaStream.connect(context.destination);
-    
-    // Add event listeners for tab/window closing
-    window.addEventListener('beforeunload', cleanupAndClose);
-    window.addEventListener('unload', cleanupAndClose);
-    
-  } else {
-    window.close();
-  }
-}
-
-/**
- * Cleans up resources and closes connections before the page unloads
- */
-function cleanupAndClose() {
   try {
-    // Close WebSocket connection if it exists
-    if (window.socket) {
-      if (window.socket.readyState === WebSocket.OPEN || 
-          window.socket.readyState === WebSocket.CONNECTING) {
-        window.socket.close(1000, "Client disconnected");
-      }
-      window.socket = null;
-    }
-    
-    // Clean up audio resources
-    if (window.recorder && window.mediaStream) {
-      window.recorder.disconnect();
-      window.mediaStream.disconnect();
-    }
-    
-    // Close AudioContext if it's not already closed
-    if (window.audioContext && window.audioContext.state !== 'closed') {
-      window.audioContext.close();
-    }
-    
-    // Stop the media stream if it exists
-    if (window.stream) {
-      window.stream.getTracks().forEach(track => track.stop());
-    }
-    
-    // Reset capturing state
-    try {
-      chrome.runtime.sendMessage({ action: "toggleCaptureButtons" }, (response) => {
-        // Just check for errors and ignore them
-        if (chrome.runtime.lastError) {
-          console.log("Error in cleanup message:", chrome.runtime.lastError.message);
-        }
-      });
-    } catch (e) {
-      console.log("Error sending cleanup message:", e);
+    if (typeof payload === "string") {
+      data = JSON.parse(payload);
     }
   } catch (e) {
-    console.error("Error during cleanup:", e);
+    return "";
+  }
+
+  if (Array.isArray(data?.segments)) {
+    return normalizeWhitespace(
+      data.segments
+        .map((seg) => (typeof seg?.text === "string" ? seg.text : ""))
+        .join(" ")
+    );
+  }
+
+  if (typeof data?.text === "string") {
+    return normalizeWhitespace(data.text);
+  }
+
+  return "";
+}
+
+function safeRuntimeMessage(message) {
+  try {
+    chrome.runtime.sendMessage(message, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch (e) {}
+}
+
+async function notifyStopCapture() {
+  safeRuntimeMessage({ action: "toggleCaptureButtons", data: false });
+  safeRuntimeMessage({ action: "stopCapture" });
+}
+
+function closeSocketQuietly() {
+  try {
+    if (
+      window.socket &&
+      (window.socket.readyState === WebSocket.OPEN ||
+        window.socket.readyState === WebSocket.CONNECTING)
+    ) {
+      window.socket.close(1000, "Client disconnected");
+    }
+  } catch (e) {}
+
+  window.socket = null;
+}
+
+function cleanupAudioResources() {
+  try {
+    if (window.recorder) {
+      try {
+        window.recorder.disconnect();
+      } catch (e) {}
+      window.recorder.onaudioprocess = null;
+    }
+  } catch (e) {}
+
+  try {
+    if (window.mediaStream) {
+      try {
+        window.mediaStream.disconnect();
+      } catch (e) {}
+    }
+  } catch (e) {}
+
+  try {
+    if (window.audioContext && window.audioContext.state !== "closed") {
+      window.audioContext.close().catch(() => {});
+    }
+  } catch (e) {}
+
+  try {
+    if (window.stream) {
+      window.stream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
+    }
+  } catch (e) {}
+
+  window.recorder = null;
+  window.mediaStream = null;
+  window.audioContext = null;
+  window.stream = null;
+}
+
+function cleanupAndClose(shouldNotifyBackground = true) {
+  if (cleanupDone) return;
+  cleanupDone = true;
+
+  closeSocketQuietly();
+  cleanupAudioResources();
+
+  isServerReady = false;
+  lastForwardedText = "";
+  currentUuid = "";
+
+  if (shouldNotifyBackground) {
+    notifyStopCapture();
   }
 }
 
-/**
- * Listener for incoming messages from the extension's background script.
- * @param {Object} request - The message request object.
- * @param {Object} sender - The sender object containing information about the message sender.  (Unused in this implementation, but kept for completeness)
- * @param {Function} sendResponse - The function to send a response back to the message sender.
- */
+async function forwardTranscriptIfNeeded(option, rawPayload) {
+  const text = extractTranscriptText(rawPayload);
+  if (!text) return;
+
+  if (text === lastForwardedText) return;
+  lastForwardedText = text;
+
+  const targetId = await resolveValidTargetId(
+    window.currentCaptureTargetId,
+    option.currentTabId
+  );
+  if (!targetId) return;
+
+  window.currentCaptureTargetId = targetId;
+
+  const sent = await sendMessageToTab(targetId, {
+    type: "transcript",
+    data: rawPayload
+  });
+
+  if (!sent?.ok && targetId !== option.currentTabId) {
+    const fallbackId = await resolveValidTargetId(option.currentTabId, null);
+    if (!fallbackId) return;
+
+    window.currentCaptureTargetId = fallbackId;
+    await sendMessageToTab(fallbackId, {
+      type: "transcript",
+      data: rawPayload
+    });
+  }
+}
+
+async function startRecord(option) {
+  cleanupDone = false;
+  isServerReady = false;
+  lastForwardedText = "";
+  currentUuid = generateUUID();
+  window.currentCaptureTargetId = option.currentTabId;
+  window.socketErrorHandled = false;
+
+  const stream = await captureTabAudio();
+  if (!stream) {
+    window.close();
+    return;
+  }
+
+  window.stream = stream;
+
+  stream.oninactive = () => {
+    cleanupAndClose(true);
+  };
+
+  let socket;
+
+  try {
+    socket = new WebSocket(`ws://${option.host}:${option.port}/`);
+    window.socket = socket;
+  } catch (err) {
+    cleanupAndClose(true);
+    window.close();
+    return;
+  }
+
+  socket.onopen = function () {
+    socketOpenHandled = true;
+
+    try {
+      socket.send(
+        JSON.stringify({
+          uid: currentUuid,
+          language: option.language,
+          task: option.task,
+          model: option.modelSize,
+          use_vad: option.useVad
+        })
+      );
+    } catch (err) {
+      cleanupAndClose(true);
+    }
+  };
+
+  socket.onerror = function () {
+    window.socketErrorHandled = true;
+    cleanupAndClose(true);
+  };
+
+  socket.onclose = function () {
+    if (!cleanupDone) {
+      window.socketErrorHandled = true;
+      cleanupAndClose(true);
+    }
+  };
+
+  socket.onmessage = async (event) => {
+    if (cleanupDone) return;
+
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (e) {
+      return;
+    }
+
+    if (data.uid !== currentUuid) return;
+
+    if (data.status === "WAIT") {
+      const targetId = await resolveValidTargetId(
+        window.currentCaptureTargetId,
+        option.currentTabId
+      );
+      if (targetId) {
+        window.currentCaptureTargetId = targetId;
+        await sendMessageToTab(targetId, {
+          type: "showWaitPopup",
+          data: data.message
+        });
+      }
+      notifyStopCapture();
+      return;
+    }
+
+    if (data.message === "DISCONNECT") {
+      notifyStopCapture();
+      return;
+    }
+
+    const transcriptText = extractTranscriptText(data);
+
+    if (!isServerReady) {
+      isServerReady = true;
+      if (!transcriptText) return;
+    }
+
+    if (!transcriptText) return;
+
+    await forwardTranscriptIfNeeded(option, event.data);
+  };
+
+  const context = new AudioContext();
+  window.audioContext = context;
+  window.audioDataCache = [];
+
+  const mediaStream = context.createMediaStreamSource(stream);
+  const recorder = context.createScriptProcessor(4096, 1, 1);
+
+  window.mediaStream = mediaStream;
+  window.recorder = recorder;
+
+  recorder.onaudioprocess = (event) => {
+    if (cleanupDone || !context || !isServerReady) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    try {
+      const inputData = event.inputBuffer.getChannelData(0);
+      const audioData16kHz = resampleTo16kHZ(inputData, context.sampleRate);
+
+      if (window.audioDataCache) {
+        window.audioDataCache.push(inputData);
+        if (window.audioDataCache.length > 20) {
+          window.audioDataCache.shift();
+        }
+      }
+
+      socket.send(audioData16kHz);
+    } catch (e) {}
+  };
+
+  mediaStream.connect(recorder);
+  recorder.connect(context.destination);
+  mediaStream.connect(context.destination);
+
+  window.addEventListener("beforeunload", () => cleanupAndClose(false), {
+    once: true
+  });
+  window.addEventListener("unload", () => cleanupAndClose(false), {
+    once: true
+  });
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   try {
-    const { type, data } = request;
-  
+    if (request?.action) {
+      return false;
+    }
+
+    const { type, data } = request || {};
+    if (!type) {
+      return false;
+    }
+
     switch (type) {
       case "start_capture":
         startRecord(data);
-        break;
+        sendResponse({ success: true });
+        return true;
+
+      case "update_target":
+        if (data && data.currentTabId) {
+          window.currentCaptureTargetId = data.currentTabId;
+        }
+        sendResponse({ success: true });
+        return true;
+
+      case "STOP":
+        cleanupAndClose(false);
+        window.close();
+        sendResponse({ success: true });
+        return true;
+
       default:
-        break;
-    }
-  
-    // Always send a response, even if empty
-    try {
-      sendResponse({ success: true });
-    } catch (e) {
-      console.log("Error sending response:", e);
+        return false;
     }
   } catch (e) {
-    console.log("Error handling message:", e);
     try {
       sendResponse({ success: false, error: e.message });
-    } catch (responseError) {
-      console.log("Error sending error response:", responseError);
-    }
+    } catch (responseError) {}
+    return true;
   }
-  
-  return true;
 });

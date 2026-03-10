@@ -1,26 +1,29 @@
 {
-    "manifest_version": 3,
-
-    "name": "Audio Transcription",
-    "version": "1.8.0",
-    "description": "Antonio Ruiz's version of this extension that captures the audio on the current tab, sends it to a server for transcription and shows the transcription in Real-time.",
-
-    "options_page": "options.html",
-    "background": {
-        "service_worker": "background.js",
-        "type": "module"
-    },
-    "permissions": [
-        "storage",
-        "activeTab",
-        "tabCapture",
-        "scripting"
-    ],
-    "icons": {
-        "128":"icon128.png"
-        },
-    "action": {
-        "default_popup": "popup.html",
-        "default_icon": "icon128.png"
-    }
+  "manifest_version": 3,
+  "name": "Audio Transcription",
+  "version": "2.3.0",
+  "description": "Antonio Ruiz's version of this extension that captures the audio on the current tab, sends it to a server for transcription and shows the transcription in real time.",
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "tabCapture",
+    "scripting",
+    "tts"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "icons": {
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon128.png"
+  }
 }

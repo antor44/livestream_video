@@ -1,532 +1,648 @@
-/**
- * Removes a tab with the specified tab ID in Google Chrome.
- * @param {number} tabId - The ID of the tab to be removed.
- * @returns {Promise<void>} A promise that resolves when the tab is successfully removed or fails to remove.
- */
-function removeChromeTab(tabId) {
+let isCaptureStarting = false;
+let isStoppingCapture = false;
+let isTranslating = false;
+
+let translatedContextWindow = [];
+let recentOriginalFragments = [];
+
+const MAX_CONTEXT_SIZE = 2;
+const MAX_RECENT_ORIGINALS = 20;
+const STARTUP_FLAG_KEY = "browserJustStarted";
+
+function delay(ms = 0) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getStorage(keys) {
   return new Promise((resolve) => {
-    chrome.tabs.remove(tabId)
-      .then(resolve)
-      .catch(resolve); // Resolve even if removal fails (e.g., tab already closed)
+    chrome.storage.local.get(keys, (result) => resolve(result || {}));
   });
 }
 
+function getStorageValue(key) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([key], (result) => resolve(result ? result[key] : undefined));
+  });
+}
 
-/**
- * Executes a script file in a specific tab in Google Chrome.
- * @param {number} tabId - The ID of the tab where the script should be executed.
- * @param {string} file - The file path or URL of the script to be executed.
- * @returns {Promise<void>} A promise that resolves when the script is successfully executed or fails to execute.
- */
+function setStorage(obj) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(obj, () => resolve());
+  });
+}
+
+function getTab(tabId) {
+  return new Promise((resolve) => {
+    if (!tabId) {
+      resolve(null);
+      return;
+    }
+
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
+      resolve(tab || null);
+    });
+  });
+}
+
+function sendMessageToTab(tabId, message) {
+  return new Promise((resolve) => {
+    if (!tabId) {
+      resolve(null);
+      return;
+    }
+
+    try {
+      chrome.tabs.sendMessage(tabId, message, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(response || null);
+      });
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
 function executeScriptInTab(tabId, file) {
   return new Promise((resolve) => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: [file],
-      }, () => {
-        resolve(); // Resolve even on failure (e.g., tab closed)
-      }
-    );
+    if (!tabId) {
+      resolve(false);
+      return;
+    }
+
+    try {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId },
+          files: [file]
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            resolve(false);
+            return;
+          }
+          resolve(true);
+        }
+      );
+    } catch (e) {
+      resolve(false);
+    }
   });
 }
 
+function removeChromeTab(tabId) {
+  return new Promise((resolve) => {
+    if (!tabId) {
+      resolve();
+      return;
+    }
 
-/**
- * Opens the options page of the Chrome extension in a new pinned tab.
- * @returns {Promise<chrome.tabs.Tab>} A promise that resolves with the created tab object.
- */
-function openExtensionOptions() {
+    try {
+      chrome.tabs.remove(tabId, () => {
+        void chrome.runtime.lastError; // consume to avoid "Unchecked runtime.lastError"
+        resolve();
+      });
+    } catch (e) {
+      resolve();
+    }
+  });
+}
+
+function safeSendRuntimeMessage(message) {
+  try {
+    chrome.runtime.sendMessage(message, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch (e) {}
+}
+
+function normalizeText(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function splitWords(text) {
+  return normalizeText(text).toLowerCase().split(" ").filter(Boolean);
+}
+
+function textSimilarity(a, b) {
+  const wa = splitWords(a);
+  const wb = splitWords(b);
+
+  if (!wa.length || !wb.length) return 0;
+
+  const setA = new Set(wa);
+  let matches = 0;
+  for (const word of wb) {
+    if (setA.has(word)) matches++;
+  }
+
+  return matches / Math.max(wa.length, wb.length);
+}
+
+function overlapSuffixPrefix(baseText, nextText, maxWords = 40, minWords = 3) {
+  const a = splitWords(baseText);
+  const b = splitWords(nextText);
+  const max = Math.min(maxWords, a.length, b.length);
+
+  for (let size = max; size >= minWords; size--) {
+    let ok = true;
+    for (let i = 0; i < size; i++) {
+      if (a[a.length - size + i] !== b[i]) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return size;
+  }
+
+  return 0;
+}
+
+function trimTranslatedPrefixOverlap(previousText, newText) {
+  const prev = splitWords(previousText);
+  const rawNew = normalizeText(newText).split(/\s+/).filter(Boolean);
+  const normNew = splitWords(newText);
+  const max = Math.min(30, prev.length, normNew.length);
+
+  for (let size = max; size >= 3; size--) {
+    let ok = true;
+    for (let i = 0; i < size; i++) {
+      if (prev[prev.length - size + i] !== normNew[i]) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) {
+      return rawNew.slice(size).join(" ").trim();
+    }
+  }
+
+  return normalizeText(newText);
+}
+
+function resetTranslationContext() {
+  translatedContextWindow = [];
+  recentOriginalFragments = [];
+  try {
+    chrome.tts.stop();
+  } catch (e) {}
+}
+
+async function translateWithGemini(originalText, targetLang, model, apiKey) {
+  const input = normalizeText(originalText);
+  if (!apiKey || input.length < 3) return "";
+
+  const recentDuplicate = recentOriginalFragments.some(
+    (item) => textSimilarity(item, input) > 0.97
+  );
+  if (recentDuplicate) return "";
+
+  recentOriginalFragments.push(input);
+  if (recentOriginalFragments.length > MAX_RECENT_ORIGINALS) {
+    recentOriginalFragments.shift();
+  }
+
+  const context = translatedContextWindow.join(" ");
+  const prompt = [
+    `Translate ONLY the NEW fragment into ${targetLang}.`,
+    `Current context (DO NOT REPEAT): "${context}"`,
+    `Fragment to translate: "${input}"`,
+    "Rules:",
+    "1. Respond ONLY with the translation.",
+    "2. If it is already in context, return empty string.",
+    "3. Be extremely concise and fast."
+  ].join("\n");
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 280
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData?.error?.message || response.statusText || "Fetch error";
+        console.error("Gemini API Error:", response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    let translated = normalizeText(
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+    );
+
+    if (!translated) return "";
+
+    translatedContextWindow.push(translated);
+    if (translatedContextWindow.length > MAX_CONTEXT_SIZE) {
+      translatedContextWindow.shift();
+    }
+
+    return translated;
+  } catch (error) {
+    console.error("Gemini translation error:", error);
+    return "";
+  }
+}
+
+function speakText(text, lang) {
+  const clean = normalizeText(text);
+  if (!clean) return;
+
+  chrome.storage.local.get(["ttsSpeed"], (res) => {
+    const rate = Number.parseFloat(res?.ttsSpeed || "1.0");
+    try {
+      chrome.tts.speak(clean, {
+        lang: lang || "es",
+        rate: Number.isFinite(rate) ? rate : 1.2,
+        pitch: 1.0,
+        volume: 1.0,
+        enqueue: true
+      });
+    } catch (e) {
+      console.error("TTS error:", e);
+    }
+  });
+}
+
+function setCapturingState(isCapturing) {
+  chrome.storage.local.set({
+    capturingState: { isCapturing: !!isCapturing },
+    isCapturing: !!isCapturing
+  });
+  safeSendRuntimeMessage({ action: "toggleCaptureButtons", isCapturing: !!isCapturing });
+}
+
+function notifyLanguage(detectedLanguage) {
+  safeSendRuntimeMessage({
+    action: "updateSelectedLanguage",
+    detectedLanguage: detectedLanguage || null
+  });
+}
+
+function openOptionsTab() {
   return new Promise((resolve) => {
     chrome.tabs.create(
       {
         pinned: true,
         active: false,
-        url: `chrome-extension://${chrome.runtime.id}/options.html`,
-        // Removed ephemeral parameter as it was causing issues with WebSocket connections
+        url: `chrome-extension://${chrome.runtime.id}/options.html`
       },
-      (tab) => {
-        resolve(tab);
+      (tab) => resolve(tab || null)
+    );
+  });
+}
+
+function openStandaloneWindow() {
+  return new Promise((resolve) => {
+    chrome.windows.create(
+      {
+        url: chrome.runtime.getURL("standalone.html"),
+        type: "popup",
+        width: 920,
+        height: 360
+      },
+      (win) => {
+        const tabId = win?.tabs?.[0]?.id || null;
+        resolve(tabId);
       }
     );
   });
 }
 
+async function stopCaptureInternal() {
+  if (isStoppingCapture) return;
+  isStoppingCapture = true;
 
-/**
- * Retrieves the value associated with the specified key from the local storage in Google Chrome.
- * @param {string} key - The key of the value to retrieve from the local storage.
- * @returns {Promise<any>} A promise that resolves with the retrieved value from the local storage.
- */
-function getLocalStorageValue(key) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([key], (result) => {
-      resolve(result[key]);
+  // Stop TTS immediately — before any async tab operations so the voice
+  // stops as soon as the user clicks Stop, not seconds later.
+  try { chrome.tts.stop(); } catch (e) {}
+
+  try {
+    const storageKeys = [
+      "optionTabId",
+      "currentTabId",
+      "standaloneTabId",
+      "captureSourceTabId"
+    ];
+    const storage = await getStorage(storageKeys);
+
+    const idsToStop = Array.from(
+      new Set(
+        [
+          storage.captureSourceTabId,
+          storage.currentTabId,
+          storage.standaloneTabId,
+          storage.optionTabId
+        ].filter(Boolean)
+      )
+    );
+
+    // Send STOP message to all tracked tabs in parallel to avoid sequential timeouts
+    await Promise.all(
+      idsToStop.map((id) =>
+        sendMessageToTab(id, { type: "STOP" }).catch((err) =>
+          console.log(`Stop message failed for tab ${id}:`, err)
+        )
+      )
+    );
+
+    await delay(100);
+
+    // Attempt to close standalone and option tabs in parallel
+    const closePromises = [];
+    if (storage.standaloneTabId) {
+      closePromises.push(removeChromeTab(storage.standaloneTabId).catch(() => {}));
+    }
+    if (storage.optionTabId) {
+      closePromises.push(removeChromeTab(storage.optionTabId).catch(() => {}));
+    }
+    await Promise.all(closePromises);
+
+    resetTranslationContext();
+
+    await setStorage({
+      optionTabId: null,
+      currentTabId: null,
+      standaloneTabId: null,
+      captureSourceTabId: null
     });
-  });
+
+    setCapturingState(false);
+  } catch (error) {
+    console.error("stopCaptureInternal error:", error);
+    setCapturingState(false);
+  } finally {
+    isStoppingCapture = false;
+  }
 }
 
+function stopCapture() {
+  void Promise.resolve().then(() => stopCaptureInternal());
+}
 
-/**
- * Sends a message to a specific tab in Google Chrome.
- * @param {number} tabId - The ID of the tab to send the message to.
- * @param {any} data - The data to be sent as the message.
- * @returns {Promise<any>} A promise that resolves with the response from the tab, or null if there's an error.
- */
-function sendMessageToTab(tabId, data) {
-  return new Promise((resolve) => {
-    if (!tabId) {
-      resolve(null); // Resolve with null if tabId is invalid
+async function startCaptureInternal(options) {
+  if (isCaptureStarting) return;
+  isCaptureStarting = true;
+
+  try {
+    const currentState = await getStorageValue("capturingState");
+    if (currentState?.isCapturing) {
+      await stopCaptureInternal();
+      await delay(250);
+    }
+
+    const sourceTab = await getTab(options.tabId);
+    if (!sourceTab) {
+      setCapturingState(false);
       return;
     }
 
-    // First check if the tab exists
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime.lastError) {
-        // Tab doesn't exist - silently resolve with null
-        resolve(null);
-        return;
+    const oldOptionTabId = await getStorageValue("optionTabId");
+    if (oldOptionTabId) {
+      await removeChromeTab(oldOptionTabId);
+      await setStorage({ optionTabId: null });
+    }
+
+    const oldStandaloneTabId = await getStorageValue("standaloneTabId");
+    if (oldStandaloneTabId) {
+      await removeChromeTab(oldStandaloneTabId);
+      await setStorage({ standaloneTabId: null });
+    }
+
+    if (!options.useStandalone) {
+      const injected = await executeScriptInTab(sourceTab.id, "content.js");
+      if (!injected) {
+        throw new Error("No se pudo inyectar content.js");
       }
 
-      // Tab exists, try to send message
-      try {
-        chrome.tabs.sendMessage(tabId, data, (response) => {
-          if (chrome.runtime.lastError) {
-            // Silently resolve with null, as the tab might have navigated
-            // or been closed between our check and message send
-            resolve(null);
+      await delay(120);
+      await sendMessageToTab(sourceTab.id, { type: "resetSession" });
+      await setStorage({
+        currentTabId: sourceTab.id,
+        captureSourceTabId: sourceTab.id
+      });
+    } else {
+      await setStorage({
+        captureSourceTabId: sourceTab.id
+      });
+    }
+
+    const optionTab = await openOptionsTab();
+    if (!optionTab?.id) {
+      throw new Error("No se pudo abrir options.html");
+    }
+
+    await setStorage({ optionTabId: optionTab.id });
+    await delay(300);
+
+    const {
+      selectedLanguage,
+      selectedTask,
+      selectedModelSize
+    } = await getStorage([
+      "selectedLanguage",
+      "selectedTask",
+      "selectedModelSize"
+    ]);
+
+    const startMessage = {
+      type: "start_capture",
+      data: {
+        currentTabId: sourceTab.id,
+        host: options.host || "localhost",
+        port: options.port || "9090",
+        multilingual: !!options.useMultilingual,
+        language: selectedLanguage || null,
+        task: selectedTask || "transcribe",
+        modelSize: selectedModelSize || "small",
+        useVad: !!options.useVad,
+        useStandalone: !!options.useStandalone
+      }
+    };
+
+    const started = await sendMessageToTab(optionTab.id, startMessage);
+    if (!started || started.success === false) {
+      throw new Error("No se pudo iniciar la captura en options.js");
+    }
+
+    if (options.useStandalone) {
+      setCapturingState(true);
+
+      const standaloneTabId = await openStandaloneWindow();
+      if (!standaloneTabId) {
+        throw new Error("No se pudo abrir la ventana standalone");
+      }
+
+      await setStorage({
+        standaloneTabId,
+        currentTabId: standaloneTabId
+      });
+
+      await delay(500);
+      await sendMessageToTab(standaloneTabId, { type: "resetSession" });
+
+      await sendMessageToTab(optionTab.id, {
+        type: "update_target",
+        data: { currentTabId: standaloneTabId }
+      });
+    } else {
+      setCapturingState(true);
+    }
+  } catch (error) {
+    console.error("startCaptureInternal error:", error);
+    await stopCaptureInternal();
+    setCapturingState(false);
+  } finally {
+    isCaptureStarting = false;
+  }
+}
+
+function startCapture(options) {
+  void Promise.resolve().then(() => startCaptureInternal(options));
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  try {
+    if (message.action === "startCapture") {
+      startCapture(message);
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.action === "stopCapture") {
+      stopCapture();
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.action === "toggleCaptureButtons") {
+      const isCapturing =
+        typeof message.isCapturing === "boolean"
+          ? message.isCapturing
+          : typeof message.data === "boolean"
+          ? message.data
+          : false;
+
+      setCapturingState(isCapturing);
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.action === "updateSelectedLanguage") {
+      const detectedLanguage = message.detectedLanguage || null;
+      chrome.storage.local.set({ selectedLanguage: detectedLanguage });
+      notifyLanguage(detectedLanguage);
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.action === "resetTranslationContext") {
+      resetTranslationContext();
+      sendResponse({ success: true });
+      return false;
+    }
+    
+    if (message.action === "stopTts") {
+      try { chrome.tts.stop(); } catch (e) {}
+      sendResponse({ success: true });
+      return false;
+    }
+    
+    if (message.action === "pageUnloading") {
+      sendResponse({ success: true });
+      return false;
+    }
+
+    if (message.action === "processTranslation") {
+      getStorage(["geminiApiKey", "geminiModel", "targetLanguage", "enableTts"])
+        .then(async (res) => {
+          const targetLang = res.targetLanguage || "es";
+          const apiKey = res.geminiApiKey || "";
+          const model = res.geminiModel || "gemini-3.1-flash-lite-preview";
+
+          if (!apiKey) {
+            sendResponse({ success: false, error: "API Key missing" });
             return;
           }
-          resolve(response);
-        });
-      } catch (err) {
-        // Silently resolve with null if an error occurs
-        resolve(null);
-      }
-    });
-  });
-}
 
-
-/**
- * Delays the execution for a specified duration.
- * @param {number} ms - The duration to sleep in milliseconds (default: 0).
- * @returns {Promise<void>} A promise that resolves after the specified duration.
- */
-function delayExecution(ms = 0) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-
-/**
- * Sets a value associated with the specified key in the local storage of Google Chrome.
- * @param {string} key - The key to set in the local storage.
- * @param {any} value - The value to associate with the key in the local storage.
- * @returns {Promise<any>} A promise that resolves with the value that was set in the local storage.
- */
-function setLocalStorageValue(key, value) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set(
-      {
-        [key]: value,
-      }, () => {
-        resolve(value);
-      }
-    );
-  });
-}
-
-
-/**
- * Retrieves the tab object with the specified tabId.
- * @param {number} tabId - The ID of the tab to retrieve.
- * @returns {Promise<object|null>} - A Promise that resolves to the tab object or null if tab doesn't exist.
- */
-async function getTab(tabId) {
-  return new Promise((resolve) => {
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime.lastError) {
-        resolve(null); // Resolve with null if the tab doesn't exist
-      } else {
-        resolve(tab);
-      }
-    });
-  });
-}
-
-
-/**
- * Starts the capture process for the specified tab.
- * @param {object} options - The options for starting the capture.
- * @param {number} options.tabId - The ID of the tab to start capturing.
- * @param {string} [options.host="localhost"] - The host address of the server.
- * @param {string} [options.port="9090"] - The port number of the server.
- * @param {boolean} options.useMultilingual - Whether to use multilingual support.
- * @param {boolean} options.useVad - Whether to use voice activity detection.
- * @returns {void} - This function doesn't return a value; it uses callbacks.
- */
-function startCapture(options) {
-  // Use a non-async function to avoid unhandled promise rejections
-  const { tabId } = options;
-
-  // Create a wrapper function to handle all the async operations with proper error handling
-  const doStartCapture = async () => {
-    try {
-      // Close any existing options tab
-      const optionTabId = await getLocalStorageValue("optionTabId");
-      if (optionTabId) {
-        await removeChromeTab(optionTabId);
-      }
-
-      // Get the current tab
-      const currentTab = await getTab(tabId);
-      if (!currentTab) {
-        return; // Exit if the tab doesn't exist
-      }
-
-      if (currentTab.audible) {
-        // Inject the content script
-        await setLocalStorageValue("currentTabId", currentTab.id);
-        await executeScriptInTab(currentTab.id, "content.js");
-        await delayExecution(300);
-
-        // Open the options page
-        const optionTab = await openExtensionOptions();
-        await setLocalStorageValue("optionTabId", optionTab.id);
-        await delayExecution(300);
-
-        // Read the updated settings from chrome.storage
-        chrome.storage.local.get(['selectedLanguage', 'selectedTask', 'selectedModelSize'], (data) => {
-          const language = data.selectedLanguage || null;
-          const task = data.selectedTask || "transcribe";
-          const modelSize = data.selectedModelSize || "small";
-
-          // Send a message to start the capture with the updated settings
-          sendMessageToTab(optionTab.id, {
-            type: "start_capture",
-            data: {
-              currentTabId: currentTab.id,
-              host: options.host || "localhost", // Default value if not provided
-              port: options.port || "9090",        // Default value if not provided
-              multilingual: options.useMultilingual,
-              language: language,
-              task: task,
-              modelSize: modelSize,
-              useVad: options.useVad,
-            },
-          });
-        });
-      } else {
-        console.log("No Audio");
-        try {
-          chrome.runtime.sendMessage({ action: "toggleCaptureButtons" });
-        } catch (e) {
-          // Ignore error if the popup is closed
-        }
-      }
-    } catch (error) {
-      console.log("Error in startCapture:", error);
-      try {
-        chrome.runtime.sendMessage({ action: "toggleCaptureButtons" });
-      } catch (e) {
-        // Ignore error if the popup is closed
-      }
-    }
-  };
-
-  // Execute the async function with explicit error handling to prevent unhandled rejections
-  void Promise.resolve().then(() => doStartCapture()).catch(err => {
-    console.log("Start capture error (suppressed):", err);
-  });
-}
-
-
-/**
- * Stops the capture process and performs cleanup.
- * @returns {void} - This function doesn't return a value, it performs actions.
- */
-function stopCapture() {
-  // Use a non-async function to avoid unhandled promise rejections
-
-  // Create a wrapper function to handle all the async operations with proper error handling
-  const doStopCapture = async () => {
-    try {
-      const optionTabId = await getLocalStorageValue("optionTabId");
-      const currentTabId = await getLocalStorageValue("currentTabId");
-
-      if (optionTabId) {
-        if (currentTabId) {
-          // Try to stop the content script - don't wait for a response
           try {
-            await sendMessageToTab(currentTabId, {
-              type: "STOP",
-              data: { currentTabId: currentTabId },
-            });
+            const translated = await translateWithGemini(message.text, targetLang, model, apiKey);
+
+            // An empty result is normal (dedup/context skip) — NOT an error.
+            // Only the catch block below produces success:false (real API errors).
+            if (res.enableTts && translated) speakText(translated, targetLang);
+            sendResponse({ success: true, data: translated || "" });
           } catch (e) {
-            // Tab might be closed already, which is fine
+            console.error("translateWithGemini caught:", e);
+            sendResponse({ success: false, error: e.message });
           }
-        }
+        })
+        .catch((err) => {
+          sendResponse({ success: false, error: err.message });
+        });
 
-        // Always attempt to close the option tab
-        try {
-          await removeChromeTab(optionTabId);
-        } catch (e) {
-          // Tab might be closed already, which is fine
-        }
-      }
-    } catch (error) {
-      // Log error but don't throw - just cleanup as best we can
-      console.log("Error in stopCapture:", error);
+      return true; // Keep message channel open for async response
     }
-  };
 
-  // Execute the async function with explicit error catching
-  void Promise.resolve().then(() => doStopCapture()).catch(err => {
-    console.log("Stop capture error (suppressed):", err);  // Suppress unhandled rejections
-  });
-}
+    sendResponse({ success: false, error: "Unknown action" });
+    return false;
+  } catch (e) {
+    console.error("runtime message error:", e);
+    sendResponse({ success: false, error: e.message });
+    return false;
+  }
+});
 
+chrome.runtime.onStartup.addListener(() => {
+  chrome.storage.local.set({ [STARTUP_FLAG_KEY]: true });
+  setTimeout(() => {
+    chrome.storage.local.remove(STARTUP_FLAG_KEY);
+  }, 10000);
+});
 
-// =============================================================================
-// Turn on verbose error listening globally
-// =============================================================================
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.local.get(
+    ["optionTabId", "currentTabId", "standaloneTabId", "captureSourceTabId", "capturingState"],
+    (result) => {
+      if (!result?.capturingState?.isCapturing) return;
 
-// Add a global unhandledrejection handler to catch ONLY connection errors
-self.addEventListener('unhandledrejection', function(event) {
-  // Only suppress "Could not establish connection" errors
-  if (event && event.reason && event.reason.message &&
-      event.reason.message.includes("Could not establish connection")) {
-    console.log('Suppressing connection error:', event.reason.message);
+      const tracked = [
+        result.optionTabId,
+        result.currentTabId,
+        result.standaloneTabId,
+        result.captureSourceTabId
+      ].filter(Boolean);
+
+      if (tracked.includes(tabId)) {
+        // Stop TTS immediately (synchronous) before the async stopCapture chain.
+        try { chrome.tts.stop(); } catch (e) {}
+        stopCapture();
+      }
+    }
+  );
+});
+
+self.addEventListener("unhandledrejection", (event) => {
+  const message = event?.reason?.message || "";
+  if (message.includes("Could not establish connection")) {
     event.preventDefault();
     return true;
   }
-  // Let all other errors pass through to the console
-});
-
-/**
- * A super-safe wrapper for chrome.runtime.sendMessage that handles all possible errors
- * @param {object} message - The message to send.
- * @param {function} [callback] - Optional callback function to handle the response.
- */
-function safeSendMessage(message, callback) {
-  setTimeout(() => {
-    try {
-      chrome.runtime.sendMessage(message, (response) => {
-        // Always check for lastError to prevent unchecked runtime.lastError warnings
-        if (chrome.runtime.lastError) {
-          // Just log and suppress - expected when the receiving end doesn't exist
-          console.log("Message error handled:", chrome.runtime.lastError.message);
-          // Still call the callback with null to indicate failure
-          if (callback) callback(null);
-          return;
-        }
-
-        // Call the callback with the response if there was no error
-        if (callback) callback(response);
-      });
-    } catch (err) {
-      // Catch any synchronous errors (should be rare)
-      console.log("Synchronous send error:", err);
-      if (callback) callback(null);
-    }
-  }, 0); // Use setTimeout to ensure this runs asynchronously
-}
-
-/**
- * Listens for messages from the runtime and performs corresponding actions.
- * @param {Object} message - The message received from the runtime.
- * @param {Object} sender - Information about the sender of the message.
- * @param {Function} sendResponse - A function to send a response back to the sender.
- */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Safely handle the message
-  const handleMessage = () => {
-    try {
-      if (message.action === "startCapture") {
-        startCapture(message);
-        return { success: true };
-      }
-      else if (message.action === "stopCapture") {
-        stopCapture();
-        return { success: true };
-      }
-      else if (message.action === "updateSelectedLanguage") {
-        const detectedLanguage = message.detectedLanguage;
-        safeSendMessage({ action: "updateSelectedLanguage", detectedLanguage });
-        chrome.storage.local.set({ selectedLanguage: detectedLanguage });
-        return { success: true };
-      }
-      else if (message.action === "toggleCaptureButtons") {
-        safeSendMessage({ action: "toggleCaptureButtons" });
-        chrome.storage.local.set({ capturingState: { isCapturing: false } });
-        stopCapture(); // Ensure capture is stopped
-        return { success: true };
-      }
-      else if (message.action === "pageUnloading") {
-        // Handle the combined message from page unload event
-        if (message.toggleButtons) {
-          safeSendMessage({ action: "toggleCaptureButtons" });
-          chrome.storage.local.set({ capturingState: { isCapturing: false } });
-        }
-        if (message.stopCapture) {
-          stopCapture();
-        }
-        return { success: true };
-      }
-      return { success: false, error: "Unknown action" };
-    } catch (e) {
-      console.log("Error handling message:", e);
-      return { success: false, error: e.message };
-    }
-  };
-
-  // Execute immediately for a synchronous response
-  try {
-    const response = handleMessage();
-    sendResponse(response); // Send response immediately
-  } catch (err) {
-    console.log("Message handler error (suppressed):", err);
-    sendResponse({ success: false, error: "Internal error" }); // Send error response
-  }
-
-  // Return false to indicate we've already sent the response
-  return false;
-});
-
-/**
- * Handle Chrome startup/install to clean up any orphaned tabs from previous sessions
- * Also, handle browser shutdown to clean up resources
- */
-
-// Define a key to mark browser startup state
-const BROWSER_JUST_STARTED_KEY = "browserJustStarted";
-
-// Handle browser shutdown - only log the event but preserve state
-chrome.runtime.onSuspend.addListener(() => {
-  console.log("Browser suspending - preserving extension state for possible restart");
-  // We no longer reset the state here to allow proper session restoration
-});
-
-// Track tabs created during the startup period
-chrome.tabs.onCreated.addListener((tab) => {
-  chrome.storage.local.get([BROWSER_JUST_STARTED_KEY, "capturingState"], (result) => {
-    // Check if this is during browser startup and wasn't an active capture
-    if (result[BROWSER_JUST_STARTED_KEY] &&
-        (!result.capturingState || !result.capturingState.isCapturing)) {
-
-      // If this is our options page, mark it for closing
-      if (tab.url && tab.url.includes('chrome-extension://') &&
-          tab.url.includes('/options.html')) {
-        console.log("New options tab detected during startup - marking for removal");
-
-        // Wait a moment for the tab to initialize
-        setTimeout(() => {
-          try {
-            chrome.tabs.executeScript(tab.id, {
-              code: 'window.isStartupTab = true;'
-            }).catch(() => {
-              // If we can't execute the script, just try to close it directly
-              chrome.tabs.remove(tab.id).catch(() => {});
-            });
-          } catch (e) {
-            // If anything fails, try direct removal
-            chrome.tabs.remove(tab.id).catch(() => {});
-          }
-        }, 200);
-      }
-    }
-  });
-});
-
-// Listener for when the extension is started (e.g., browser startup)
-chrome.runtime.onStartup.addListener(() => {
-  console.log("Browser starting up - setting startup flag");
-
-  // Set a flag indicating the browser just started
-  chrome.storage.local.set({ [BROWSER_JUST_STARTED_KEY]: true });
-
-  // Remove the flag after 10 seconds
-  setTimeout(() => {
-    chrome.storage.local.remove(BROWSER_JUST_STARTED_KEY);
-    console.log("Browser startup period ended - cleared startup flag");
-  }, 10000);
-
-  // Also, track any tabs created during this startup period
-  chrome.tabs.query({
-    url: `chrome-extension://${chrome.runtime.id}/options.html`
-  }, (tabs) => {
-    // Mark these tabs as startup tabs
-    if (tabs && tabs.length > 0) {
-      console.log(`Found ${tabs.length} options tabs during startup`);
-      tabs.forEach(tab => {
-        // Set a tab-specific flag to identify it as a startup tab
-        chrome.tabs.executeScript(tab.id, {
-          code: 'window.isStartupTab = true;'
-        }).catch(() => {
-          // Ignore errors - the tab might not be ready yet
-        });
-      });
-    }
-  });
-});
-
-/**
- * Listen for tab close events to properly clean up resources.
- * This ensures that when a user closes the tab being captured or the options tab,
- * all resources are properly cleaned up.
- */
-chrome.tabs.onRemoved.addListener((tabId) => {
-  // Use callback-based approach to avoid promise rejections entirely
-
-  chrome.storage.local.get(["currentTabId", "optionTabId"], (result) => {
-    const currentTabId = result.currentTabId;
-    const optionTabId = result.optionTabId;
-
-    // If the closed tab is either the captured tab or the options tab
-    if (tabId === currentTabId || tabId === optionTabId) {
-      // Reset the capturing state
-      chrome.storage.local.set({ capturingState: { isCapturing: false } });
-
-      // Try to notify the popup - but don't wait for a response or handle errors
-      safeSendMessage({ action: "toggleCaptureButtons" });
-
-      // If the options tab was closed but not by our stopCapture function
-      if (tabId === optionTabId && currentTabId) {
-        // Safely check if the tab exists first
-        chrome.tabs.get(currentTabId, (tab) => {
-          // Ignore lastError - if the tab doesn't exist, that's fine
-          if (!chrome.runtime.lastError) {
-            // Tab exists, try to send STOP message
-            try {
-              chrome.tabs.sendMessage(currentTabId, {
-                type: "STOP",
-                data: { currentTabId: currentTabId }
-              }, (response) => {
-                // Must check for lastError
-                if (chrome.runtime.lastError) {
-                  console.log("Tab message error handled:", chrome.runtime.lastError.message);
-                  return;
-                }
-              });
-            } catch (err) {
-              console.log("Tab message error caught:", err);
-            }
-          }
-        });
-      }
-
-      // Clean up tab IDs in storage
-      const updates = {};
-      if (tabId === currentTabId) {
-        updates.currentTabId = null;
-      }
-      if (tabId === optionTabId) {
-        updates.optionTabId = null;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        chrome.storage.local.set(updates);
-      }
-    }
-  });
 });

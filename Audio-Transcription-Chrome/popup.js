@@ -1,282 +1,409 @@
-// Wait for the DOM content to be fully loaded
-document.addEventListener("DOMContentLoaded", function () {
-  const startButton = document.getElementById("startCapture");
-  const stopButton = document.getElementById("stopCapture");
+const DEFAULTS = {
+  serverHost: "localhost",
+  serverPort: "9090",
+  selectedLanguage: "",
+  selectedTask: "transcribe",
+  selectedModelSize: "small",
+  textFormatting: "advanced",
+  geminiApiKey: "",
+  geminiModel: "gemini-3-flash-preview",
+  targetLanguage: "es",
+  displayMode: "both",
+  useVad: true,
+  useStandalone: false,
+  enableTts: false,
+  ttsSpeed: "1.2",
+  enableGeminiTranslation: false
+};
 
-  const useVadCheckbox = document.getElementById("useVadCheckbox");
-  const languageDropdown = document.getElementById('languageDropdown');
-  const taskDropdown = document.getElementById('taskDropdown');
-  const modelSizeDropdown = document.getElementById('modelSizeDropdown');
-  const ipAddressInput = document.getElementById('ipAddress');
-  const portInput = document.getElementById('port');
-  const textFormattingDropdown = document.getElementById("textFormattingDropdown");
-  const defaultIpButton = document.getElementById('defaultIpButton');
-  const defaultPortButton = document.getElementById('defaultPortButton');
+const el = {};
 
-  
-  let selectedLanguage = null;
-  let selectedTask = taskDropdown.value;
-  let selectedModelSize = modelSizeDropdown.value;
-  let ipAddress = ipAddressInput.value;
-  let port = portInput.value;
+let fullApiKey = "";
 
-  // Add click event listeners to the buttons
-  startButton.addEventListener("click", startCapture);
-  stopButton.addEventListener("click", stopCapture);
-  defaultIpButton.addEventListener("click", setDefaultIp);
-  defaultPortButton.addEventListener("click", setDefaultPort);
+function $(id) {
+  return document.getElementById(id);
+}
 
-  // Retrieve capturing state from storage on popup open
-  chrome.storage.local.get("capturingState", ({ capturingState }) => {
-    if (capturingState && capturingState.isCapturing) {
-      toggleCaptureButtons(true);
-    } else {
-      toggleCaptureButtons(false);
-    }
+function maskApiKey(key) {
+  if (!key) return "";
+  if (key.length <= 6) return "•".repeat(key.length);
+  return key.slice(0, 3) + "•".repeat(Math.min(key.length - 6, 24)) + key.slice(-3);
+}
+
+function initElements() {
+  el.startButton = $("startCapture");
+  el.stopButton = $("stopCapture");
+  el.ttsSpeed = $("ttsSpeed");
+  el.ttsSpeedValue = $("ttsSpeedValue");
+  el.enableTtsCheckbox = $("enableTtsCheckbox");
+  el.useStandaloneCheckbox = $("useStandaloneCheckbox");
+  el.useVadCheckbox = $("useVadCheckbox");
+  el.ipAddress = $("ipAddress");
+  el.port = $("port");
+  el.defaultIpButton = $("defaultIpButton");
+  el.languageDropdown = $("languageDropdown");
+  el.taskDropdown = $("taskDropdown");
+  el.modelSizeDropdown = $("modelSizeDropdown");
+  el.textFormattingDropdown = $("textFormattingDropdown");
+  el.geminiApiKey = $("geminiApiKey");
+  el.enableGeminiTranslationCheckbox = $("enableGeminiTranslationCheckbox");
+  el.geminiModelDropdown = $("geminiModelDropdown");
+  el.targetLanguageDropdown = $("targetLanguageDropdown");
+  el.displayModeDropdown = $("displayModeDropdown");
+  el.connectionStatus = $("connectionStatus");
+}
+
+function normalizeHost(value) {
+  const clean = String(value || "").trim();
+  return clean || DEFAULTS.serverHost;
+}
+
+function normalizePort(value) {
+  const clean = String(value || "").replace(/[^\d]/g, "");
+  return clean || DEFAULTS.serverPort;
+}
+
+function normalizeSpeed(value) {
+  const n = Number.parseFloat(value);
+  if (!Number.isFinite(n)) return DEFAULTS.ttsSpeed;
+  return Math.min(2.0, Math.max(0.5, n)).toFixed(1);
+}
+
+function setStatus(text) {
+  if (!el.connectionStatus) return;
+  el.connectionStatus.textContent = text;
+}
+
+function setButtonsFromState(isCapturing) {
+  if (el.startButton) el.startButton.disabled = !!isCapturing;
+  if (el.stopButton) el.stopButton.disabled = !isCapturing;
+  setStatus(isCapturing ? "Capturing..." : "Idle");
+}
+
+function updateTtsSpeedLabel() {
+  if (!el.ttsSpeed) return;
+  const speed = normalizeSpeed(el.ttsSpeed.value);
+  el.ttsSpeed.value = speed;
+  if (el.ttsSpeedValue) {
+    el.ttsSpeedValue.textContent = `${speed}x`;
+  }
+}
+
+function collectSettings() {
+  return {
+    serverHost: normalizeHost(el.ipAddress?.value),
+    serverPort: normalizePort(el.port?.value),
+    selectedLanguage: el.languageDropdown?.value || "",
+    selectedTask: el.taskDropdown?.value || DEFAULTS.selectedTask,
+    selectedModelSize: el.modelSizeDropdown?.value || DEFAULTS.selectedModelSize,
+    textFormatting: el.textFormattingDropdown?.value || DEFAULTS.textFormatting,
+    geminiApiKey: fullApiKey,
+    geminiModel: el.geminiModelDropdown?.value || DEFAULTS.geminiModel,
+    targetLanguage: el.targetLanguageDropdown?.value || DEFAULTS.targetLanguage,
+    displayMode: el.displayModeDropdown?.value || DEFAULTS.displayMode,
+    useVad: !!el.useVadCheckbox?.checked,
+    useStandalone: !!el.useStandaloneCheckbox?.checked,
+    enableTts: !!el.enableTtsCheckbox?.checked,
+    ttsSpeed: normalizeSpeed(el.ttsSpeed?.value),
+    enableGeminiTranslation: !!el.enableGeminiTranslationCheckbox?.checked
+  };
+}
+
+async function saveSettings() {
+  const settings = collectSettings();
+
+  await chrome.storage.local.set({
+    serverHost: settings.serverHost,
+    serverPort: settings.serverPort,
+    ipAddress: settings.serverHost,
+    port: settings.serverPort,
+    selectedLanguage: settings.selectedLanguage || null,
+    selectedTask: settings.selectedTask,
+    selectedModelSize: settings.selectedModelSize,
+    textFormatting: settings.textFormatting,
+    geminiApiKey: settings.geminiApiKey,
+    geminiModel: settings.geminiModel,
+    targetLanguage: settings.targetLanguage,
+    displayMode: settings.displayMode,
+    useVad: settings.useVad,
+    useStandalone: settings.useStandalone,
+    enableTts: settings.enableTts,
+    ttsSpeed: settings.ttsSpeed,
+    enableGeminiTranslation: settings.enableGeminiTranslation
   });
 
-  // Retrieve checkbox state from storage on popup open
-  chrome.storage.local.get("useVadState", ({ useVadState }) => {
-    if (useVadState !== undefined) {
-      useVadCheckbox.checked = useVadState;
-    }
-  });
+  return settings;
+}
 
-  // Retrieve selected language from storage on popup open, or default to ""
-  chrome.storage.local.get("selectedLanguage", ({ selectedLanguage: storedLanguage }) => {
-    if (storedLanguage !== undefined && storedLanguage !== null) {
-      languageDropdown.value = storedLanguage;
-      selectedLanguage = storedLanguage;
-    } else {
-      languageDropdown.value = ""; // Set to empty string for "Automatically detect"
-    }      
-  });
+function applySettingsToUI(settings) {
+  if (el.ipAddress) el.ipAddress.value = settings.serverHost ?? DEFAULTS.serverHost;
+  if (el.port) el.port.value = settings.serverPort ?? DEFAULTS.serverPort;
+  if (el.languageDropdown) el.languageDropdown.value = settings.selectedLanguage ?? "";
+  if (el.taskDropdown) el.taskDropdown.value = settings.selectedTask ?? DEFAULTS.selectedTask;
+  if (el.modelSizeDropdown) el.modelSizeDropdown.value = settings.selectedModelSize ?? DEFAULTS.selectedModelSize;
+  if (el.textFormattingDropdown) el.textFormattingDropdown.value = settings.textFormatting ?? DEFAULTS.textFormatting;
 
-  // Retrieve IP address from storage on popup open
-  chrome.storage.local.get("ipAddress", ({ ipAddress: storedIpAddress }) => {
-    if (storedIpAddress !== undefined) {
-      ipAddressInput.value = storedIpAddress;
-      ipAddress = storedIpAddress;
-    }
-  });
+  fullApiKey = String(settings.geminiApiKey ?? DEFAULTS.geminiApiKey);
+  if (el.geminiApiKey) el.geminiApiKey.value = maskApiKey(fullApiKey);
 
-  // Retrieve port from storage on popup open
-  chrome.storage.local.get("port", ({ port: storedPort }) => {
-    if (storedPort !== undefined) {
-      portInput.value = storedPort;
-      port = storedPort;
-    }
-  });
+  if (el.geminiModelDropdown) el.geminiModelDropdown.value = settings.geminiModel ?? DEFAULTS.geminiModel;
+  if (el.targetLanguageDropdown) el.targetLanguageDropdown.value = settings.targetLanguage ?? DEFAULTS.targetLanguage;
+  if (el.displayModeDropdown) el.displayModeDropdown.value = settings.displayMode ?? DEFAULTS.displayMode;
+  if (el.useVadCheckbox) el.useVadCheckbox.checked = settings.useVad ?? DEFAULTS.useVad;
+  if (el.useStandaloneCheckbox) el.useStandaloneCheckbox.checked = settings.useStandalone ?? DEFAULTS.useStandalone;
+  if (el.enableTtsCheckbox) el.enableTtsCheckbox.checked = settings.enableTts ?? DEFAULTS.enableTts;
+  if (el.ttsSpeed) el.ttsSpeed.value = normalizeSpeed(settings.ttsSpeed ?? DEFAULTS.ttsSpeed);
+  if (el.enableGeminiTranslationCheckbox) {
+    el.enableGeminiTranslationCheckbox.checked = settings.enableGeminiTranslation ?? DEFAULTS.enableGeminiTranslation;
+  }
+  updateTtsSpeedLabel();
+}
 
-  // Retrieve selected task from storage on popup open
-  chrome.storage.local.get("selectedTask", ({ selectedTask: storedTask }) => {
-    if (storedTask !== undefined) {
-      taskDropdown.value = storedTask;
-      selectedTask = storedTask;
-    }
-  });
+async function loadSettings() {
+  const stored = await chrome.storage.local.get(null);
 
-    // Retrieve selected model size from storage on popup open
-  chrome.storage.local.get("selectedModelSize", ({ selectedModelSize: storedModelSize }) => {
-    if (storedModelSize !== undefined) {
-      modelSizeDropdown.value = storedModelSize;
-      selectedModelSize = storedModelSize;
-    }
-  });
+  const settings = {
+    ...DEFAULTS,
+    ...stored,
+    serverHost: stored.serverHost || stored.ipAddress || DEFAULTS.serverHost,
+    serverPort: stored.serverPort || stored.port || DEFAULTS.serverPort,
+    selectedLanguage:
+      stored.selectedLanguage === undefined || stored.selectedLanguage === null
+        ? ""
+        : stored.selectedLanguage
+  };
 
-  // Load text formatting option and update dropdown (default to "advanced")
-  chrome.storage.local.get("textFormatting", ({ textFormatting }) => {
-    textFormattingDropdown.value = textFormatting || "advanced";
-  });
+  applySettingsToUI(settings);
 
-  // Common function to restart capture if active
-  function restartCaptureIfActive() {
-    chrome.storage.local.get("capturingState", ({ capturingState }) => {
-      if (capturingState && capturingState.isCapturing) {
-        stopCapture();
-        setTimeout(() => startCapture(), 500);
-      }
-    });
+  const isCapturing =
+    !!stored?.capturingState?.isCapturing || !!stored?.isCapturing;
+
+  setButtonsFromState(isCapturing);
+}
+
+async function getActiveTab() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tabs && tabs.length ? tabs[0] : null;
+}
+
+async function startCapture() {
+  const settings = await saveSettings();
+  const activeTab = await getActiveTab();
+
+  if (!activeTab?.id) {
+    setButtonsFromState(false);
+    setStatus("No active tab");
+    return;
   }
 
-  // Function to request resetting transcription window in the current tab
-  function resetSession() {
-    getCurrentTab().then((tab) => {
-      if (tab) {
-        chrome.tabs.sendMessage(tab.id, { type: "resetSession" });
-      }
-    });
-  }
+  setStatus("Starting...");
 
-  // Function to handle the start capture button click event
-  async function startCapture() {
-    // Ignore click if the button is disabled
-    if (startButton.disabled) {
-      return;
-    }
-
-    // Get the current active tab
-    const currentTab = await getCurrentTab();
-    if (!currentTab) {
-      return;
-    }
-
-    // First toggle the button state
-    toggleCaptureButtons(true);
-    chrome.storage.local.set({ capturingState: { isCapturing: true } });
-    
-    // Send a message to the background script to start capturing
-    chrome.runtime.sendMessage({
+  chrome.runtime.sendMessage(
+    {
       action: "startCapture",
-      tabId: currentTab.id,
-      host: ipAddress,
-      port: port,
-      language: selectedLanguage,
-      task: selectedTask,
-      modelSize: selectedModelSize,
-      useVad: useVadCheckbox.checked,
-    });
-  }
+      tabId: activeTab.id,
+      host: settings.serverHost,
+      port: settings.serverPort,
+      useMultilingual: !settings.selectedLanguage,
+      useVad: settings.useVad,
+      useStandalone: settings.useStandalone
+    },
+    (response) => {
+      if (chrome.runtime.lastError || !response?.success) {
+        setButtonsFromState(false);
+        setStatus("Start failed");
+        return;
+      }
+    }
+  );
+}
 
-  // Function to handle the stop capture button click event
-  function stopCapture() {
-    // Ignore click if the button is disabled
-    if (stopButton.disabled) {
+function stopCapture() {
+  setStatus("Stopping...");
+
+  chrome.runtime.sendMessage({ action: "stopCapture" }, (response) => {
+    if (chrome.runtime.lastError || !response?.success) {
+      setStatus("Stop failed");
       return;
     }
+  });
+}
 
-    // Update capturing state and toggle buttons
-    chrome.storage.local.set({ capturingState: { isCapturing: false } });
-    toggleCaptureButtons(false);
-    
-    // Send a message to the background script to stop capturing
-    chrome.runtime.sendMessage({ action: "stopCapture" });
+async function resetDefaults() {
+  fullApiKey = DEFAULTS.geminiApiKey;
+
+  await chrome.storage.local.set({
+    serverHost: DEFAULTS.serverHost,
+    serverPort: DEFAULTS.serverPort,
+    ipAddress: DEFAULTS.serverHost,
+    port: DEFAULTS.serverPort,
+    selectedLanguage: null,
+    selectedTask: DEFAULTS.selectedTask,
+    selectedModelSize: DEFAULTS.selectedModelSize,
+    textFormatting: DEFAULTS.textFormatting,
+    geminiApiKey: DEFAULTS.geminiApiKey,
+    geminiModel: DEFAULTS.geminiModel,
+    targetLanguage: DEFAULTS.targetLanguage,
+    displayMode: DEFAULTS.displayMode,
+    useVad: DEFAULTS.useVad,
+    useStandalone: DEFAULTS.useStandalone,
+    enableTts: DEFAULTS.enableTts,
+    ttsSpeed: DEFAULTS.ttsSpeed,
+    enableGeminiTranslation: DEFAULTS.enableGeminiTranslation
+  });
+
+  applySettingsToUI({
+    ...DEFAULTS,
+    selectedLanguage: ""
+  });
+
+  const stored = await chrome.storage.local.get(["capturingState", "isCapturing"]);
+  const isCapturing =
+    !!stored?.capturingState?.isCapturing || !!stored?.isCapturing;
+
+  setButtonsFromState(isCapturing);
+}
+
+function bindAutosave() {
+  const controls = [
+    el.enableTtsCheckbox,
+    el.enableGeminiTranslationCheckbox,
+    el.useStandaloneCheckbox,
+    el.useVadCheckbox,
+    el.ipAddress,
+    el.port,
+    el.languageDropdown,
+    el.taskDropdown,
+    el.modelSizeDropdown,
+    el.textFormattingDropdown,
+    el.geminiModelDropdown,
+    el.targetLanguageDropdown,
+    el.displayModeDropdown
+  ].filter(Boolean);
+
+  for (const control of controls) {
+    const eventName =
+      control.tagName === "INPUT" &&
+      (control.type === "text" || control.type === "number")
+        ? "input"
+        : "change";
+
+    control.addEventListener(eventName, async () => {
+      await saveSettings();
+    });
+
+    if (eventName !== "change") {
+      control.addEventListener("change", async () => {
+        await saveSettings();
+      });
+    }
   }
 
-  // Function to get the current active tab
-  async function getCurrentTab() {
-    return new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        resolve(tabs[0]);
-      });
+  if (el.ttsSpeed) {
+    el.ttsSpeed.addEventListener("input", async () => {
+      updateTtsSpeedLabel();
+      await saveSettings();
+    });
+
+    el.ttsSpeed.addEventListener("change", async () => {
+      updateTtsSpeedLabel();
+      await saveSettings();
     });
   }
 
-  // Function to toggle the capture buttons based on the capturing state
-  function toggleCaptureButtons(isCapturing) {
-    startButton.disabled = isCapturing;
-    stopButton.disabled = !isCapturing;
-    useVadCheckbox.disabled = isCapturing;
-    modelSizeDropdown.disabled = isCapturing;
-    languageDropdown.disabled = isCapturing;
-    ipAddressInput.disabled = isCapturing;
-    portInput.disabled = isCapturing;
-    taskDropdown.disabled = isCapturing;
-    startButton.classList.toggle("disabled", isCapturing);
-    stopButton.classList.toggle("disabled", !isCapturing);
-    ipAddressInput.classList.toggle("disabled", isCapturing);
-    portInput.classList.toggle("disabled", isCapturing);
+  if (el.geminiApiKey) {
+    el.geminiApiKey.addEventListener("focus", () => {
+      el.geminiApiKey.value = fullApiKey;
+    });
+
+    el.geminiApiKey.addEventListener("input", () => {
+      fullApiKey = el.geminiApiKey.value;
+    });
+
+    el.geminiApiKey.addEventListener("blur", async () => {
+      fullApiKey = String(el.geminiApiKey.value || "").trim();
+      el.geminiApiKey.value = maskApiKey(fullApiKey);
+      await saveSettings();
+    });
   }
 
-  // Save the checkbox state when it's toggled
-  useVadCheckbox.addEventListener("change", () => {
-    const useVadState = useVadCheckbox.checked;
-    chrome.storage.local.set({ useVadState });
-  });
+  if (el.languageDropdown) {
+    el.languageDropdown.addEventListener("change", () => {
+      chrome.runtime.sendMessage(
+        {
+          action: "updateSelectedLanguage",
+          detectedLanguage: el.languageDropdown.value || null
+        },
+        () => {
+          void chrome.runtime.lastError;
+        }
+      );
+    });
+  }
+}
 
-  // Event listener for language dropdown change
-  languageDropdown.addEventListener('change', function() {
-    const selectedLanguage = languageDropdown.value || null; // Store null for "Automatically detect"
-    chrome.storage.local.set({ selectedLanguage });
-    restartCaptureIfActive();
-    resetSession();
-  });
-
-  // Event listener for task dropdown change
-  taskDropdown.addEventListener('change', function() {
-    const selectedTask = taskDropdown.value;
-    chrome.storage.local.set({ selectedTask });
-    restartCaptureIfActive();
-    resetSession();
-  });
-
-  // Event listener for model size dropdown change
-  modelSizeDropdown.addEventListener('change', function() {
-    const selectedModelSize = modelSizeDropdown.value;
-    chrome.storage.local.set({ selectedModelSize });
-    restartCaptureIfActive();
-    resetSession();
-  });
-
-  // Event listener for default IP button click
-  defaultIpButton.addEventListener('click', function() {
-    setDefaultIp();
-    restartCaptureIfActive();
-  });
-
-  // Event listener for default Port button click
-  defaultPortButton.addEventListener('click', function() {
-    setDefaultPort();
-    restartCaptureIfActive();
-  });
-
-  // Function to set the IP address to the default value (localhost)
-  function setDefaultIp() {
-    ipAddressInput.value = "localhost";
-    ipAddress = ipAddressInput.value;
-    chrome.storage.local.set({ ipAddress: "localhost" });
+function bindButtons() {
+  if (el.startButton) {
+    el.startButton.addEventListener("click", startCapture);
   }
 
-  // Function to set the port to the default value (9090)
-  function setDefaultPort() {
-    portInput.value = "9090";
-    port = portInput.value;
-    chrome.storage.local.set({ port: "9090" });
+  if (el.stopButton) {
+    el.stopButton.addEventListener("click", stopCapture);
   }
 
-  // Event listener for IP address input change
-  ipAddressInput.addEventListener('change', function() {
-    const ipAddress = ipAddressInput.value;
-    chrome.storage.local.set({ ipAddress });
-    restartCaptureIfActive();
-    resetSession();
-  });
+  if (el.defaultIpButton) {
+    el.defaultIpButton.addEventListener("click", resetDefaults);
+  }
+}
 
-  // Event listener for port input change
-  portInput.addEventListener('change', function() {
-    const port = portInput.value;
-    chrome.storage.local.set({ port });
-    restartCaptureIfActive();
-    resetSession();
-  });
-
-  // Event listener for text formatting dropdown change
-  textFormattingDropdown.addEventListener("change", function() {
-    chrome.storage.local.set({ textFormatting: textFormattingDropdown.value });
-    resetSession();
-  });
-
-  // Single listener for all message types
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    try {
-      // Handle different action types
-      if (request.action === "toggleCaptureButtons") {
-        console.log("Received toggleCaptureButtons message");
-        toggleCaptureButtons(false);
-        chrome.storage.local.set({ capturingState: { isCapturing: false } });
-        sendResponse({ success: true });
-      }
-      else {
-        // Unknown action type
-        sendResponse({ success: false, error: "Unknown action type" });
-      }
-    } catch (error) {
-      console.error("Error processing message:", error);
-      sendResponse({ success: false, error: error.message });
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  try {
+    // ESTA ES LA REPARACIÓN PRINCIPAL
+    // El popup SOLO procesa los mensajes que le corresponden. 
+    // Ignora completamente "processTranslation" para que llegue al background.js
+    if (message.action === "toggleCaptureButtons") {
+      const isCapturing = typeof message.isCapturing === "boolean" ? message.isCapturing : false;
+      setButtonsFromState(isCapturing);
+      sendResponse({ success: true });
+      return false;
     }
-    
-    // Return true to indicate we want to send a response asynchronously
-    return true;
-  });
 
+    if (message.action === "updateSelectedLanguage" && el.languageDropdown) {
+      el.languageDropdown.value = message.detectedLanguage || "";
+      sendResponse({ success: true });
+      return false;
+    }
+
+    // Ignora todo lo demás
+    return false;
+  } catch (e) {
+    return false;
+  }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+
+  if (changes.capturingState || changes.isCapturing) {
+    chrome.storage.local.get(["capturingState", "isCapturing"], (res) => {
+      const isCapturing =
+        !!res?.capturingState?.isCapturing || !!res?.isCapturing;
+      setButtonsFromState(isCapturing);
+    });
+  }
+});
+
+document.addEventListener("DOMContentLoaded", async () => {
+  initElements();
+
+  const versionEl = document.getElementById("extensionVersion");
+  if (versionEl) {
+    const v = chrome.runtime.getManifest?.()?.version || "";
+    if (v) versionEl.textContent = `v. ${v}`;
+  }
+
+  await loadSettings();
+  bindAutosave();
+  bindButtons();
+  updateTtsSpeedLabel();
 });
