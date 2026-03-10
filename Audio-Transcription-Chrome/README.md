@@ -1,116 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.0.0
-
-Audio Transcription is a Chrome/Chromium/Microsoft Edge extension that allows users to capture any audio playing in the current tab and transcribe it in real time using OpenAI Whisper, with a local server running on the user's computer. The user can choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid processing audio on the server when there is no speech.
-
-This is a forked version with aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive. It supports Linux, Windows through WSL2, and macOS ARM (Intel versions do not work).
-
-
-## Real-Time Transcription with OpenAI Whisper
-
-We use the OpenAI-Whisper model to process audio continuously and send transcriptions back to the client in real time. By integrating optimizations via `faster-whisper`, we achieve transcription speeds up to 4× faster than the standard implementation.
-
-## New Features
-
-In this release, we have added various options for text output manipulation and improved the server configuration options that allow you to customize the server IP address and port.
-
-### Custom Server Configuration:
-
-- **IP and Port Textboxes:** You can now enter a custom server IP address and port directly in the extension.
-- **Default Buttons:** Two handy buttons allow you to quickly reset the values:
-  - **Default IP:** Resets the server IP to localhost.
-  - **Default Port:** Resets the port to 9090.
-
-### Text Manipulation:
-
-- Buffered history of transcription texts
-- Copy & Paste
-- Font size adjustment
-- Menu for text formatting
-
-## Installing the WhisperLive Server
-
-Depending on your operating system configuration, you may need to create a Python virtual environment using either Anaconda or virtualenv (not pipx, which is not intended for libraries). You must activate this environment to run the WhisperLive server.
-
-For virtualenv:
-
-```sh
-sudo apt install virtualenv
-```
-
-Or for macOS:
-
-```sh
-brew install virtualenv
-```
-
-Then:
-
-```sh
-mkdir ~/python-environments
-virtualenv ~/python-environments/whisper-live
-source ~/python-environments/whisper-live/bin/activate
-```
-
-Install WhisperLive (at least version 0.6.3):
-
-```sh
-pip3 install "whisper-live>=0.6.3"
-```
-
-Or install manually by cloning the WhisperLive GitHub repository:
-
-```sh
-git clone https://github.com/collabora/WhisperLive.git
-cd WhisperLive
-pip3 install .
-```
-
-This may take several minutes.
-
-Download this repository using:
-
-```sh
-git clone https://github.com/antor44/livestream_video.git
-```
-
-## Running the WhisperLive Server
-
-Before using the extension, ensure the local WhisperLive server is running.
-
-Change to the directory:
-
-```sh
-cd livestream_video/Audio-Transcription-Chrome
-```
-
-Run the server:
-
-```sh
-./WhisperLive_server.sh
-```
-
-Or, if using a Python virtual environment:
-
-```sh
-source ~/python-environments/whisper-live/bin/activate && ./WhisperLive_server.sh
-```
-
-If a "numpy version 2" error occurs:
-
-```sh
-pip3 install "numpy<2"
-```
-
-*You can edit the bash script **`WhisperLive_server.sh`** to modify the default Server IP and Port.*
-
-## Installing the Extension
-
-1. Open Google Chrome, Chromium, or Microsoft Edge.
-2. In the address bar, type `chrome://extensions` and press Enter.
-3. Enable Developer mode (toggle switch in the top right corner). Recent versions of Chrome require this switch enabled for extensions not signed by Google.
-4. Click the **Load unpacked** button.
-5. Browse to the folder where you cloned this repository and select the `Audio-Transcription-Chrome` folder (inside `livestream_video`).
-6. The extension should now appear on the extensions page.
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.3.0
 
 ## Using the Extension
 
@@ -128,22 +16,33 @@ Click the extension icon to open the options popup.
 
 ### Configure Your Options:
 
-- **Language:** Select the target language for transcription or translation.
-- **Task:** Choose between "transcribe" for transcription or "translate" to convert audio to English.
-- **Model Size:** Pick the model size that suits your system’s performance.
-- **Menu for Text Formatting:** Choose from:
-  - **None/Default** (raw format from WhisperLive server)
-  - **Join all words**
-  - **Advanced formatting**
-- **Server Configuration:**
-  - Enter a custom server IP and port.
-  - Click **Default IP** to revert to localhost.
-  - Click **Default Port** to revert to 9090.
+The UI is divided into several sections to give you full control over transcription and translation:
 
+- **General Settings:**
+  - **Speech (TTS) Speed & Enable TTS:** Enable Text-to-Speech to have the extension read the translated text aloud in real time. You can adjust the reading speed.
+  - **Show in Standalone Window:** Choose between displaying the text in a floating overlay inside the webpage, or in a dedicated, resizable standalone popup window.
+  - **Voice Activity Detection (VAD):** Enable this to stop processing audio during silent periods, saving CPU/GPU resources.
+
+- **Audio Server:**
+  - Enter a custom server IP address and port (default is `localhost` and `9090`).
+  - Click **Reset Default** to easily revert to local settings.
+
+- **Transcription Settings:**
+  - **Audio Language:** Select the source language of the audio, or leave it on "Auto Detect".
+  - **Whisper Task:** Choose between "Transcribe" (text in the original language) or "Translate" (direct Whisper translation to English).
+  - **Model Size:** Pick the model size that suits your system’s hardware (from Base to Large-v3).
+  - **Text Formatting:** Choose from "Raw Segments", "Joined Text", or "Advanced Paragraphs" to make the output more readable.
+
+- **Gemini Translation (New in v2.3.0):**
+  - **Enable Gemini Translation:** Check this to activate real-time translation powered by Google Gemini.
+  - **Gemini API Key:** Paste your Google Gemini API key (you can get one for free from Google AI Studio).
+  - **Gemini Model:** Select the desired model (e.g., `gemini-3-flash-preview`, `gemini-2.5-pro`).
+  - **Target Language:** Select the language you want to translate the text into.
+  - **Display Mode:** Choose how to view the text ("Original Only", "Translation Only", or "Side by Side").
 
 ### Start Transcription:
 
-Click **Start Capture** to begin capturing audio and sending it to the server. The first time a model is selected, necessary files will be downloaded automatically.
+Click **Start Capture** to begin capturing audio and sending it to the server. The first time a model is selected, necessary files will be downloaded automatically. You can monitor the active settings and connection status in the real-time status bar at the top of the transcription window.
 
 ### Stop Transcription:
 
@@ -159,7 +58,6 @@ For Windows users, the local server runs through Windows Subsystem for Linux (WS
    ```
 2. Install WhisperLive and run `./WhisperLive_server.sh` within your Linux environment.
 3. Use the extension in the Windows version of Chrome/Chromium/Microsoft Edge by copying or downloading this repository (or just the extension directory) to a Windows folder and loading it via the **Load unpacked** option.
-
 
 ---
 ## Screenshot
