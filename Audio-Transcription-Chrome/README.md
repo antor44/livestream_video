@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.3.0
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.4.0
 
 ## Using the Extension
 
@@ -19,8 +19,8 @@ Click the extension icon to open the options popup.
 The UI is divided into several sections to give you full control over transcription and translation:
 
 - **General Settings:**
-  - **Speech (TTS) Speed & Enable TTS:** Enable Text-to-Speech to have the extension read the translated text aloud in real time. You can adjust the reading speed.
-  - **Show in Standalone Window:** Choose between viewing the transcription in a floating, resizable in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
+  - **Speech (TTS) Speed & Enable TTS:** Enable Text-to-Speech to have the extension read the text aloud in real time. If Gemini translation is active, it reads the translated text. If Gemini is disabled, it reads the original Whisper transcription (using the selected Audio Language's accent, or English if Whisper's task is set to "Translate"). You can also adjust the reading speed.
+  - **Show in Standalone Window:** Choose between displaying the text in a floating overlay inside the webpage, or in a dedicated, resizable standalone popup window.
   - **Voice Activity Detection (VAD):** Enable this to stop processing audio during silent periods, saving CPU/GPU resources.
 
 - **Audio Server:**
@@ -28,12 +28,12 @@ The UI is divided into several sections to give you full control over transcript
   - Click **Reset Default** to easily revert to local settings.
 
 - **Transcription Settings:**
-  - **Audio Language:** Select the source language of the audio, or leave it on "Auto Detect".
+  - **Audio Language:** Select the source language of the audio, or leave it on "Auto Detect". *Tip: If you select a language different from the one spoken in the audio, larger Whisper models (like large-v2 or large-v3) will often provide a very good direct translation into the selected language natively, without needing to use Gemini.*
   - **Whisper Task:** Choose between "Transcribe" (text in the original language) or "Translate" (direct Whisper translation to English).
   - **Model Size:** Pick the model size that suits your system’s hardware (from Base to Large-v3).
   - **Text Formatting:** Choose from "Raw Segments", "Joined Text", or "Advanced Paragraphs" to make the output more readable.
 
-- **Gemini Translation (New in v2.3.0):**
+- **Gemini Translation:**
   - **Enable Gemini Translation:** Check this to activate real-time translation powered by Google Gemini.
   - **Gemini API Key:** Paste your Google Gemini API key (you can get one for free from Google AI Studio).
   - **Gemini Model:** Select the desired model (e.g., `gemini-3-flash-preview`, `gemini-2.5-pro`).
