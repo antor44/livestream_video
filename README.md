@@ -93,12 +93,17 @@ Author: Antonio R. Version: 5.22 License: GPL 3.0
 
 # Audio Transcription
 
-Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, translate any language into English, and enable voice activity detection to avoid sending audio to the server when there is no speech.
+Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, use Whisper's native translation to English, and enable Voice Activity Detection (VAD) to avoid sending audio to the server when there is no speech.
 
-This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhiperLive, an implementation of OpenAI Whisper different from whisper.cpp. This browser extension is a fork of a [WhisperLive extension](https://github.com/collabora/WhisperLive) with some aesthetic changes and enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the [README](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/README.md) file in its directory.
+This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhisperLive, an implementation of OpenAI Whisper different from whisper.cpp. This browser extension is a fork of a [WhisperLive extension](https://github.com/collabora/WhisperLive) with significant aesthetic changes and powerful enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the [README](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/README.md) file in its directory.
 
-In this release, we have added various options for text output manipulation and improved the server configuration options that allow you to customize the server IP address and port.
-
+**New in Version 2.3.0:**
+We have massively expanded the extension's capabilities beyond standard Whisper transcription:
+- **Real-Time Gemini Translation:** Translate live transcriptions into dozens of target languages on the fly using the Google Gemini API.
+- **Text-to-Speech (TTS):** Automatically read the translated text aloud in real time with adjustable speed settings.
+- **Flexible UI Modes:** Choose between viewing the transcription in a floating, resizable in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
+- **Side-by-Side Viewing:** New display modes allow you to view the original transcription and the translation side-by-side, or isolate either one.
+- **Advanced Text Manipulation & Server Config:** Customize text output formatting (raw, joined, or advanced paragraphs) and easily configure custom server IP addresses and ports with one-click default resets.
 </br>
 </br>
 
