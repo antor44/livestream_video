@@ -117,6 +117,8 @@ We have massively expanded the extension's capabilities beyond standard Whisper 
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
 #
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension2.jpg)
+#
 
 #
 ## playlist4whisper Quick start
