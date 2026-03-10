@@ -31,7 +31,9 @@
   let isDraggingDivider = false;
   let translationQueue = [];
   let isTranslatingLocal = false;
+  
   let enableGeminiTranslation = false;
+  let enableTts = false;
   let dedupTail = [];
 
   function normalizeText(text) { return String(text || "").replace(/\s+/g, " ").trim(); }
@@ -189,7 +191,11 @@
     historyChunks.push(deduped);
     if (historyChunks.length > 200) historyChunks.shift();
 
-    queueTranslation(deduped);
+    if (enableGeminiTranslation) {
+      queueTranslation(deduped);
+    } else if (enableTts) {
+      chrome.runtime.sendMessage({ action: "speakOriginalText", text: deduped });
+    }
   }
 
   function absorbStableText(text, forceFlush = false) {
@@ -430,6 +436,7 @@
         currentDisplayMode = res.displayMode || "both";
         currentFormatting = res.textFormatting || "advanced";
         enableGeminiTranslation = !!res.enableGeminiTranslation;
+        enableTts = !!res.enableTts;
         applyFontSize(res.fontSize || currentFontSize || 20);
         updateStatusBar(res || {});
         renderText();
@@ -554,6 +561,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     let needsRender = false;
+    
     if ("enableGeminiTranslation" in changes) {
       enableGeminiTranslation = !!changes.enableGeminiTranslation.newValue;
       if (!enableGeminiTranslation) {
@@ -563,8 +571,13 @@
       }
       needsRender = true;
     }
+    if ("enableTts" in changes) {
+      enableTts = !!changes.enableTts.newValue;
+      needsRender = true;
+    }
     if ("displayMode" in changes) { currentDisplayMode = changes.displayMode.newValue || "both"; needsRender = true; }
     if ("textFormatting" in changes) { currentFormatting = changes.textFormatting.newValue || "advanced"; needsRender = true; }
+    
     if (needsRender) renderText();
   });
 
@@ -578,6 +591,7 @@
       currentFormatting = res.textFormatting || "advanced";
       currentDisplayMode = res.displayMode || "both";
       enableGeminiTranslation = !!res.enableGeminiTranslation;
+      enableTts = !!res.enableTts;
       applyFontSize(res.fontSize || 20);
 
       const pos = parseFloat(res.dividerPos);

@@ -105,7 +105,7 @@ function removeChromeTab(tabId) {
 
     try {
       chrome.tabs.remove(tabId, () => {
-        void chrome.runtime.lastError; // consume to avoid "Unchecked runtime.lastError"
+        void chrome.runtime.lastError; 
         resolve();
       });
     } catch (e) {
@@ -194,30 +194,33 @@ function resetTranslationContext() {
   } catch (e) {}
 }
 
-async function translateWithGemini(originalText, targetLang, model, apiKey) {
+async function translateWithGemini(originalText, targetLangCode, model, apiKey) {
   const input = normalizeText(originalText);
   if (!apiKey || input.length < 3) return "";
 
-  const recentDuplicate = recentOriginalFragments.some(
-    (item) => textSimilarity(item, input) > 0.97
-  );
-  if (recentDuplicate) return "";
-
-  recentOriginalFragments.push(input);
-  if (recentOriginalFragments.length > MAX_RECENT_ORIGINALS) {
-    recentOriginalFragments.shift();
-  }
+  // Convertimos el código corto ("es") al nombre en inglés ("Spanish") para Gemini
+  let langName = targetLangCode;
+  try {
+    const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+    langName = displayNames.of(targetLangCode) || targetLangCode;
+  } catch (e) {}
 
   const context = translatedContextWindow.join(" ");
-  const prompt = [
-    `Translate ONLY the NEW fragment into ${targetLang}.`,
-    `Current context (DO NOT REPEAT): "${context}"`,
-    `Fragment to translate: "${input}"`,
-    "Rules:",
-    "1. Respond ONLY with the translation.",
-    "2. If it is already in context, return empty string.",
-    "3. Be extremely concise and fast."
-  ].join("\n");
+  
+  // Prompt a prueba de fallos: Sin reglas de "strings vacíos", directo a la tarea.
+  const prompt = `You are a real-time translator.
+Target Language: ${langName}
+
+Previous Context (for linguistic reference only, DO NOT output this):
+"${context}"
+
+Text to Process:
+"${input}"
+
+Instructions:
+1. Translate the "Text to Process" into the Target Language.
+2. If the "Text to Process" is already in the Target Language, fix any transcription errors and output it in the Target Language.
+3. Output ONLY the processed text. Do not add labels, greetings, or explanations.`;
 
   try {
     const response = await fetch(
@@ -257,7 +260,7 @@ async function translateWithGemini(originalText, targetLang, model, apiKey) {
     return translated;
   } catch (error) {
     console.error("Gemini translation error:", error);
-    return "";
+    throw error;
   }
 }
 
@@ -267,14 +270,20 @@ function speakText(text, lang) {
 
   chrome.storage.local.get(["ttsSpeed"], (res) => {
     const rate = Number.parseFloat(res?.ttsSpeed || "1.0");
+    const options = {
+      rate: Number.isFinite(rate) ? rate : 1.0,
+      pitch: 1.0,
+      volume: 1.0,
+      enqueue: true
+    };
+    
+    // Forzar el acento del idioma si es válido
+    if (lang && lang.trim() !== "" && lang.trim() !== "AUTO") {
+      options.lang = lang;
+    }
+
     try {
-      chrome.tts.speak(clean, {
-        lang: lang || "es",
-        rate: Number.isFinite(rate) ? rate : 1.2,
-        pitch: 1.0,
-        volume: 1.0,
-        enqueue: true
-      });
+      chrome.tts.speak(clean, options);
     } catch (e) {
       console.error("TTS error:", e);
     }
@@ -330,8 +339,6 @@ async function stopCaptureInternal() {
   if (isStoppingCapture) return;
   isStoppingCapture = true;
 
-  // Stop TTS immediately — before any async tab operations so the voice
-  // stops as soon as the user clicks Stop, not seconds later.
   try { chrome.tts.stop(); } catch (e) {}
 
   try {
@@ -354,7 +361,6 @@ async function stopCaptureInternal() {
       )
     );
 
-    // Send STOP message to all tracked tabs in parallel to avoid sequential timeouts
     await Promise.all(
       idsToStop.map((id) =>
         sendMessageToTab(id, { type: "STOP" }).catch((err) =>
@@ -365,7 +371,6 @@ async function stopCaptureInternal() {
 
     await delay(100);
 
-    // Attempt to close standalone and option tabs in parallel
     const closePromises = [];
     if (storage.standaloneTabId) {
       closePromises.push(removeChromeTab(storage.standaloneTabId).catch(() => {}));
@@ -558,16 +563,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
       return false;
     }
-    
+
     if (message.action === "stopTts") {
       try { chrome.tts.stop(); } catch (e) {}
       sendResponse({ success: true });
       return false;
     }
-    
+
     if (message.action === "pageUnloading") {
       sendResponse({ success: true });
       return false;
+    }
+    
+    // Reproducción TTS del texto original (Cuando Gemini está apagado)
+    if (message.action === "speakOriginalText") {
+      getStorage(["enableTts", "selectedTask", "selectedLanguage"]).then((res) => {
+        if (!res.enableTts) {
+          sendResponse({ success: true });
+          return;
+        }
+        
+        let ttsLang = ""; 
+        if (res.selectedTask === "translate") {
+          ttsLang = "en"; // Whisper nativo traduce siempre al inglés
+        } else if (res.selectedLanguage && res.selectedLanguage !== "AUTO") {
+          ttsLang = res.selectedLanguage; 
+        }
+        
+        speakText(message.text, ttsLang);
+        sendResponse({ success: true });
+      });
+      return true;
     }
 
     if (message.action === "processTranslation") {
@@ -585,8 +611,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           try {
             const translated = await translateWithGemini(message.text, targetLang, model, apiKey);
 
-            // An empty result is normal (dedup/context skip) — NOT an error.
-            // Only the catch block below produces success:false (real API errors).
             if (res.enableTts && translated) speakText(translated, targetLang);
             sendResponse({ success: true, data: translated || "" });
           } catch (e) {
@@ -598,7 +622,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: false, error: err.message });
         });
 
-      return true; // Keep message channel open for async response
+      return true;
     }
 
     sendResponse({ success: false, error: "Unknown action" });
@@ -631,7 +655,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
       ].filter(Boolean);
 
       if (tracked.includes(tabId)) {
-        // Stop TTS immediately (synchronous) before the async stopCapture chain.
         try { chrome.tts.stop(); } catch (e) {}
         stopCapture();
       }

@@ -54,6 +54,7 @@ if (window.__audioTranscriptionOverlayApi) {
     let statusClearTimer = null;
 
     let enableGeminiTranslation = false;
+    let enableTts = false;
     let dedupTail = [];
 
     function normalizeText(text) { return String(text || "").replace(/\s+/g, " ").trim(); }
@@ -259,7 +260,11 @@ if (window.__audioTranscriptionOverlayApi) {
       historyChunks.push(deduped);
       if (historyChunks.length > 160) historyChunks.shift();
 
-      queueTranslation(deduped);
+      if (enableGeminiTranslation) {
+        queueTranslation(deduped);
+      } else if (enableTts) {
+        chrome.runtime.sendMessage({ action: "speakOriginalText", text: deduped });
+      }
     }
 
     function absorbStableText(text, forceFlush = false) {
@@ -654,6 +659,7 @@ if (window.__audioTranscriptionOverlayApi) {
           currentDisplayMode = res.displayMode || "both";
           currentFontSize = res.fontSize || 20;
           enableGeminiTranslation = !!res.enableGeminiTranslation;
+          enableTts = !!res.enableTts;
 
           if (res.dividerPos) {
             const pos = parseFloat(res.dividerPos);
@@ -717,6 +723,7 @@ if (window.__audioTranscriptionOverlayApi) {
           currentFormatting = res.textFormatting || "advanced";
           currentFontSize = res.fontSize || 20;
           enableGeminiTranslation = !!res.enableGeminiTranslation;
+          enableTts = !!res.enableTts;
           adjustFontSize(0);
           updateHeaderAndStatus(res || {});
           renderText();
@@ -748,13 +755,19 @@ if (window.__audioTranscriptionOverlayApi) {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== "local") return;
         let needsRender = false;
+        
         if ("enableGeminiTranslation" in changes) {
           enableGeminiTranslation = !!changes.enableGeminiTranslation.newValue;
           if (!enableGeminiTranslation) { translatedChunks = []; translationQueue = []; isTranslatingLocal = false; }
           needsRender = true;
         }
+        if ("enableTts" in changes) {
+          enableTts = !!changes.enableTts.newValue;
+          needsRender = true;
+        }
         if ("displayMode" in changes) { currentDisplayMode = changes.displayMode.newValue || "both"; needsRender = true; }
         if ("textFormatting" in changes) { currentFormatting = changes.textFormatting.newValue || "advanced"; needsRender = true; }
+        
         if (needsRender && transcriptionOriginalEl) renderText();
       });
     }
