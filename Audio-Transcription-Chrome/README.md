@@ -60,10 +60,11 @@ For Windows users, the local server runs through Windows Subsystem for Linux (WS
 3. Use the extension in the Windows version of Chrome/Chromium/Microsoft Edge by copying or downloading this repository (or just the extension directory) to a Windows folder and loading it via the **Load unpacked** option.
 
 ---
-## Screenshot
+## Screenshots
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
 
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension2.jpg)
 ---
 
 ## FAQ
