@@ -38,7 +38,7 @@ The UI is divided into several sections to give you full control over transcript
   - **Enable Translation:** Check this to activate real-time translation.
   - **Gemini API Key:** If you intend to use a Gemini model, paste your Google Gemini API key here (you can get one for free from Google AI Studio).
   - **Translation Model (Free Option Available):** Select your desired engine. You can choose **Google Translate** for completely free translations without an API key, or select a Gemini model (e.g., `gemini-3-flash-preview`).
-  - **Automatic Fallback:** If you select a Gemini model and the API fails, times out, or throws an error, the extension will automatically use the free Google Translate as a fallback. Translations produced by this fallback are marked with a `⁺` (U+207A) symbol at the beginning of the text. *It is completely invisible to all TTS engines in all languages — no synthesizer recognizes this Unicode superscript as pronounceable.*
+  - **Automatic Fallback:** If you select a Gemini model and the API fails, times out, or throws an error, the extension will automatically use the free Google Translate as a fallback. Translations produced by this fallback are marked with a `⁺` (U+207A) symbol at the beginning of the text.
   - **Target Language:** Select the language you want to translate the text into.
   - **Display Mode:** Choose how to view the text ("Original Only", "Translation Only", or "Side by Side").
 
