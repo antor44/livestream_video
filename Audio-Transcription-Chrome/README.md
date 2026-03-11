@@ -4,7 +4,7 @@
 
 ### Prepare the Server:
 
-Ensure that the WhisperLive server is running.
+Ensure that the [WhisperLive](https://github.com/collabora/WhisperLive) server is running.
 
 ### Play Audio:
 
