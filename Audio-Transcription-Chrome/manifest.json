@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Audio Transcription",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Fork of WhisperLive's Audio Transcription extension that captures audio from the active tab and sends it to a server for real-time transcription, translation, and TTS.",
   "options_page": "options.html",
   "background": {
@@ -17,7 +17,8 @@
     "tts"
   ],
   "host_permissions": [
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://clients5.google.com/*"
   ],
   "icons": {
     "128": "icon128.png"

@@ -297,7 +297,8 @@ if (window.__audioTranscriptionOverlayApi) {
       }
 
       let alignmentShift = -1;
-      const samplesToTry = Math.min(4, newSegments.length);
+      // Ampliado a 6 para evitar fallos de alineación en diálogos muy densos/rápidos
+      const samplesToTry = Math.min(6, newSegments.length);
       
       for (let i = 0; i < samplesToTry; i++) {
         const newSegText = newSegments[i].text.trim();
@@ -316,7 +317,8 @@ if (window.__audioTranscriptionOverlayApi) {
       } else if (alignmentShift === 0) {
         previousSegments = newSegments.slice();
       } else if (alignmentShift === -1) {
-        if (elapsed > 6000) {
+        // Reducido a 3.5s (antes 6s) para desatascar más rápido y evitar lag masivo en TTS/Traducción
+        if (elapsed > 3500) {
           previousSegments.forEach(seg => {
             if (seg.text && seg.text.trim()) appendCommittedChunk(seg.text.trim());
           });

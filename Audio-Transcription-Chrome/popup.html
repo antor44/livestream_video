@@ -47,6 +47,8 @@
     </div>
   </div>
 
+
+
   <div class="section">
     <div class="card">
       <div class="checkbox-container">
@@ -227,7 +229,7 @@
     </div>
   </div>
 
-  <h2>Gemini Translation</h2>
+  <h2>AI Translation</h2>
   <div class="section">
     <div class="card">
       <div class="checkbox-container" style="margin-bottom: 12px;">
@@ -235,20 +237,25 @@
         <label for="enableGeminiTranslationCheckbox">Enable Gemini Translation</label>
       </div>
 
-      <div class="input-container">
+      <div class="input-container" id="geminiApiKeyRow">
         <label for="geminiApiKey">Gemini API Key</label>
         <input type="text" id="geminiApiKey" placeholder="Paste Key Here" autocomplete="off">
       </div>
 
       <div class="input-container">
-        <label for="geminiModelDropdown">Gemini Model</label>
+        <label for="geminiModelDropdown">Translation Engine / Model</label>
         <select id="geminiModelDropdown">
-          <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
-          <option value="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite-preview</option>
-          <option value="gemini-3-flash-preview" selected>gemini-3-flash-preview</option>
-          <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+          <optgroup label="No API Key Required">
+            <option value="google-translate">Google Translate (free, no key)</option>
+          </optgroup>
+          <optgroup label="Gemini Models (API Key required)">
+            <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview</option>
+            <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+            <option value="gemini-3.1-flash-lite-preview" selected>gemini-3.1-flash-lite-preview</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+          </optgroup>
         </select>
       </div>
 

@@ -6,7 +6,7 @@ const DEFAULTS = {
   selectedModelSize: "small",
   textFormatting: "advanced",
   geminiApiKey: "",
-  geminiModel: "gemini-3-flash-preview",
+  geminiModel: "gemini-3.1-flash-lite-preview",
   targetLanguage: "es",
   displayMode: "both",
   useVad: true,
@@ -48,6 +48,7 @@ function initElements() {
   el.geminiApiKey = $("geminiApiKey");
   el.enableGeminiTranslationCheckbox = $("enableGeminiTranslationCheckbox");
   el.geminiModelDropdown = $("geminiModelDropdown");
+  el.geminiApiKeyRow = $("geminiApiKeyRow");
   el.targetLanguageDropdown = $("targetLanguageDropdown");
   el.displayModeDropdown = $("displayModeDropdown");
   el.connectionStatus = $("connectionStatus");
@@ -78,6 +79,12 @@ function setButtonsFromState(isCapturing) {
   if (el.startButton) el.startButton.disabled = !!isCapturing;
   if (el.stopButton) el.stopButton.disabled = !isCapturing;
   setStatus(isCapturing ? "Capturing..." : "Idle");
+}
+
+function updateApiKeyVisibility() {
+  if (!el.geminiApiKeyRow || !el.geminiModelDropdown) return;
+  const isGoogleTranslate = el.geminiModelDropdown.value === "google-translate";
+  el.geminiApiKeyRow.style.display = isGoogleTranslate ? "none" : "";
 }
 
 function updateTtsSpeedLabel() {
@@ -157,6 +164,7 @@ function applySettingsToUI(settings) {
     el.enableGeminiTranslationCheckbox.checked = settings.enableGeminiTranslation ?? DEFAULTS.enableGeminiTranslation;
   }
   updateTtsSpeedLabel();
+  updateApiKeyVisibility();
 }
 
 async function loadSettings() {
@@ -340,7 +348,14 @@ function bindAutosave() {
       );
     });
   }
+
+  if (el.geminiModelDropdown) {
+    el.geminiModelDropdown.addEventListener("change", () => {
+      updateApiKeyVisibility();
+    });
+  }
 }
+
 
 function bindButtons() {
   if (el.startButton) {

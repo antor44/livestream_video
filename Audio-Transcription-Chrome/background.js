@@ -194,74 +194,179 @@ function resetTranslationContext() {
   } catch (e) {}
 }
 
-async function translateWithGemini(originalText, targetLangCode, model, apiKey) {
-  const input = normalizeText(originalText);
-  if (!apiKey || input.length < 3) return "";
 
-  // Convertimos el código corto ("es") al nombre en inglés ("Spanish") para Gemini
-  let langName = targetLangCode;
-  try {
-    const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
-    langName = displayNames.of(targetLangCode) || targetLangCode;
-  } catch (e) {}
-
-  const context = translatedContextWindow.join(" ");
-  
-  // Prompt a prueba de fallos: Sin reglas de "strings vacíos", directo a la tarea.
-  const prompt = `You are a real-time translator.
-Target Language: ${langName}
-
-Previous Context (for linguistic reference only, DO NOT output this):
-"${context}"
-
-Text to Process:
-"${input}"
-
-Instructions:
-1. Translate the "Text to Process" into the Target Language.
-2. If the "Text to Process" is already in the Target Language, fix any transcription errors and output it in the Target Language.
-3. Output ONLY the processed text. Do not add labels, greetings, or explanations.`;
+// --- Google Translate via unofficial endpoint (no API key needed) ---
+async function translateWithGoogle(text, targetLangCode) {
+  const input = normalizeText(text);
+  if (input.length < 3) return "";
 
   try {
+    const url = new URL("https://clients5.google.com/translate_a/t");
+    url.searchParams.set("client", "dict-chrome-ex");
+    url.searchParams.set("sl", "auto");
+    url.searchParams.set("tl", targetLangCode);
+    url.searchParams.set("q", input);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const response = await fetch(url.toString(), { signal: controller.signal });
+      if (!response.ok) return "";
+      const data = await response.json();
+      // Response structure: [["translated", "original"]] or {sentences:[{trans,orig}]}
+      let result = "";
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        result = data.map(item => (Array.isArray(item) ? item[0] : "")).join("");
+      } else if (data?.sentences) {
+        result = data.sentences.map(s => s.trans || "").join("");
+      }
+      return normalizeText(result);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn("Google Translate fallback failed:", e);
+    return "";
+  }
+}
+
+// --- Build thinking config and generation config based on model name ---
+// Mirrors the bash script's per-model thinking logic
+function _buildGenerationConfig(model) {
+  let thinkingConfig = null;
+
+  if (model.match(/gemini-3(\.\d+)?.*pro/i)) {
+    // Gemini 3.x Pro: low thinking for speed
+    thinkingConfig = { thinkingLevel: "low" };
+  } else if (model.match(/gemini-3(\.\d+)?.*flash.*lite/i)) {
+    // Gemini 3.x Flash Lite: minimal thinking
+    thinkingConfig = { thinkingLevel: "minimal" };
+  } else if (model.match(/gemini-3(\.\d+)?.*flash/i)) {
+    // Gemini 3.x Flash: minimal thinking
+    thinkingConfig = { thinkingLevel: "minimal" };
+  } else if (model.match(/gemini-2\.5.*pro/i)) {
+    // Gemini 2.5 Pro: small budget
+    thinkingConfig = { thinkingBudget: 128 };
+  } else if (model.match(/gemini-2\.5.*flash/i)) {
+    // Gemini 2.5 Flash: disable thinking
+    thinkingConfig = { thinkingBudget: 0 };
+  }
+
+  const generationConfig = { temperature: 0.1, maxOutputTokens: 256 };
+  if (thinkingConfig) generationConfig.thinkingConfig = thinkingConfig;
+  return generationConfig;
+}
+
+// All safety filters disabled — same as bash BLOCK_NONE
+const SAFETY_SETTINGS_OFF = [
+  { category: "HARM_CATEGORY_HARASSMENT",       threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+];
+
+// --- Single Gemini API attempt with AbortController timeout ---
+async function _geminiAttempt(prompt, model, apiKey, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const isGemma = model.includes("gemma");
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      safetySettings: SAFETY_SETTINGS_OFF
+    };
+    if (!isGemma) {
+      body.generationConfig = _buildGenerationConfig(model);
+    }
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 280
-          }
-        })
+        body: JSON.stringify(body),
+        signal: controller.signal
       }
     );
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMsg = errorData?.error?.message || response.statusText || "Fetch error";
-        console.error("Gemini API Error:", response.status, errorMsg);
-        throw new Error(errorMsg);
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData?.error?.message || response.statusText || "Fetch error";
+      throw new Error(`Gemini HTTP ${response.status}: ${errorMsg}`);
     }
 
     const data = await response.json();
-    let translated = normalizeText(
-      data?.candidates?.[0]?.content?.parts?.[0]?.text || ""
-    );
-
-    if (!translated) return "";
-
-    translatedContextWindow.push(translated);
-    if (translatedContextWindow.length > MAX_CONTEXT_SIZE) {
-      translatedContextWindow.shift();
-    }
-
-    return translated;
-  } catch (error) {
-    console.error("Gemini translation error:", error);
-    throw error;
+    return normalizeText(data?.candidates?.[0]?.content?.parts?.[0]?.text || "");
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+// --- Build prompt: correction mode when source==target, translation otherwise ---
+function _buildPrompt(input, langName, isCorrection) {
+  const context = translatedContextWindow.join(" ");
+  const contextPart = context ? `\nContext: ${context}` : "";
+
+  if (isCorrection) {
+    // Same source and target: fix grammar/broken words, do NOT translate
+    return `Fix grammar and broken words in ${langName}. Output ONLY the corrected text.${contextPart}\nText: ${input}`;
+  } else {
+    return `Translate to ${langName}. Output ONLY the translation.${contextPart}\nText: ${input}`;
+  }
+}
+
+// sourceLangCode is passed so we can detect correction mode (source == target)
+async function translateWithGemini(originalText, targetLangCode, model, apiKey, sourceLangCode) {
+  const input = normalizeText(originalText);
+  if (!apiKey || input.length < 3) return "";
+
+  let langName = targetLangCode;
+  try {
+    const displayNames = new Intl.DisplayNames(["en"], { type: "language" });
+    langName = displayNames.of(targetLangCode) || targetLangCode;
+  } catch (e) {}
+
+  // Correction mode: source and target are the same non-auto language
+  const isCorrection = !!(sourceLangCode &&
+    sourceLangCode !== "auto" && sourceLangCode !== "" &&
+    sourceLangCode === targetLangCode);
+
+  const prompt = _buildPrompt(input, langName, isCorrection);
+
+  // --- Gemini attempt 1 (2.5s timeout) ---
+  let translated = "";
+  try {
+    translated = await _geminiAttempt(prompt, model, apiKey, 2500);
+  } catch (e) {
+    console.warn("Gemini attempt 1 failed:", e.message);
+  }
+
+  // --- Gemini attempt 2 / retry (2.5s timeout) ---
+  if (!translated) {
+    try {
+      translated = await _geminiAttempt(prompt, model, apiKey, 2500);
+    } catch (e) {
+      console.warn("Gemini attempt 2 failed:", e.message);
+    }
+  }
+
+  // --- Emergency fallback: Google Translate ---
+  // ⁺ = U+207A SUPERSCRIPT PLUS SIGN — silent in every TTS engine
+  let usedFallback = false;
+  if (!translated) {
+    console.warn("Gemini unavailable, trying Google Translate fallback...");
+    translated = await translateWithGoogle(input, targetLangCode);
+    if (translated) usedFallback = true;
+  }
+
+  if (!translated) return "";  // All methods failed, discard silently
+
+  translatedContextWindow.push(translated);
+  if (translatedContextWindow.length > MAX_CONTEXT_SIZE) {
+    translatedContextWindow.shift();
+  }
+
+  return usedFallback ? `\u207A ${translated}` : translated;
 }
 
 function speakText(text, lang) {
@@ -276,8 +381,8 @@ function speakText(text, lang) {
       volume: 1.0,
       enqueue: true
     };
-    
-    // Forzar el acento del idioma si es válido
+
+    // Force language accent if valid
     if (lang && lang.trim() !== "" && lang.trim() !== "AUTO") {
       options.lang = lang;
     }
@@ -597,26 +702,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === "processTranslation") {
-      getStorage(["geminiApiKey", "geminiModel", "targetLanguage", "enableTts"])
+      getStorage(["geminiApiKey", "geminiModel", "targetLanguage", "enableTts", "selectedLanguage"])
         .then(async (res) => {
           const targetLang = res.targetLanguage || "es";
           const apiKey = res.geminiApiKey || "";
           const model = res.geminiModel || "gemini-3.1-flash-lite-preview";
+          const sourceLang = res.selectedLanguage || "";
 
-          if (!apiKey) {
-            sendResponse({ success: false, error: "API Key missing" });
-            return;
+          let translated = "";
+
+          if (model === "google-translate") {
+            // --- Primary engine: Google Translate (no API key needed) ---
+            translated = await translateWithGoogle(message.text, targetLang);
+          } else {
+            // --- Primary engine: Gemini (with Google Translate as fallback) ---
+            if (!apiKey) {
+              sendResponse({ success: false, error: "API Key missing" });
+              return;
+            }
+            try {
+              translated = await translateWithGemini(message.text, targetLang, model, apiKey, sourceLang);
+            } catch (e) {
+              console.error("translateWithGemini caught:", e);
+              sendResponse({ success: false, error: e.message });
+              return;
+            }
           }
 
-          try {
-            const translated = await translateWithGemini(message.text, targetLang, model, apiKey);
-
-            if (res.enableTts && translated) speakText(translated, targetLang);
-            sendResponse({ success: true, data: translated || "" });
-          } catch (e) {
-            console.error("translateWithGemini caught:", e);
-            sendResponse({ success: false, error: e.message });
+          if (res.enableTts && translated) {
+            // Strip the ⁺ fallback marker before TTS — it's visual only
+            const ttsText = translated.replace(/^\u207A\s*/, "");
+            speakText(ttsText, targetLang);
           }
+          sendResponse({ success: true, data: translated || "" });
         })
         .catch((err) => {
           sendResponse({ success: false, error: err.message });
@@ -624,6 +742,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       return true;
     }
+
 
     sendResponse({ success: false, error: "Unknown action" });
     return false;
@@ -655,6 +774,30 @@ chrome.tabs.onRemoved.addListener((tabId) => {
       ].filter(Boolean);
 
       if (tracked.includes(tabId)) {
+        try { chrome.tts.stop(); } catch (e) {}
+        stopCapture();
+      }
+    }
+  );
+});
+
+// Stop capture when the source tab navigates to a new URL (embedded mode only).
+// In standalone mode the capture window is separate — URL changes don't affect it.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  // Only react to completed navigations (URL change fully done)
+  if (changeInfo.status !== "loading" || !changeInfo.url) return;
+
+  chrome.storage.local.get(
+    ["captureSourceTabId", "standaloneTabId", "capturingState"],
+    (result) => {
+      if (!result?.capturingState?.isCapturing) return;
+
+      // If standalone mode is active, the source tab URL change is irrelevant
+      if (result.standaloneTabId) return;
+
+      // Embedded mode: if the source tab (where the overlay lives) navigates away, stop
+      if (tabId === result.captureSourceTabId) {
+        console.log("Embedded mode: source tab navigated, stopping capture.");
         try { chrome.tts.stop(); } catch (e) {}
         stopCapture();
       }
