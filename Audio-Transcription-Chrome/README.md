@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.4.0
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.5.0
 
 ## Using the Extension
 
@@ -19,30 +19,47 @@ Click the extension icon to open the options popup.
 The UI is divided into several sections to give you full control over transcription and translation:
 
 - **General Settings:**
-  - **Speech (TTS) Speed & Enable TTS:** Enable Text-to-Speech to have the extension read the text aloud in real time. If Gemini translation is active, it reads the translated text. If Gemini is disabled, it reads the original Whisper transcription (using the selected Audio Language's accent, or English if Whisper's task is set to "Translate"). You can also adjust the reading speed.
+  - **Speech (TTS) Speed & Enable TTS:** Enable Text-to-Speech to have the extension read the text aloud in real time. If translation is active, it reads the translated text. If it is disabled, it reads the original Whisper transcription (using the selected Audio Language, or English if Whisper's task is set to "Translate"). You can also adjust the reading speed. 
+  *Note: The extension uses the default local internal TTS engine of your Chrome browser. For it to work correctly, you must have the corresponding text-to-speech language voices installed and configured in your operating system.*
   - **Show in Standalone Window:** Choose between displaying the text in a floating overlay inside the webpage, or in a dedicated, resizable standalone popup window.
   - **Voice Activity Detection (VAD):** Enable this to stop processing audio during silent periods, saving CPU/GPU resources.
 
-- **Audio Server:**
-  - Enter a custom server IP address and port (default is `localhost` and `9090`).
+- **WhisperLive Server:**
+  - Enter a custom server IP address and port to connect to your transcription server (default is `localhost` and `9090`).
   - Click **Reset Default** to easily revert to local settings.
 
 - **Transcription Settings:**
-  - **Audio Language:** Select the source language of the audio, or leave it on "Auto Detect". *Tip: If you select a language different from the one spoken in the audio, larger Whisper models (like large-v2 or large-v3) will often provide a very good direct translation into the selected language natively, without needing to use Gemini.*
+  - **Audio Language:** Select the source language of the audio, or leave it on "Auto Detect". *Tip: If you select a language different from the one spoken in the audio, larger Whisper models (like large-v2 or large-v3) will often provide a very good direct translation into the selected language natively, without needing to use external translation features.*
   - **Whisper Task:** Choose between "Transcribe" (text in the original language) or "Translate" (direct Whisper translation to English).
   - **Model Size:** Pick the model size that suits your system’s hardware (from Base to Large-v3).
   - **Text Formatting:** Choose from "Raw Segments", "Joined Text", or "Advanced Paragraphs" to make the output more readable.
 
-- **Gemini Translation:**
-  - **Enable Gemini Translation:** Check this to activate real-time translation powered by Google Gemini.
-  - **Gemini API Key:** Paste your Google Gemini API key (you can get one for free from Google AI Studio).
-  - **Gemini Model:** Select the desired model (e.g., `gemini-3-flash-preview`, `gemini-2.5-pro`).
+- **Gemini & Google Translation:**
+  - **Enable Translation:** Check this to activate real-time translation.
+  - **Gemini API Key:** If you intend to use a Gemini model, paste your Google Gemini API key here (you can get one for free from Google AI Studio).
+  - **Translation Model (Free Option Available):** Select your desired engine. You can choose **Google Translate** for completely free translations without an API key, or select a Gemini model (e.g., `gemini-3-flash-preview`).
+  - **Automatic Fallback:** If you select a Gemini model and the API fails, times out, or throws an error, the extension will automatically use the free Google Translate as a fallback. Translations produced by this fallback are marked with a `⁺` (U+207A) symbol at the beginning of the text. *It is completely invisible to all TTS engines in all languages — no synthesizer recognizes this Unicode superscript as pronounceable.*
   - **Target Language:** Select the language you want to translate the text into.
   - **Display Mode:** Choose how to view the text ("Original Only", "Translation Only", or "Side by Side").
+
+**Important Note on Models:**
+While many models such as the `gemini-flash-lite-preview` family offer generous free tiers, advanced models like `gemini-3.1-pro` are typically available only through the paid tier of the Gemini API. The paid API operates on a pay-per-use basis: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models. Under normal usage, the cost is typically no more than a few cents per day, even with relatively heavy use.
+
+**Model Recommendations for High-Quality Translate or Corrections in the Same Language:**
+*   **Paid API key recommended:** The Free Tier can work reliably for flash-lite models, recommended only when both source and destination are major languages.
+*   For reliable, high-quality subtitles or for long sessions, use at least the `gemini-3-flash` model. It provides good results for major-language translations and for improving same-language transcription.
+*   Use `gemini-3.1-pro` when either the source or destination language is non-major.
+*   *Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
 ### Start Transcription:
 
 Click **Start Capture** to begin capturing audio and sending it to the server. The first time a model is selected, necessary files will be downloaded automatically. You can monitor the active settings and connection status in the real-time status bar at the top of the transcription window.
+
+### Window Customization & History:
+The transcription windows (both in-page overlay and standalone) give you full control:
+- You can freely move and resize the windows to fit your layout.
+- You can increase or decrease the font size of the text.
+- All processed text is saved in a continuous history, and you can easily copy the entire transcript (both original and translated) to your clipboard with a single click.
 
 ### Stop Transcription:
 
