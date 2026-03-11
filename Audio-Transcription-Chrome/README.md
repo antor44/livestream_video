@@ -65,6 +65,93 @@ The transcription windows (both in-page overlay and standalone) give you full co
 
 Click **Stop Capture** to end the session.
 
+#
+
+## Installing the WhisperLive Server
+
+Depending on your operating system configuration, you may need to create a Python virtual environment using either Anaconda or virtualenv. You must activate this environment to run the WhisperLive server.
+
+For virtualenv:
+
+```sh
+sudo apt install virtualenv
+```
+
+Or for macOS:
+
+```sh
+brew install virtualenv
+```
+
+Then:
+
+```sh
+mkdir ~/python-environments
+virtualenv ~/python-environments/whisper-live
+source ~/python-environments/whisper-live/bin/activate
+```
+
+Install WhisperLive (at least version 0.6.3):
+
+```sh
+pip3 install whisper-live
+```
+
+Or install manually by cloning the WhisperLive GitHub repository:
+
+```sh
+git clone https://github.com/collabora/WhisperLive.git
+cd WhisperLive
+pip3 install .
+```
+
+This may take several minutes.
+
+Download this repository using:
+
+```sh
+git clone https://github.com/antor44/livestream_video.git
+```
+
+## Running the WhisperLive Server
+
+Before using the extension, ensure the local WhisperLive server is running.
+
+Change to the directory:
+
+```sh
+cd livestream_video/Audio-Transcription-Chrome
+```
+
+Run the server:
+
+```sh
+./WhisperLive_server.sh
+```
+
+Or, if using a Python virtual environment:
+
+```sh
+source ~/python-environments/whisper-live/bin/activate && ./WhisperLive_server.sh
+```
+
+If a "numpy version 2" error occurs:
+
+```sh
+pip3 install "numpy<2"
+```
+
+*You can edit the bash script **`WhisperLive_server.sh`** to modify the default Server IP and Port.*
+
+## Installing the Extension
+
+1. Open Google Chrome, Chromium, or Microsoft Edge.
+2. In the address bar, type `chrome://extensions` and press Enter.
+3. Enable Developer mode (toggle switch in the top right corner). Recent versions of Chrome require this switch enabled for extensions not signed by Google.
+4. Click the **Load unpacked** button.
+5. Browse to the folder where you cloned this repository and select the `Audio-Transcription-Chrome` folder (inside `livestream_video`).
+6. The extension should now appear on the extensions page.
+
 ## Windows Installation (WSL2)
 
 For Windows users, the local server runs through Windows Subsystem for Linux (WSL2):
@@ -82,6 +169,8 @@ For Windows users, the local server runs through Windows Subsystem for Linux (WS
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension2.jpg)
+
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension3.jpg)
 ---
 
 ## FAQ
