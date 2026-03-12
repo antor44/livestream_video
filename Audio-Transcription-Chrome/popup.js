@@ -373,9 +373,9 @@ function bindButtons() {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   try {
-    // ESTA ES LA REPARACIÓN PRINCIPAL
-    // El popup SOLO procesa los mensajes que le corresponden. 
-    // Ignora completamente "processTranslation" para que llegue al background.js
+    // THIS IS THE MAIN FIX
+    // The popup ONLY processes messages intended for it.
+    // It completely ignores "processTranslation" so that it is handled by background.js
     if (message.action === "toggleCaptureButtons") {
       const isCapturing = typeof message.isCapturing === "boolean" ? message.isCapturing : false;
       setButtonsFromState(isCapturing);
@@ -389,7 +389,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
-    // Ignora todo lo demás
+    // Ignore everything else
     return false;
   } catch (e) {
     return false;

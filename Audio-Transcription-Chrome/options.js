@@ -108,7 +108,8 @@ async function resolveValidTargetId(preferredId, fallbackId = null) {
 }
 
 function normalizeWhitespace(text) {
-  return String(text || "").replace(/\s+/g, " ").trim();
+  // Normalize horizontal whitespace only, preserving newlines
+  return String(text || "").replace(/[ \t\r]+/g, " ").trim();
 }
 
 function resampleTo16kHZ(audioData, origSampleRate = 44100) {
@@ -161,7 +162,7 @@ function extractTranscriptText(payload) {
     return normalizeWhitespace(
       data.segments
         .map((seg) => (typeof seg?.text === "string" ? seg.text : ""))
-        .join(" ")
+        .join("\n")
     );
   }
 

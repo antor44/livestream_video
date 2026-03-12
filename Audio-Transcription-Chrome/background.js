@@ -105,7 +105,7 @@ function removeChromeTab(tabId) {
 
     try {
       chrome.tabs.remove(tabId, () => {
-        void chrome.runtime.lastError; 
+        void chrome.runtime.lastError;
         resolve();
       });
     } catch (e) {
@@ -230,25 +230,19 @@ async function translateWithGoogle(text, targetLangCode) {
   }
 }
 
-// --- Build thinking config and generation config based on model name ---
-// Mirrors the bash script's per-model thinking logic
+// Build generation config and optional thinking config based on model name.
 function _buildGenerationConfig(model) {
   let thinkingConfig = null;
 
   if (model.match(/gemini-3(\.\d+)?.*pro/i)) {
-    // Gemini 3.x Pro: low thinking for speed
     thinkingConfig = { thinkingLevel: "low" };
   } else if (model.match(/gemini-3(\.\d+)?.*flash.*lite/i)) {
-    // Gemini 3.x Flash Lite: minimal thinking
     thinkingConfig = { thinkingLevel: "minimal" };
   } else if (model.match(/gemini-3(\.\d+)?.*flash/i)) {
-    // Gemini 3.x Flash: minimal thinking
     thinkingConfig = { thinkingLevel: "minimal" };
   } else if (model.match(/gemini-2\.5.*pro/i)) {
-    // Gemini 2.5 Pro: small budget
     thinkingConfig = { thinkingBudget: 128 };
   } else if (model.match(/gemini-2\.5.*flash/i)) {
-    // Gemini 2.5 Flash: disable thinking
     thinkingConfig = { thinkingBudget: 0 };
   }
 
@@ -257,7 +251,6 @@ function _buildGenerationConfig(model) {
   return generationConfig;
 }
 
-// All safety filters disabled — same as bash BLOCK_NONE
 const SAFETY_SETTINGS_OFF = [
   { category: "HARM_CATEGORY_HARASSMENT",       threshold: "BLOCK_NONE" },
   { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_NONE" },
@@ -265,7 +258,6 @@ const SAFETY_SETTINGS_OFF = [
   { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
 ];
 
-// --- Single Gemini API attempt with AbortController timeout ---
 async function _geminiAttempt(prompt, model, apiKey, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -302,21 +294,47 @@ async function _geminiAttempt(prompt, model, apiKey, timeoutMs) {
   }
 }
 
-// --- Build prompt: correction mode when source==target, translation otherwise ---
-function _buildPrompt(input, langName, isCorrection) {
-  const context = translatedContextWindow.join(" ");
-  const contextPart = context ? `\nContext: ${context}` : "";
+// Build prompt: correction mode when source == target, translation otherwise.
+function _buildPrompt(input, langName, isCorrection, shownTail) {
+  const strictRule =
+    "Output ONLY the plain subtitle text. " +
+    "No explanations, no notes, no markdown, no introductory phrases, " +
+    "no 'Aquí tienes', no corrections commentary, no asterisks. " +
+    "Do NOT add, invent or infer any content not present verbatim in the input. " +
+    "Just the raw text a human subtitle editor would write.";
 
   if (isCorrection) {
-    // Same source and target: fix grammar/broken words, do NOT translate
-    return `Fix grammar and broken words in ${langName}. Output ONLY the corrected text.${contextPart}\nText: ${input}`;
+    return (
+      `${strictRule}\n` +
+      `Task: Fix ONLY punctuation, spelling, and grammar in ${langName}. ` +
+      `Do NOT change, replace or paraphrase any word. Every word in the input must appear in the output. ` +
+      `If a word seems wrong or odd, keep it exactly as-is.\n` +
+      `Input: ${input}`
+    );
   } else {
-    return `Translate to ${langName}. Output ONLY the translation.${contextPart}\nText: ${input}`;
+    const rawAnchor = shownTail || translatedContextWindow.join(" ");
+    const anchor = rawAnchor
+      ? rawAnchor.split(/\s+/).filter(Boolean).slice(-4).join(" ")
+      : "";
+
+    if (anchor) {
+      return (
+        `${strictRule}\n` +
+        `Task: Translate the New Text to ${langName}.\n` +
+        `Context (previously translated end): "... ${anchor}"\n` +
+        `Output ONLY the translation of the New Text. Do NOT translate or include the Context in your output.\n` +
+        `New Text: ${input}`
+      );
+    }
+    return (
+      `${strictRule}\n` +
+      `Task: Translate the text to ${langName}.\n` +
+      `Input: ${input}`
+    );
   }
 }
 
-// sourceLangCode is passed so we can detect correction mode (source == target)
-async function translateWithGemini(originalText, targetLangCode, model, apiKey, sourceLangCode) {
+async function translateWithGemini(originalText, targetLangCode, model, apiKey, sourceLangCode, shownTail) {
   const input = normalizeText(originalText);
   if (!apiKey || input.length < 3) return "";
 
@@ -326,32 +344,27 @@ async function translateWithGemini(originalText, targetLangCode, model, apiKey, 
     langName = displayNames.of(targetLangCode) || targetLangCode;
   } catch (e) {}
 
-  // Correction mode: source and target are the same non-auto language
   const isCorrection = !!(sourceLangCode &&
     sourceLangCode !== "auto" && sourceLangCode !== "" &&
     sourceLangCode === targetLangCode);
 
-  const prompt = _buildPrompt(input, langName, isCorrection);
+  const prompt = _buildPrompt(input, langName, isCorrection, shownTail);
 
-  // --- Gemini attempt 1 (2.5s timeout) ---
   let translated = "";
   try {
-    translated = await _geminiAttempt(prompt, model, apiKey, 2500);
+    translated = await _geminiAttempt(prompt, model, apiKey, 3000);
   } catch (e) {
     console.warn("Gemini attempt 1 failed:", e.message);
   }
 
-  // --- Gemini attempt 2 / retry (2.5s timeout) ---
   if (!translated) {
     try {
-      translated = await _geminiAttempt(prompt, model, apiKey, 2500);
+      translated = await _geminiAttempt(prompt, model, apiKey, 3000);
     } catch (e) {
       console.warn("Gemini attempt 2 failed:", e.message);
     }
   }
 
-  // --- Emergency fallback: Google Translate ---
-  // ⁺ = U+207A SUPERSCRIPT PLUS SIGN — silent in every TTS engine
   let usedFallback = false;
   if (!translated) {
     console.warn("Gemini unavailable, trying Google Translate fallback...");
@@ -359,9 +372,12 @@ async function translateWithGemini(originalText, targetLangCode, model, apiKey, 
     if (translated) usedFallback = true;
   }
 
-  if (!translated) return "";  // All methods failed, discard silently
+  if (!translated) return "";
 
-  translatedContextWindow.push(translated);
+  const contextEntry = shownTail
+    ? shownTail.split(/\s+/).filter(Boolean).slice(-20).join(" ") + " " + translated
+    : translated;
+  translatedContextWindow.push(contextEntry);
   if (translatedContextWindow.length > MAX_CONTEXT_SIZE) {
     translatedContextWindow.shift();
   }
@@ -382,7 +398,6 @@ function speakText(text, lang) {
       enqueue: true
     };
 
-    // Force language accent if valid
     if (lang && lang.trim() !== "" && lang.trim() !== "AUTO") {
       options.lang = lang;
     }
@@ -539,7 +554,7 @@ async function startCaptureInternal(options) {
     if (!options.useStandalone) {
       const injected = await executeScriptInTab(sourceTab.id, "content.js");
       if (!injected) {
-        throw new Error("No se pudo inyectar content.js");
+        throw new Error("Failed to inject content.js");
       }
 
       await delay(120);
@@ -556,7 +571,7 @@ async function startCaptureInternal(options) {
 
     const optionTab = await openOptionsTab();
     if (!optionTab?.id) {
-      throw new Error("No se pudo abrir options.html");
+      throw new Error("Failed to open options.html");
     }
 
     await setStorage({ optionTabId: optionTab.id });
@@ -589,7 +604,7 @@ async function startCaptureInternal(options) {
 
     const started = await sendMessageToTab(optionTab.id, startMessage);
     if (!started || started.success === false) {
-      throw new Error("No se pudo iniciar la captura en options.js");
+      throw new Error("Failed to start capture in options.js");
     }
 
     if (options.useStandalone) {
@@ -597,7 +612,7 @@ async function startCaptureInternal(options) {
 
       const standaloneTabId = await openStandaloneWindow();
       if (!standaloneTabId) {
-        throw new Error("No se pudo abrir la ventana standalone");
+        throw new Error("Failed to open standalone window");
       }
 
       await setStorage({
@@ -679,22 +694,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
       return false;
     }
-    
-    // Reproducción TTS del texto original (Cuando Gemini está apagado)
+
     if (message.action === "speakOriginalText") {
       getStorage(["enableTts", "selectedTask", "selectedLanguage"]).then((res) => {
         if (!res.enableTts) {
           sendResponse({ success: true });
           return;
         }
-        
-        let ttsLang = ""; 
+
+        let ttsLang = "";
         if (res.selectedTask === "translate") {
-          ttsLang = "en"; // Whisper nativo traduce siempre al inglés
+          ttsLang = "en"; 
         } else if (res.selectedLanguage && res.selectedLanguage !== "AUTO") {
-          ttsLang = res.selectedLanguage; 
+          ttsLang = res.selectedLanguage;
         }
-        
+
         speakText(message.text, ttsLang);
         sendResponse({ success: true });
       });
@@ -708,20 +722,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const apiKey = res.geminiApiKey || "";
           const model = res.geminiModel || "gemini-3.1-flash-lite-preview";
           const sourceLang = res.selectedLanguage || "";
+          const shownTail = normalizeText(message.shownTail || "");
 
           let translated = "";
 
           if (model === "google-translate") {
-            // --- Primary engine: Google Translate (no API key needed) ---
             translated = await translateWithGoogle(message.text, targetLang);
           } else {
-            // --- Primary engine: Gemini (with Google Translate as fallback) ---
             if (!apiKey) {
               sendResponse({ success: false, error: "API Key missing" });
               return;
             }
             try {
-              translated = await translateWithGemini(message.text, targetLang, model, apiKey, sourceLang);
+              translated = await translateWithGemini(message.text, targetLang, model, apiKey, sourceLang, shownTail);
             } catch (e) {
               console.error("translateWithGemini caught:", e);
               sendResponse({ success: false, error: e.message });
@@ -730,7 +743,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
 
           if (res.enableTts && translated) {
-            // Strip the ⁺ fallback marker before TTS — it's visual only
             const ttsText = translated.replace(/^\u207A\s*/, "");
             speakText(ttsText, targetLang);
           }
@@ -743,11 +755,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-
     sendResponse({ success: false, error: "Unknown action" });
     return false;
   } catch (e) {
-    console.error("runtime message error:", e);
+    console.error("Runtime message error:", e);
     sendResponse({ success: false, error: e.message });
     return false;
   }
@@ -781,23 +792,16 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   );
 });
 
-// Stop capture when the source tab navigates to a new URL (embedded mode only).
-// In standalone mode the capture window is separate — URL changes don't affect it.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  // Only react to completed navigations (URL change fully done)
   if (changeInfo.status !== "loading" || !changeInfo.url) return;
 
   chrome.storage.local.get(
     ["captureSourceTabId", "standaloneTabId", "capturingState"],
     (result) => {
       if (!result?.capturingState?.isCapturing) return;
-
-      // If standalone mode is active, the source tab URL change is irrelevant
       if (result.standaloneTabId) return;
 
-      // Embedded mode: if the source tab (where the overlay lives) navigates away, stop
       if (tabId === result.captureSourceTabId) {
-        console.log("Embedded mode: source tab navigated, stopping capture.");
         try { chrome.tts.stop(); } catch (e) {}
         stopCapture();
       }

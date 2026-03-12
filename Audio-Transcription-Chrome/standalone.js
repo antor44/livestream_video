@@ -19,6 +19,7 @@
   let segments = [];
   let previousSegments = [];
   let historyChunks = [];
+  let historyChunksRaw = [];
   let translatedChunks = [];
   let pendingStableText = "";
   let windowStartTime = Date.now();
@@ -31,7 +32,7 @@
   let isDraggingDivider = false;
   let translationQueue = [];
   let isTranslatingLocal = false;
-  
+
   let enableGeminiTranslation = false;
   let enableTts = false;
   let dedupTail = [];
@@ -42,7 +43,7 @@
     return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   }
   function stripPunctuation(text) {
-    return String(text || "").toLowerCase().replace(/[^\w\s']/g, " ").replace(/\s+/g, " ").trim();
+    return String(text || "").toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, " ").replace(/\s+/g, " ").trim();
   }
 
   function calculateTextSimilarity(a, b) {
@@ -71,12 +72,72 @@
     return normalizeText(candidateText);
   }
 
+  function trimPrefixOverlapRaw(baseText, rawCandidateText, maxWords = 80, minWords = 3) {
+    const baseWords = splitWords(baseText);
+    const candidateWords = splitWords(rawCandidateText);
+    const max = Math.min(maxWords, baseWords.length, candidateWords.length);
+    for (let size = max; size >= minWords; size--) {
+      let ok = true;
+      for (let i = 0; i < size; i++) {
+        if (baseWords[baseWords.length - size + i] !== candidateWords[i]) { ok = false; break; }
+      }
+      if (ok) {
+        let matchCount = 0;
+        let removeUpTo = 0;
+        const wordRegex = /\S+/g;
+        let m;
+        while ((m = wordRegex.exec(rawCandidateText)) !== null) {
+          matchCount++;
+          if (matchCount === size) { removeUpTo = wordRegex.lastIndex; break; }
+        }
+        return rawCandidateText.slice(removeUpTo).replace(/^[ \t\r\n]+/, "");
+      }
+    }
+    return rawCandidateText;
+  }
+
+  function removeInternalRepetitions(text, minMatchWords = 6) {
+    const words = normalizeText(text).split(/\s+/).filter(Boolean);
+    if (words.length < minMatchWords * 2) return text;
+    const low = words.map(w => stripPunctuation(w));
+    for (let i = minMatchWords; i < words.length; i++) {
+      const maxLen = Math.min(25, words.length - i);
+      for (let len = maxLen; len >= minMatchWords; len--) {
+        for (let j = 0; j <= i - len; j++) {
+          let match = true;
+          for (let k = 0; k < len; k++) {
+            if (low[j + k] !== low[i + k]) { match = false; break; }
+          }
+          if (match) {
+            return normalizeText(
+              words.slice(0, i).join(" ") + " " + words.slice(i + len).join(" ")
+            );
+          }
+        }
+      }
+    }
+    return text;
+  }
+
   function formatText(text, formatting) {
+    if (!text) return "";
     const clean = normalizeText(text);
     if (!clean) return "";
-    if (formatting === "none") return clean.replace(/([.!?\u2026])\s+/g, "$1\n");
-    if (formatting === "join") return clean;
-    return clean.replace(/([.!?\u2026])\s+(?=[A-Za-z¿¡])/g, "$1\n").replace(/([.!?\u2026])\s*(¿|¡)/g, "$1\n$2");
+
+    if (formatting === "none") {
+      if (clean.includes("\n")) return clean;
+      return clean.replace(/([.!?\u2026\u3002\uFF01\uFF1F\u061F])\s+/g, "$1\n");
+    }
+
+    let flat = clean.replace(/\n+/g, " ");
+    if (formatting === "join") {
+      return flat;
+    }
+
+    return flat.replace(
+      /(?<!\b\p{L})(?<!\b(?:EE|UU|Sr|Sra|Dr|Dra|Mr|Mrs|Ms|Prof|St|Mt|etc|vs|cf|ie|eg|al|Ud|Vd|vd|ud|av|Av))([.!?\u2026\u061F\u3002\uFF01\uFF1F]+["')\]»"]*)\s+(?=[\p{Lu}\p{Lo}\p{N}¿¡«"(\['"])/gu,
+      "$1\n"
+    );
   }
 
   function splitIntoFlushableChunks(text, forceFlush = false) {
@@ -117,25 +178,49 @@
 
   function queueTranslation(text) {
     if (!enableGeminiTranslation) return;
-    const clean = normalizeText(text);
-    if (!clean) return;
-    if (translationQueue.length > 0) {
-      translationQueue[0] = normalizeText(translationQueue[0] + " " + clean);
+  
+    const cleanText = removeInternalRepetitions(normalizeText(text));
+    if (!cleanText || cleanText.split(/\s+/).length < 2) return;
+  
+    if (translationQueue.length === 0) {
+      translationQueue.push(cleanText);
     } else {
-      translationQueue.push(clean);
+      const lastInQueue = translationQueue[translationQueue.length - 1];
+      const newPart = trimPrefixOverlap(lastInQueue, cleanText, 60, 3);
+      
+      if (stripPunctuation(newPart).length < stripPunctuation(cleanText).length * 0.95) {
+        // This looks like a continuation/correction. Replace the last item.
+        translationQueue[translationQueue.length - 1] = cleanText;
+      } else {
+        // This seems like a new, separate phrase. Add it.
+        translationQueue.push(cleanText);
+      }
     }
-    processTranslationQueue();
+  
+    // Trigger processing if the queue has content and we're not already processing
+    const queued = translationQueue.join(" ");
+    const wordCount = queued.split(/\s+/).filter(Boolean).length;
+    const hasSentenceBoundary = /[.!?\u2026]/.test(queued);
+  
+    if (!isTranslatingLocal && (wordCount >= 16 || (wordCount >= 10 && hasSentenceBoundary))) {
+      processTranslationQueue();
+    }
   }
-
+  
   function processTranslationQueue() {
     if (isTranslatingLocal || translationQueue.length === 0) return;
-    const text = translationQueue.shift();
-    isTranslatingLocal = true;
     
-    chrome.runtime.sendMessage({ action: "processTranslation", text }, (response) => {
+    const text = translationQueue.join(" ");
+    translationQueue = []; // Clear queue now
+    isTranslatingLocal = true;
+
+    const shownTail = translatedChunks.slice(-3).join(" ")
+      .split(/\s+/).filter(Boolean).slice(-8).join(" ");
+
+    chrome.runtime.sendMessage({ action: "processTranslation", text, shownTail }, (response) => {
       const runtimeErr = chrome.runtime.lastError?.message || "";
       isTranslatingLocal = false;
-      
+
       if (!runtimeErr && response?.success) {
         if (response.data) {
           addTranslatedChunk(response.data);
@@ -145,25 +230,46 @@
         const errMsg = response?.error || runtimeErr || "Translation failed";
         updateHeaderStatusText(`Translation Error: ${errMsg}`);
         console.error("Translation failed:", errMsg, response || null);
+        translationQueue.unshift(text); // Re-queue text on failure
       }
-      
-      if (translationQueue.length > 0) processTranslationQueue();
+
+      if (translationQueue.length > 0) {
+        setTimeout(processTranslationQueue, 100);
+      }
     });
   }
 
   function addTranslatedChunk(text) {
-    const clean = normalizeText(text);
-    if (clean) {
-      const last = translatedChunks[translatedChunks.length - 1] || "";
-      if (!last || calculateTextSimilarity(last, clean) <= 0.90) {
-        translatedChunks.push(clean);
-        if (translatedChunks.length > 140) translatedChunks.shift();
-      }
+    const clean = normalizeText(removeInternalRepetitions(normalizeText(text), 4));
+    if (!clean) { renderText(); return; }
+
+    const recentHistory = translatedChunks.slice(-15).join(" ");
+    let deduped = clean;
+
+    if (recentHistory) {
+      deduped = trimPrefixOverlap(recentHistory, clean, 60, 2);
     }
+
+    if (!deduped) { renderText(); return; }
+
+    const isDuplicate = translatedChunks.slice(-10).some(
+      chunk => calculateTextSimilarity(chunk, deduped) > 0.85
+    );
+    if (isDuplicate) { renderText(); return; }
+
+    const recentFull = stripPunctuation(translatedChunks.slice(-20).join(" "));
+    const dedupStripped = stripPunctuation(deduped);
+    if (dedupStripped.length > 15 && recentFull.includes(dedupStripped)) {
+      renderText(); return;
+    }
+
+    translatedChunks.push(deduped);
+    if (translatedChunks.length > 5000) translatedChunks.shift();
     renderText();
   }
 
   function appendCommittedChunk(text) {
+    const originalText = String(text || "");
     const incoming = normalizeText(text);
     if (!incoming) return;
 
@@ -188,8 +294,11 @@
       if (historySearchable.includes(startAnchor)) return;
     }
 
+    const rawDeduped = trimPrefixOverlapRaw(allHistory.slice(-12).join(" "), originalText);
+
     historyChunks.push(deduped);
-    if (historyChunks.length > 200) historyChunks.shift();
+    historyChunksRaw.push(rawDeduped);
+    if (historyChunks.length > 5000) { historyChunks.shift(); historyChunksRaw.shift(); }
 
     if (enableGeminiTranslation) {
       queueTranslation(deduped);
@@ -217,67 +326,114 @@
       return;
     }
 
+    const transferFlags = () => {
+      for (let i = 0; i < newSegments.length; i++) {
+        const rawNew = stripPunctuation(newSegments[i]?.text || "");
+        const foundIdx = previousSegments.findIndex(s => stripPunctuation(s?.text || "") === rawNew);
+        if (foundIdx !== -1) {
+          newSegments[i]._committed = previousSegments[foundIdx]._committed;
+        }
+      }
+    };
+
     const currentWindowText = getCurrentWindowText(newSegments);
     const wordCount = splitWords(currentWindowText).length;
     const elapsed = Date.now() - windowStartTime;
-    const isStable = wordCount >= 10 || elapsed >= 1500 || newSegments.length >= 5;
+    const isStable = wordCount >= 10 || elapsed >= 2500 || newSegments.length >= 5;
 
     if (!isStable) {
+      transferFlags();
       previousSegments = newSegments.slice();
       return;
     }
 
     let alignmentShift = -1;
-    const samplesToTry = Math.min(4, newSegments.length);
-    
+    const samplesToTry = Math.min(6, newSegments.length);
+
     for (let i = 0; i < samplesToTry; i++) {
-      const newSegText = newSegments[i].text.trim();
+      const newSegText = stripPunctuation(newSegments[i]?.text || "");
       if (!newSegText) continue;
-      const idx = previousSegments.findIndex(s => s.text.trim() === newSegText);
-      if (idx !== -1) { alignmentShift = idx - i; break; }
+      const foundIdx = previousSegments.findIndex(s => stripPunctuation(s?.text || "") === newSegText);
+      if (foundIdx !== -1) {
+        alignmentShift = foundIdx - i;
+        break;
+      }
     }
 
-    if (alignmentShift > 0) {
+    if (alignmentShift >= 0) {
       for (let i = 0; i < alignmentShift; i++) {
-        const txt = previousSegments[i]?.text;
-        if (txt && txt.trim()) appendCommittedChunk(txt.trim());
+        const seg = previousSegments[i];
+        if (seg && !seg._committed && seg.text && seg.text.trim()) {
+          appendCommittedChunk(seg.text.trim());
+          seg._committed = true;
+        }
       }
+
+      for (let i = 0; i < newSegments.length; i++) {
+        const prevIdx = i + alignmentShift;
+        if (prevIdx < previousSegments.length) {
+          newSegments[i]._committed = previousSegments[prevIdx]._committed;
+        } else {
+          const rawNew = stripPunctuation(newSegments[i]?.text || "");
+          const fallbackIdx = previousSegments.findIndex(s => stripPunctuation(s?.text || "") === rawNew);
+          if (fallbackIdx !== -1) newSegments[i]._committed = previousSegments[fallbackIdx]._committed;
+        }
+      }
+
+      if (newSegments.length >= 4 || elapsed > 3500) {
+        const safeToCommit = Math.max(0, newSegments.length - 2);
+        for (let i = 0; i < safeToCommit; i++) {
+          const seg = newSegments[i];
+          if (!seg._committed && seg.text && seg.text.trim()) {
+            appendCommittedChunk(seg.text.trim());
+            seg._committed = true;
+          }
+        }
+        windowStartTime = Date.now();
+      }
+
       previousSegments = newSegments.slice();
-      windowStartTime = Date.now();
-    } else if (alignmentShift === 0) {
-      previousSegments = newSegments.slice();
-    } else if (alignmentShift === -1) {
-      if (elapsed > 6000) {
+
+    } else {
+      if (elapsed > 4000) {
         previousSegments.forEach(seg => {
-          if (seg.text && seg.text.trim()) appendCommittedChunk(seg.text.trim());
+          if (seg && !seg._committed && seg.text && seg.text.trim()) {
+            appendCommittedChunk(seg.text.trim());
+            seg._committed = true;
+          }
         });
+        transferFlags();
         previousSegments = newSegments.slice();
         windowStartTime = Date.now();
       } else {
+        transferFlags();
         previousSegments = newSegments.slice();
       }
     }
   }
 
   function getVisibleOriginalText() {
-    const allHistoryWords = splitWords(historyChunks.join(" "));
-    const historyText = normalizeText(allHistoryWords.slice(-400).join(" "));
-    return normalizeText(`${historyText ? `${historyText} ` : ""}${pendingStableText || ""}`);
+    if (currentFormatting === "none") {
+      const recentRaw = historyChunksRaw.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      return recentRaw + (pendingStableText ? "\n" + pendingStableText : "");
+    }
+    const fullText = historyChunks.join(" ");
+    return normalizeText(`${fullText}${pendingStableText ? ` ${pendingStableText}` : ""}`);
   }
 
   function applyDisplayMode() {
     if (!transcriptionOriginalEl || !transcriptionTranslatedEl || !dividerEl) return;
-    
+
     if (contentWrapper) {
       contentWrapper.style.display = "flex";
       contentWrapper.style.flexDirection = "column";
       contentWrapper.style.overflow = "hidden";
       contentWrapper.style.flex = "1 1 0%";
     }
-    
+
     transcriptionOriginalEl.style.overflowY = "auto";
     transcriptionTranslatedEl.style.overflowY = "auto";
-    
+
     const hasTranslation = translatedChunks.length > 0;
     const showTranslation = (enableGeminiTranslation || hasTranslation) &&
       (currentDisplayMode === "translation" || currentDisplayMode === "both");
@@ -297,7 +453,6 @@
       transcriptionOriginalEl.style.display = "block";
       transcriptionTranslatedEl.style.display = "block";
       dividerEl.style.display = "block";
-      
       if (!transcriptionOriginalEl.style.flex || transcriptionOriginalEl.style.flex === "0 1 0%") {
         transcriptionOriginalEl.style.flex = "1 1 0%";
       }
@@ -324,7 +479,10 @@
       if (now - lastReceivedTime > 1200) {
         if (previousSegments.length > 0) {
           previousSegments.forEach(seg => {
-            if (seg.text && seg.text.trim()) appendCommittedChunk(seg.text.trim());
+            if (seg && !seg._committed && seg.text && seg.text.trim()) {
+              appendCommittedChunk(seg.text.trim());
+              seg._committed = true;
+            }
           });
           previousSegments = [];
           segments = [];
@@ -333,17 +491,20 @@
           absorbStableText("", true);
           renderText();
         }
+        if (translationQueue.length > 0 && !isTranslatingLocal && now - lastReceivedTime > 1500) {
+          processTranslationQueue();
+        }
       }
     }, 800);
   }
 
   function updateStatusBar(settings) {
     if (!statusLineEl) return;
-    
+
     statusLineEl.style.cssText =
       "display:flex;align-items:center;justify-content:space-between;gap:8px;overflow:hidden;white-space:nowrap;" +
       "min-width:0;padding:2px 8px;min-height:22px;width:100%;box-sizing:border-box;";
-      
+
     const model = (settings.selectedModelSize || "small").toLowerCase();
     const lang = (settings.selectedLanguage || "AUTO").toUpperCase();
     const task = settings.selectedTask === "translate" ? "TRANSLATE" : "TRANSCRIBE";
@@ -352,8 +513,8 @@
     const vad = settings.useVad ? "ON" : "OFF";
     const tts = settings.enableTts ? "ON" : "OFF";
     const geminiOn = enableGeminiTranslation;
-    const G = "#4ade80"; 
-    const M = "#94a3b8"; 
+    const G = "#4ade80";
+    const M = "#94a3b8";
     const statusText = window.__transcriptionStatusText || "";
     const isError = statusText && statusText.toLowerCase().includes("error");
     const statusBg = isError ? "rgba(220,38,38,0.25)" : "rgba(34,197,94,0.18)";
@@ -396,11 +557,11 @@
   function applyFontSize(size) {
     currentFontSize = Math.max(12, size);
     const lineHeight = `${Math.round(currentFontSize * 1.25)}px`;
-    if(transcriptionOriginalEl) {
+    if (transcriptionOriginalEl) {
       transcriptionOriginalEl.style.fontSize = `${currentFontSize}px`;
       transcriptionOriginalEl.style.lineHeight = lineHeight;
     }
-    if(transcriptionTranslatedEl) {
+    if (transcriptionTranslatedEl) {
       transcriptionTranslatedEl.style.fontSize = `${Math.max(12, Math.round(currentFontSize * 0.92))}px`;
       transcriptionTranslatedEl.style.lineHeight = lineHeight;
     }
@@ -412,6 +573,7 @@
     previousSegments = [];
     dedupTail = historyChunks.slice(-40);
     historyChunks = [];
+    historyChunksRaw = [];
     translatedChunks = [];
     pendingStableText = "";
     windowStartTime = Date.now();
@@ -467,7 +629,6 @@
       document.body.style.cursor = "default";
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
-
       const headerHeightNow = transcriptionHeaderEl.offsetHeight || 0;
       const ratio = transcriptionOriginalEl.offsetHeight / Math.max(1, contentWrapper.offsetHeight - headerHeightNow);
       chrome.storage.local.set({ dividerPos: ratio });
@@ -561,7 +722,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     let needsRender = false;
-    
+
     if ("enableGeminiTranslation" in changes) {
       enableGeminiTranslation = !!changes.enableGeminiTranslation.newValue;
       if (!enableGeminiTranslation) {
@@ -577,7 +738,7 @@
     }
     if ("displayMode" in changes) { currentDisplayMode = changes.displayMode.newValue || "both"; needsRender = true; }
     if ("textFormatting" in changes) { currentFormatting = changes.textFormatting.newValue || "advanced"; needsRender = true; }
-    
+
     if (needsRender) renderText();
   });
 
