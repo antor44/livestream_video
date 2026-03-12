@@ -86,7 +86,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 The Gemini API **free tier** is available with lower rate limits for testing purposes. Google AI Studio usage is completely free in all supported countries. The Gemini API **paid tier** provides higher rate limits, additional features, and different data handling.
 
 </br>
-Author: Antonio R. Version: 5.22 License: GPL 3.0
+Author: Antonio R. Version: 5.24 License: GPL 3.0
 </br>
 
 #
@@ -700,22 +700,24 @@ Codes of Whisper Languages available:
  ar (Arabic)            fr (French)            ko (Korean)            or (Oriya)             th (Thai)
  as (Assamese)          ga (Irish)             ku (Kurdish)           pa (Punjabi)           tl (Tagalog)
  az (Azerbaijani)       gl (Galician)          ky (Kyrgyz)            pl (Polish)            tr (Turkish)
- be (Belarusian)        gu (Gujarati)          la (Latin)             ps (Pashto)            tt (Tatar)
- bg (Bulgarian)         ha (Bantu)             lb (Luxembourgish)     pt (Portuguese)        ug (Uighur)
- bn (Bengali)           haw (Hawaiian)         lo (Lao)               ro (Romanian)          uk (Ukrainian)
- br (Breton)            he (Hebrew)            lt (Lithuanian)        ru (Russian)           ur (Urdu)
- bs (Bosnian)           hi (Hindi)             lv (Latvian)           sd (Sindhi)            uz (Uzbek)
- ca (Catalan)           hr (Croatian)          mg (Malagasy)          sh (Serbo-Croatian)    vi (Vietnamese)
- cs (Czech)             ht (Haitian Creole)    mi (Maori)             si (Sinhala)           vo (Volapuk)
- cy (Welsh)             hu (Hungarian)         mk (Macedonian)        sk (Slovak)            wa (Walloon)
- da (Danish)            hy (Armenian)          ml (Malayalam)         sl (Slovenian)         xh (Xhosa)
- de (German)            id (Indonesian)        mn (Mongolian)         sn (Shona)             yi (Yiddish)
- el (Greek)             is (Icelandic)         mr (Marathi)           so (Somali)            yo (Yoruba)
- en (English)           it (Italian)           ms (Malay)             sq (Albanian)          zh (Chinese)
- eo (Esperanto)         iw (Hebrew)            mt (Maltese)           sr (Serbian)           zu (Zulu)
- es (Spanish)           ja (Japanese)          my (Myanmar)           su (Sundanese)
- et (Estonian)          jw (Javanese)          ne (Nepali)            sv (Swedish)
- eu (Basque)            ka (Georgian)          nl (Dutch)             sw (Swahili)                     
+ ba (Bashkir)           gu (Gujarati)          la (Latin)             ps (Pashto)            tt (Tatar)
+ be (Belarusian)        ha (Hausa)             lb (Luxembourgish)     pt (Portuguese)        ug (Uighur)
+ bg (Bulgarian)         haw (Hawaiian)         ln (Lingala)           ro (Romanian)          uk (Ukrainian)
+ bn (Bengali)           he (Hebrew)            lo (Lao)               ru (Russian)           ur (Urdu)
+ bo (Tibetan)           hi (Hindi)             lt (Lithuanian)        sa (Sanskrit)          uz (Uzbek)
+ br (Breton)            hr (Croatian)          lv (Latvian)           sd (Sindhi)            vi (Vietnamese)
+ bs (Bosnian)           ht (Haitian Creole)    mg (Malagasy)          sh (Serbo-Croatian)    vo (Volapuk)
+ ca (Catalan)           hu (Hungarian)         mi (Maori)             si (Sinhala)           wa (Walloon)
+ cs (Czech)             hy (Armenian)          mk (Macedonian)        sk (Slovak)            xh (Xhosa)
+ cy (Welsh)             id (Indonesian)        ml (Malayalam)         sl (Slovenian)         yi (Yiddish)
+ da (Danish)            is (Icelandic)         mn (Mongolian)         sn (Shona)             yo (Yoruba)
+ de (German)            it (Italian)           mr (Marathi)           so (Somali)            zh (Chinese)
+ el (Greek)             ja (Japanese)          ms (Malay)             sq (Albanian)          zu (Zulu)
+ en (English)           jw (Javanese)          mt (Maltese)           sr (Serbian)
+ eo (Esperanto)         ka (Georgian)          my (Myanmar)           su (Sundanese)
+ es (Spanish)           kk (Kazakh)            ne (Nepali)            sv (Swedish)
+ et (Estonian)          km (Khmer)             nl (Dutch)             sw (Swahili)
+ eu (Basque)            kn (Kannada)           no (Norwegian)         tk (Turkmen)             
 ```
 
 `--translate`
