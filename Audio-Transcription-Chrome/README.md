@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.5.0
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.7.0
 
 ## Using the Extension
 
