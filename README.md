@@ -104,7 +104,7 @@ The extension's capabilities go beyond standard Whisper transcription:
 
 - **Native Whisper Translation:** When selecting an Audio Language different from the source audio, larger Whisper models (like large-v2 or large-v3) often provide an excellent direct translation natively, without the need for external APIs.
 
-- **Text-to-Speech (TTS):** Automatically read the text aloud in real time with adjustable speed settings. It seamlessly reads the translated text, or if translation is disabled, it reads the original Whisper transcription. *Note: This feature uses Chrome's internal local TTS engine, which relies on the text-to-speech language voices installed and configured in your operating system. (Linux Chrome by default uses an internal engine).*
+- **Text-to-Speech (TTS):** Automatically read the text aloud in real time with adjustable speed settings. It seamlessly reads the translated text, or if translation is disabled, it reads the original Whisper transcription. *Note: This feature uses the chrome.tts extension API. On Windows and macOS it relies on the operating system's installed voices. On Linux, audio support depends on the browser: Chrome uses a built-in eSpeak-NG engine, Edge uses Microsoft Neural online voices, and Chromium requires a TTS engine extension (e.g. Piper) to produce any audio.*
 
 - **Flexible UI Modes:** Choose between viewing the transcription in a floating in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
 
