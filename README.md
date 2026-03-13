@@ -92,17 +92,26 @@ Author: Antonio R. Version: 5.24 License: GPL 3.0
 #
 # Audio Transcription
 
-Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, use Whisper's native translation to English, and enable Voice Activity Detection (VAD) to avoid sending audio to the server when there is no speech.
+Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. In addition to real-time transcription, the extension provides live translation, real-time text-to-speech (TTS) playback of the transcribed or translated text, and a standalone window mode that allows the transcription interface to work independently from the web page.
+
+The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, including the use of Whisper's native translation to English
 
 This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhisperLive, an implementation of OpenAI Whisper different from whisper.cpp. This browser extension is a fork of a [WhisperLive extension](https://github.com/collabora/WhisperLive) with significant aesthetic changes and powerful enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the [README](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/README.md) file in its directory.
 
 The extension's capabilities go beyond standard Whisper transcription:
+
 - **Real-Time Translation (Google Translate & Gemini):** Translate live transcriptions into dozens of target languages on the fly. You can select **Google Translate** from the models menu as a completely free option (no API key required), or use the Google Gemini API for advanced translation. If you use Gemini and the API fails, times out, or throws an error, the extension will automatically fallback to Google Translate, marking the text with the `⁺` symbol.
+
 - **Native Whisper Translation:** When selecting an Audio Language different from the source audio, larger Whisper models (like large-v2 or large-v3) often provide an excellent direct translation natively, without the need for external APIs.
-- **Text-to-Speech (TTS):** Automatically read the text aloud in real time with adjustable speed settings. It seamlessly reads the translated text, or if translation is disabled, it reads the original Whisper transcription. *Note: This feature uses Chrome's internal local TTS engine, which relies on the text-to-speech language voices installed and configured in your operating system.*
+
+- **Text-to-Speech (TTS):** Automatically read the text aloud in real time with adjustable speed settings. It seamlessly reads the translated text, or if translation is disabled, it reads the original Whisper transcription. *Note: This feature uses Chrome's internal local TTS engine, which relies on the text-to-speech language voices installed and configured in your operating system. (Linux Chrome by default uses an internal engine).*
+
 - **Flexible UI Modes:** Choose between viewing the transcription in a floating in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
+
 - **Text History & Window Customization:** The extension saves all processed text in a continuous history that you can easily copy to your clipboard. Both the overlay and standalone windows can be freely moved and resized, and you can also adjust the font size of the text for comfortable reading.
+
 - **Side-by-Side Viewing:** Display modes allow you to view the original transcription and the translation side-by-side, or isolate either one.
+
 - **Server Config:** Easily configure custom server IP addresses and ports with one-click default resets.
 </br>
 </br>
