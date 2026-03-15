@@ -2,7 +2,7 @@
 
 ## playlist4whisper & livestream_video.sh
 
-`playlist4whisper` manages media stream playlists, plays media, creates `.srt` subtitle files from local media files, and locally transcribes live video/audio streams with whisper.cpp (a highly efficient implementation of OpenAI's Whisper). It includes configurable time-shift, multi-instance/multi-user support, translation, and text-to-speech functionality.
+`playlist4whisper` manages media stream playlists, plays media, creates `.srt` subtitle files from local media files, and locally transcribes live video/audio streams with **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)** (a highly efficient implementation of OpenAI's Whisper). It includes configurable time-shift, multi-instance/multi-user support, translation, and text-to-speech functionality.
 
 `playlist4whisper` is a graphical application that allows you to easily manage and launch `livestream_video.sh`. It provides a user-friendly interface to configure all transcription and translation options, manage TV channel playlists, and store settings.
 
