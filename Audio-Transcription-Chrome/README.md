@@ -203,6 +203,14 @@ Docker is the recommended (and easiest) way to run the TensorRT backend. It bund
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed
 - **~10–12 GB free disk space** during compilation (2.9 GB model weights + ~1.9 GB checkpoint + 3.1 GB engines + build buffers). After compilation you can delete the `.pt` file and the `large-v2-weights/` directory to recover space.
 
+After installing Docker, add your user to the `docker` group so you can run containers without `sudo`:
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+> **Note:** `newgrp docker` applies the group change to the current terminal session immediately. For it to apply system-wide to all future sessions (including when you open a new terminal or reboot), you need to **log out and log back in** once.
+
 Verify everything works before starting:
 
 ```bash
