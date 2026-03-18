@@ -149,16 +149,21 @@ cleanup_existing_container() {
 
 # ---------------------------------------------------------------------------
 # Signal trap — catches Ctrl+C, window close (SIGHUP), and SIGTERM.
-# Runs docker stop so the container is always cleaned up regardless of
-# how the terminal session ends.
+# _STOPPING flag prevents the trap body from running more than once,
+# avoiding repeated "Stopping..." messages when Ctrl+C is pressed
+# multiple times while Docker is shutting down.
 # ---------------------------------------------------------------------------
+_STOPPING=0
 setup_docker_trap() {
     local name="$1"
     # shellcheck disable=SC2064
     trap "
-        echo ''
-        log_warn 'Stopping container ${name}...'
-        docker stop '${name}' &>/dev/null || true
+        if [ \$_STOPPING -eq 0 ]; then
+            _STOPPING=1
+            echo ''
+            log_warn 'Stopping container ${name}...'
+            docker stop '${name}' &>/dev/null || true
+        fi
         exit 0
     " INT TERM HUP
 }
@@ -243,16 +248,33 @@ if [ "$MODE" = "docker" ]; then
 
         setup_docker_trap "$CONTAINER_NAME"
 
+        # Resolve absolute path to our run_server.py so it can be mounted
+        # into the container, overriding the older Collabora version which
+        # does not accept --max_clients or --max_connection_time.
+        LOCAL_RUN_SERVER="$(cd "$(dirname "$0")" && pwd)/run_server.py"
+        if [ ! -f "$LOCAL_RUN_SERVER" ]; then
+            log_error "run_server.py not found at: $LOCAL_RUN_SERVER"
+            log_warn  "Place run_server.py in the same directory as this script."
+            exit 1
+        fi
+        log_info "Using local run_server.py: $LOCAL_RUN_SERVER"
+
+        # --host 0.0.0.0 is required inside Docker — does NOT expose to network.
+        # Docker -p 9090:9090 accepts only localhost connections from the host.
         docker run --rm --gpus all \
             --name "$CONTAINER_NAME" \
             -v "${ENGINES_DIR}":/engines \
             -v "${CACHE_DIR}":/root/.cache/whisper-live \
+            -v "${LOCAL_RUN_SERVER}":/app/run_server.py:ro \
             -p "${PORT}:${PORT}" \
             "$TRT_IMAGE" \
-            python3 run_server.py \
+            python3 /app/run_server.py \
                 --backend tensorrt \
                 --trt_model_path "/engines/${MODEL}" \
+                --host 0.0.0.0 \
                 --port "$PORT" \
+                --max_clients "$MAX_CLIENTS" \
+                --max_connection_time "$MAX_CONNECTION_TIME" \
                 $TRT_MULTILINGUAL &
 
         wait $!
