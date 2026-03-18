@@ -192,6 +192,206 @@ Keep in mind that although WhisperLive supports multiple concurrent clients on a
 
 Additionally, WhisperLive does not include a built-in load balancing system; there are no mechanisms to distribute the load among multiple server instances, so an external load balancing solution must be implemented.
 
+**Q: How do I set up WhisperLive with TensorRT acceleration using Docker, and what should I do if I get CUDA errors?**
+
+Docker is the recommended (and easiest) way to run the TensorRT backend. It bundles the exact versions of CUDA, TensorRT-LLM, and all dependencies that have been tested together — no manual dependency management needed.
+
+#### Step 1 — Prerequisites
+
+- NVIDIA GPU with CUDA support (tested on RTX 30xx/40xx)
+- [Docker](https://docs.docker.com/get-docker/) installed
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed
+- **~10–12 GB free disk space** during compilation (2.9 GB model weights + ~1.9 GB checkpoint + 3.1 GB engines + build buffers). After compilation you can delete the `.pt` file and the `large-v2-weights/` directory to recover space.
+
+Verify everything works before starting:
+
+```bash
+docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+```
+
+If you see your GPU listed, you're ready.
+
+#### Step 2 — Download the Whisper model weights
+
+```bash
+mkdir -p ~/whisper-engines
+wget -O ~/whisper-engines/large-v2.pt \
+  https://openaipublic.azureedge.net/main/whisper/models/81f7c96c852ee8fc832187b0132e569d6c3065a3252ed18e56effd0b6a73e524/large-v2.pt
+```
+
+The file is ~2.9 GB. You only need to do this once.
+
+#### Step 3 — Compile the TensorRT engines
+
+Engines are GPU-specific and must be compiled once on your machine. They are saved to `~/whisper-engines/` on your host and reused every time the server starts.
+
+```bash
+# Start a temporary build container
+docker run -it --gpus all \
+  -v ~/whisper-engines:/engines \
+  ghcr.io/collabora/whisperlive-tensorrt:latest bash
+```
+
+Inside the container, run these commands:
+
+```bash
+# Link the downloaded weights and convert the checkpoint
+cd /app/TensorRT-LLM-examples/whisper
+mkdir -p assets
+ln -sf /engines/large-v2.pt assets/large-v2.pt
+mkdir -p /engines/tmp && export TMPDIR=/engines/tmp
+
+python3 convert_checkpoint.py \
+    --output_dir /engines/large-v2-weights \
+    --model_name large-v2
+
+# Compile the encoder
+mkdir -p /engines/large-v2/encoder
+trtllm-build \
+    --checkpoint_dir /engines/large-v2-weights/encoder \
+    --output_dir /engines/large-v2/encoder \
+    --moe_plugin disable \
+    --enable_xqa disable \
+    --max_batch_size 1 \
+    --gemm_plugin disable \
+    --bert_attention_plugin float16 \
+    --max_input_len 3000 \
+    --max_seq_len 3000
+
+# Compile the decoder
+# max_beam_width=1 is required — see CUDA errors section below for details
+mkdir -p /engines/large-v2/decoder
+trtllm-build \
+    --checkpoint_dir /engines/large-v2-weights/decoder \
+    --output_dir /engines/large-v2/decoder \
+    --moe_plugin disable \
+    --enable_xqa disable \
+    --max_beam_width 1 \
+    --max_batch_size 1 \
+    --max_seq_len 200 \
+    --max_input_len 14 \
+    --max_encoder_input_len 3000 \
+    --gemm_plugin float16 \
+    --bert_attention_plugin float16 \
+    --gpt_attention_plugin float16
+
+# Verify both engines were created successfully
+ls -lh /engines/large-v2/encoder/rank0.engine
+ls -lh /engines/large-v2/decoder/rank0.engine
+exit
+```
+
+Compilation time varies by GPU — typically fast on modern GPUs (RTX 30xx/40xx). When done, your host will have:
+
+```
+~/whisper-engines/
+└── large-v2/
+    ├── encoder/rank0.engine   (~1.2 GB)
+    └── decoder/rank0.engine   (~1.9 GB)
+```
+
+Optional — recover disk space after compilation:
+
+```bash
+rm -rf ~/whisper-engines/large-v2-weights
+rm -f ~/whisper-engines/large-v2.pt
+```
+
+#### Step 4 — Start the server
+
+```bash
+./WhisperLive_server.sh docker trt --model large-v2 --multilingual
+```
+
+You should see:
+
+```
+🚀 INFO  Server ready → host=0.0.0.0  port=9090  backend=tensorrt
+```
+
+The server is now accepting WebSocket connections on `ws://localhost:9090`.
+
+> **Why `--host 0.0.0.0` inside Docker?**
+> Inside a container, `0.0.0.0` means "listen on all container interfaces" — it does not expose the service to the outside world. Docker's `-p 9090:9090` flag controls what is reachable from the host. The server is only accessible from your own machine unless you explicitly open it to the network.
+
+> **Why `--multilingual`?**
+> Without this flag the TensorRT backend defaults to English-only transcription even if the audio is in another language.
+
+---
+
+#### CUDA errors — causes and fixes
+
+If you encounter `CUDA error: an illegal memory access was encountered`, the verified fix is compiling the decoder with `--max_beam_width 1`. Higher values (`2`, `4`) triggered this error consistently during testing with the Collabora TensorRT image (`TensorRT-LLM 0.15.0.dev2024111200`) on Ada Lovelace GPUs (RTX 40xx, sm_89). The root cause may vary by TensorRT-LLM version and GPU architecture — if you experience the error with `beam_width=1`, try adding `CUDA_LAUNCH_BLOCKING=1` to get a detailed trace (see below).
+
+If you need to recompile only the decoder without starting from scratch:
+
+```bash
+# Enter the build container with the engines volume mounted
+docker run -it --gpus all \
+  -v ~/whisper-engines:/engines \
+  ghcr.io/collabora/whisperlive-tensorrt:latest bash
+```
+
+Inside the container:
+
+```bash
+# Note: this requires /engines/large-v2-weights/ to still exist.
+# If you deleted it after the initial compilation, you must repeat the
+# convert_checkpoint.py step first (re-downloading large-v2.pt if needed).
+
+rm -rf /engines/large-v2/decoder
+mkdir -p /engines/large-v2/decoder
+
+trtllm-build \
+    --checkpoint_dir /engines/large-v2-weights/decoder \
+    --output_dir /engines/large-v2/decoder \
+    --moe_plugin disable \
+    --enable_xqa disable \
+    --max_beam_width 1 \
+    --max_batch_size 1 \
+    --max_seq_len 200 \
+    --max_input_len 14 \
+    --max_encoder_input_len 3000 \
+    --gemm_plugin float16 \
+    --bert_attention_plugin float16 \
+    --gpt_attention_plugin float16
+
+exit
+```
+
+Then restart the server normally with `./WhisperLive_server.sh docker trt`.
+
+**Note on `--beam-size`:** the `--beam-size` option in `run_server.py` has **no effect** on the TensorRT backend. Beam width is fixed at engine compile time via `--max_beam_width`. Using `1` enables greedy decoding — for live transcription with Whisper large-v2 the accuracy difference versus beam search is negligible, while latency and VRAM usage are lower.
+
+To get a detailed CUDA error trace for debugging (slows down inference — remove afterwards):
+
+```bash
+# Add -e CUDA_LAUNCH_BLOCKING=1 to the docker run command in WhisperLive_server.sh
+```
+
+**Optional — GPU persistence mode:**
+Running `sudo nvidia-smi -pm 1` keeps the NVIDIA driver loaded in memory at all times, which can reduce latency on first inference. This is a general GPU server best practice and is unrelated to the CUDA errors described above.
+
+---
+
+#### Configurable options in `WhisperLive_server.sh`
+
+Edit the `# Configuration` block at the top of the script to change defaults:
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `9090` | WebSocket port |
+| `MAX_CLIENTS` | `100` | Max simultaneous clients |
+| `MAX_CONNECTION_TIME` | `604800` | Max session duration in seconds (7 days) |
+| `MODEL` | `large-v2` | Whisper model name |
+| `ENGINES_DIR` | `~/whisper-engines` | Host path where compiled engines are stored |
+
+Or pass flags at runtime:
+
+```bash
+./WhisperLive_server.sh docker trt --model large-v2 --multilingual --port 9091
+```
+
 **Q: What quality of transcription can I expect when using only a low-level processor?**
 
 A: This Chrome extension program is based on WhisperLive, which is based on faster-whisper, a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English, you can expect very good transcriptions of video or audio streams even on low-end or older PCs, including those that are at least 10 years old (Intel Haswell). You can easily configure the application with models such as small.en or base.en, which offer excellent transcriptions for English. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
