@@ -16,6 +16,8 @@
 # Options:
 #   --model <name>      Whisper model: tiny/base/small/medium/large-v2/large-v3
 #   --port <number>     WebSocket port (default: 9090)
+#   --host <ip>         Host/IP to bind (default: 127.0.0.1)
+#                       Use 0.0.0.0 to expose to LAN/internet
 #   --multilingual      Enable multilingual mode for TensorRT (required for
 #                       non-English languages with the TensorRT backend)
 #   --help              Show this help message
@@ -24,6 +26,7 @@
 #   ./WhisperLive_server.sh
 #   ./WhisperLive_server.sh docker
 #   ./WhisperLive_server.sh docker cuda --model large-v3
+#   ./WhisperLive_server.sh docker cuda --model large-v3 --host 0.0.0.0
 #   ./WhisperLive_server.sh docker trt  --model large-v2 --multilingual
 #
 # Notes on language support:
@@ -31,6 +34,13 @@
 #     Set the language in the Chrome extension (or leave on Auto Detect).
 #   - TensorRT: requires --multilingual flag for non-English languages.
 #     Without it the engine defaults to English-only transcription.
+#
+# Notes on host/binding:
+#   - In local mode, --host controls where the Python server listens.
+#   - In Docker mode, --host controls the Docker -p binding on the host side.
+#     Inside the container the process always listens on 0.0.0.0 (required).
+#   - Default 127.0.0.1 means only the local machine can connect.
+#   - Use 0.0.0.0 or a specific LAN IP to allow remote clients.
 #
 # Environment variables:
 #   NO_EMOJI=1          Force plain ASCII labels instead of emoji
@@ -100,7 +110,7 @@ CONTAINER_NAME="whisperlive"
 # Argument parsing
 # ---------------------------------------------------------------------------
 show_help() {
-    grep '^#' "$0" | head -40 | sed 's/^# \{0,3\}//'
+    grep '^#' "$0" | head -50 | sed 's/^# \{0,3\}//'
     exit 0
 }
 
@@ -122,6 +132,7 @@ while [[ $# -gt 0 ]]; do
             shift ;;
         --model)        MODEL="$2";  shift 2 ;;
         --port)         PORT="$2";   shift 2 ;;
+        --host)         HOST="$2";   shift 2 ;;
         --multilingual) TRT_MULTILINGUAL="--trt_multilingual"; shift ;;
         --help|-h)      show_help ;;
         *)              shift ;;
@@ -204,7 +215,7 @@ if [ "$MODE" = "docker" ]; then
 
     log_sep
     log_server "WhisperLive — Docker mode  (backend: ${BACKEND})"
-    log_info   "Model: ${MODEL} | Port: ${PORT}"
+    log_info   "Host: ${HOST} | Model: ${MODEL} | Port: ${PORT}"
     [ -n "$TRT_MULTILINGUAL" ] && log_info "Multilingual: enabled"
     log_sep
     echo -e "Press ${BOLD}Ctrl+C${R} to stop — container is removed on exit"
@@ -260,13 +271,13 @@ if [ "$MODE" = "docker" ]; then
         log_info "Using local run_server.py: $LOCAL_RUN_SERVER"
 
         # --host 0.0.0.0 is required inside Docker — does NOT expose to network.
-        # Docker -p 9090:9090 accepts only localhost connections from the host.
+        # Docker -p 127.0.0.1:9090:9090 accepts only localhost connections from the host.
         docker run --rm --gpus all \
             --name "$CONTAINER_NAME" \
             -v "${ENGINES_DIR}":/engines \
             -v "${CACHE_DIR}":/root/.cache/whisper-live \
             -v "${LOCAL_RUN_SERVER}":/app/run_server.py:ro \
-            -p "${PORT}:${PORT}" \
+            -p "${HOST}:${PORT}:${PORT}" \
             "$TRT_IMAGE" \
             python3 /app/run_server.py \
                 --backend tensorrt \
@@ -294,11 +305,12 @@ if [ "$MODE" = "docker" ]; then
             $INTEL_DEV_FLAG \
             -v whisper_models:/models \
             -v "${CACHE_DIR}":/root/.cache/whisper-live \
-            -p "${PORT}:${PORT}" \
+            -p "${HOST}:${PORT}:${PORT}" \
             -e WHISPER_MODELS_DIR=/models \
             "$UNIVERSAL_IMAGE" \
             --backend openvino \
             --model "$MODEL" \
+            --host 0.0.0.0 \
             --port "$PORT" &
 
         wait $!
@@ -317,12 +329,13 @@ if [ "$MODE" = "docker" ]; then
             -v whisper_models:/models \
             -v "${ENGINES_DIR}":/engines \
             -v "${CACHE_DIR}":/root/.cache/whisper-live \
-            -p "${PORT}:${PORT}" \
+            -p "${HOST}:${PORT}:${PORT}" \
             -e WHISPER_MODELS_DIR=/models \
             -e ENGINES_DIR=/engines \
             "$UNIVERSAL_IMAGE" \
             --backend "$BACKEND" \
             --model "$MODEL" \
+            --host 0.0.0.0 \
             --port "$PORT" &
 
         wait $!
