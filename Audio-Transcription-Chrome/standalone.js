@@ -36,6 +36,61 @@
   let enableGeminiTranslation = false;
   let enableTts = false;
   let dedupTail = [];
+  let hideLiveText = false;
+
+  // --- Transcription Profile Configs ---
+  const PROFILES = {
+    accurate: {
+      stableWordCount: 15,
+      stableElapsed: 4000,
+      stableSegments: 7,
+      safeCommitKeep: 3,
+      safeCommitMinSeg: 5,
+      safeCommitElapsed: 5000,
+      fallbackElapsed: 6000,
+      silenceFlushMs: 2000,
+      silenceCheckMs: 1000,
+      translationMinWords: 20,
+      translationSentenceWords: 14,
+      translationSilenceMs: 2500,
+      alignmentSamples: 4
+    },
+    balanced: {
+      stableWordCount: 10,
+      stableElapsed: 2500,
+      stableSegments: 5,
+      safeCommitKeep: 2,
+      safeCommitMinSeg: 4,
+      safeCommitElapsed: 3500,
+      fallbackElapsed: 4000,
+      silenceFlushMs: 1200,
+      silenceCheckMs: 800,
+      translationMinWords: 16,
+      translationSentenceWords: 10,
+      translationSilenceMs: 1500,
+      alignmentSamples: 6
+    },
+    lowlag: {
+      stableWordCount: 5,
+      stableElapsed: 1200,
+      stableSegments: 3,
+      safeCommitKeep: 1,
+      safeCommitMinSeg: 2,
+      safeCommitElapsed: 1500,
+      fallbackElapsed: 2000,
+      silenceFlushMs: 600,
+      silenceCheckMs: 400,
+      translationMinWords: 8,
+      translationSentenceWords: 5,
+      translationSilenceMs: 800,
+      alignmentSamples: 8
+    }
+  };
+  let activeProfile = PROFILES.balanced;
+
+  function getProfile(name) {
+    return PROFILES[name] || PROFILES.balanced;
+  }
 
   function normalizeText(text) { return String(text || "").replace(/\s+/g, " ").trim(); }
   function splitWords(text) { return normalizeText(text).toLowerCase().split(" ").filter(Boolean); }
@@ -202,7 +257,7 @@
     const wordCount = queued.split(/\s+/).filter(Boolean).length;
     const hasSentenceBoundary = /[.!?\u2026]/.test(queued);
   
-    if (!isTranslatingLocal && (wordCount >= 16 || (wordCount >= 10 && hasSentenceBoundary))) {
+    if (!isTranslatingLocal && (wordCount >= activeProfile.translationMinWords || (wordCount >= activeProfile.translationSentenceWords && hasSentenceBoundary))) {
       processTranslationQueue();
     }
   }
@@ -290,7 +345,7 @@
 
     const startAnchor = stripPunctuation(normalizeText(deduped).split(/\s+/).slice(0, 7).join(" "));
     if (startAnchor.split(" ").length >= 5) {
-      const historySearchable = stripPunctuation(allHistory.join(" "));
+      const historySearchable = stripPunctuation(allHistory.slice(-30).join(" "));
       if (historySearchable.includes(startAnchor)) return;
     }
 
@@ -336,10 +391,11 @@
       }
     };
 
+    const P = activeProfile;
     const currentWindowText = getCurrentWindowText(newSegments);
     const wordCount = splitWords(currentWindowText).length;
     const elapsed = Date.now() - windowStartTime;
-    const isStable = wordCount >= 10 || elapsed >= 2500 || newSegments.length >= 5;
+    const isStable = wordCount >= P.stableWordCount || elapsed >= P.stableElapsed || newSegments.length >= P.stableSegments;
 
     if (!isStable) {
       transferFlags();
@@ -348,7 +404,7 @@
     }
 
     let alignmentShift = -1;
-    const samplesToTry = Math.min(6, newSegments.length);
+    const samplesToTry = Math.min(P.alignmentSamples, newSegments.length);
 
     for (let i = 0; i < samplesToTry; i++) {
       const newSegText = stripPunctuation(newSegments[i]?.text || "");
@@ -380,8 +436,8 @@
         }
       }
 
-      if (newSegments.length >= 4 || elapsed > 3500) {
-        const safeToCommit = Math.max(0, newSegments.length - 2);
+      if (newSegments.length >= P.safeCommitMinSeg || elapsed > P.safeCommitElapsed) {
+        const safeToCommit = Math.max(0, newSegments.length - P.safeCommitKeep);
         for (let i = 0; i < safeToCommit; i++) {
           const seg = newSegments[i];
           if (!seg._committed && seg.text && seg.text.trim()) {
@@ -395,7 +451,7 @@
       previousSegments = newSegments.slice();
 
     } else {
-      if (elapsed > 4000) {
+      if (elapsed > P.fallbackElapsed) {
         previousSegments.forEach(seg => {
           if (seg && !seg._committed && seg.text && seg.text.trim()) {
             appendCommittedChunk(seg.text.trim());
@@ -474,9 +530,10 @@
 
   function startSilenceMonitor() {
     clearSilenceMonitor();
+    const P = activeProfile;
     silenceFlushTimer = setInterval(() => {
       const now = Date.now();
-      if (now - lastReceivedTime > 1200) {
+      if (now - lastReceivedTime > P.silenceFlushMs) {
         if (previousSegments.length > 0) {
           previousSegments.forEach(seg => {
             if (seg && !seg._committed && seg.text && seg.text.trim()) {
@@ -491,11 +548,11 @@
           absorbStableText("", true);
           renderText();
         }
-        if (translationQueue.length > 0 && !isTranslatingLocal && now - lastReceivedTime > 1500) {
+        if (translationQueue.length > 0 && !isTranslatingLocal && now - lastReceivedTime > P.translationSilenceMs) {
           processTranslationQueue();
         }
       }
-    }, 800);
+    }, P.silenceCheckMs);
   }
 
   function updateStatusBar(settings) {
@@ -593,12 +650,19 @@
 
     chrome.storage.local.get(
       ["displayMode", "textFormatting", "fontSize", "selectedModelSize", "selectedLanguage",
-       "selectedTask", "targetLanguage", "useVad", "enableTts", "enableGeminiTranslation", "geminiModel"],
+       "selectedTask", "targetLanguage", "useVad", "enableTts", "enableGeminiTranslation", "geminiModel",
+       "transcriptionProfile", "hideLiveText"],
       (res) => {
         currentDisplayMode = res.displayMode || "both";
         currentFormatting = res.textFormatting || "advanced";
         enableGeminiTranslation = !!res.enableGeminiTranslation;
         enableTts = !!res.enableTts;
+        hideLiveText = !!res.hideLiveText;
+        const newProfile = getProfile(res.transcriptionProfile || "balanced");
+        if (newProfile !== activeProfile) {
+          activeProfile = newProfile;
+          startSilenceMonitor();
+        }
         applyFontSize(res.fontSize || currentFontSize || 20);
         updateStatusBar(res || {});
         renderText();
@@ -657,7 +721,7 @@
     const originalFormatted = formatText(committedText, currentFormatting);
 
     let livePreviewHtml = "";
-    if (segments.length > 0) {
+    if (!hideLiveText && segments.length > 0) {
       const liveRaw = normalizeText(getCurrentWindowText(segments));
       if (liveRaw) {
         const historyTail = normalizeText(committedText).split(/\s+/).slice(-60).join(" ");
@@ -738,6 +802,12 @@
     }
     if ("displayMode" in changes) { currentDisplayMode = changes.displayMode.newValue || "both"; needsRender = true; }
     if ("textFormatting" in changes) { currentFormatting = changes.textFormatting.newValue || "advanced"; needsRender = true; }
+    if ("hideLiveText" in changes) { hideLiveText = !!changes.hideLiveText.newValue; needsRender = true; }
+    if ("transcriptionProfile" in changes) {
+      activeProfile = getProfile(changes.transcriptionProfile.newValue || "balanced");
+      startSilenceMonitor();
+      needsRender = true;
+    }
 
     if (needsRender) renderText();
   });
@@ -747,12 +817,14 @@
   chrome.storage.local.get(
     ["textFormatting", "displayMode", "fontSize", "dividerPos", "selectedModelSize",
      "selectedLanguage", "selectedTask", "targetLanguage", "useVad", "enableTts",
-     "enableGeminiTranslation", "geminiModel"],
+     "enableGeminiTranslation", "geminiModel", "transcriptionProfile", "hideLiveText"],
     (res) => {
       currentFormatting = res.textFormatting || "advanced";
       currentDisplayMode = res.displayMode || "both";
       enableGeminiTranslation = !!res.enableGeminiTranslation;
       enableTts = !!res.enableTts;
+      hideLiveText = !!res.hideLiveText;
+      activeProfile = getProfile(res.transcriptionProfile || "balanced");
       applyFontSize(res.fontSize || 20);
 
       const pos = parseFloat(res.dividerPos);

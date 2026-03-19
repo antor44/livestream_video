@@ -231,6 +231,20 @@
           <option value="advanced" selected>Advanced Paragraphs</option>
         </select>
       </div>
+
+      <div class="input-container">
+        <label for="transcriptionProfileDropdown">Transcription Profile</label>
+        <select id="transcriptionProfileDropdown">
+          <option value="accurate">Accurate (more lag, conservative)</option>
+          <option value="balanced" selected>Balanced (default)</option>
+          <option value="lowlag">Low Lag (fast, less accurate)</option>
+        </select>
+      </div>
+
+      <div class="checkbox-container" style="margin-top: 5px;">
+        <input type="checkbox" id="hideLiveTextCheckbox">
+        <label for="hideLiveTextCheckbox">Hide Live Text (show only stable text)</label>
+      </div>
     </div>
   </div>
 

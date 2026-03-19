@@ -5,6 +5,8 @@ const DEFAULTS = {
   selectedTask: "transcribe",
   selectedModelSize: "small",
   textFormatting: "advanced",
+  transcriptionProfile: "balanced",
+  hideLiveText: false,
   geminiApiKey: "",
   geminiModel: "gemini-3.1-flash-lite-preview",
   targetLanguage: "es",
@@ -45,6 +47,8 @@ function initElements() {
   el.taskDropdown = $("taskDropdown");
   el.modelSizeDropdown = $("modelSizeDropdown");
   el.textFormattingDropdown = $("textFormattingDropdown");
+  el.transcriptionProfileDropdown = $("transcriptionProfileDropdown");
+  el.hideLiveTextCheckbox = $("hideLiveTextCheckbox");
   el.geminiApiKey = $("geminiApiKey");
   el.enableGeminiTranslationCheckbox = $("enableGeminiTranslationCheckbox");
   el.geminiModelDropdown = $("geminiModelDropdown");
@@ -104,6 +108,8 @@ function collectSettings() {
     selectedTask: el.taskDropdown?.value || DEFAULTS.selectedTask,
     selectedModelSize: el.modelSizeDropdown?.value || DEFAULTS.selectedModelSize,
     textFormatting: el.textFormattingDropdown?.value || DEFAULTS.textFormatting,
+    transcriptionProfile: el.transcriptionProfileDropdown?.value || DEFAULTS.transcriptionProfile,
+    hideLiveText: !!el.hideLiveTextCheckbox?.checked,
     geminiApiKey: fullApiKey,
     geminiModel: el.geminiModelDropdown?.value || DEFAULTS.geminiModel,
     targetLanguage: el.targetLanguageDropdown?.value || DEFAULTS.targetLanguage,
@@ -128,6 +134,8 @@ async function saveSettings() {
     selectedTask: settings.selectedTask,
     selectedModelSize: settings.selectedModelSize,
     textFormatting: settings.textFormatting,
+    transcriptionProfile: settings.transcriptionProfile,
+    hideLiveText: settings.hideLiveText,
     geminiApiKey: settings.geminiApiKey,
     geminiModel: settings.geminiModel,
     targetLanguage: settings.targetLanguage,
@@ -149,6 +157,8 @@ function applySettingsToUI(settings) {
   if (el.taskDropdown) el.taskDropdown.value = settings.selectedTask ?? DEFAULTS.selectedTask;
   if (el.modelSizeDropdown) el.modelSizeDropdown.value = settings.selectedModelSize ?? DEFAULTS.selectedModelSize;
   if (el.textFormattingDropdown) el.textFormattingDropdown.value = settings.textFormatting ?? DEFAULTS.textFormatting;
+  if (el.transcriptionProfileDropdown) el.transcriptionProfileDropdown.value = settings.transcriptionProfile ?? DEFAULTS.transcriptionProfile;
+  if (el.hideLiveTextCheckbox) el.hideLiveTextCheckbox.checked = settings.hideLiveText ?? DEFAULTS.hideLiveText;
 
   fullApiKey = String(settings.geminiApiKey ?? DEFAULTS.geminiApiKey);
   if (el.geminiApiKey) el.geminiApiKey.value = maskApiKey(fullApiKey);
@@ -238,38 +248,16 @@ function stopCapture() {
 }
 
 async function resetDefaults() {
-  fullApiKey = DEFAULTS.geminiApiKey;
-
+  // Only reset IP and port to defaults, leave all other settings untouched
   await chrome.storage.local.set({
     serverHost: DEFAULTS.serverHost,
     serverPort: DEFAULTS.serverPort,
     ipAddress: DEFAULTS.serverHost,
-    port: DEFAULTS.serverPort,
-    selectedLanguage: null,
-    selectedTask: DEFAULTS.selectedTask,
-    selectedModelSize: DEFAULTS.selectedModelSize,
-    textFormatting: DEFAULTS.textFormatting,
-    geminiApiKey: DEFAULTS.geminiApiKey,
-    geminiModel: DEFAULTS.geminiModel,
-    targetLanguage: DEFAULTS.targetLanguage,
-    displayMode: DEFAULTS.displayMode,
-    useVad: DEFAULTS.useVad,
-    useStandalone: DEFAULTS.useStandalone,
-    enableTts: DEFAULTS.enableTts,
-    ttsSpeed: DEFAULTS.ttsSpeed,
-    enableGeminiTranslation: DEFAULTS.enableGeminiTranslation
+    port: DEFAULTS.serverPort
   });
 
-  applySettingsToUI({
-    ...DEFAULTS,
-    selectedLanguage: ""
-  });
-
-  const stored = await chrome.storage.local.get(["capturingState", "isCapturing"]);
-  const isCapturing =
-    !!stored?.capturingState?.isCapturing || !!stored?.isCapturing;
-
-  setButtonsFromState(isCapturing);
+  if (el.ipAddress) el.ipAddress.value = DEFAULTS.serverHost;
+  if (el.port) el.port.value = DEFAULTS.serverPort;
 }
 
 function bindAutosave() {
@@ -278,12 +266,14 @@ function bindAutosave() {
     el.enableGeminiTranslationCheckbox,
     el.useStandaloneCheckbox,
     el.useVadCheckbox,
+    el.hideLiveTextCheckbox,
     el.ipAddress,
     el.port,
     el.languageDropdown,
     el.taskDropdown,
     el.modelSizeDropdown,
     el.textFormattingDropdown,
+    el.transcriptionProfileDropdown,
     el.geminiModelDropdown,
     el.targetLanguageDropdown,
     el.displayModeDropdown

@@ -1,4 +1,4 @@
-# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.7.0
+# Audio Transcription for Chrome/Chromium/Microsoft Edge 2.8.0
 
 ## Using the Extension
 
@@ -25,13 +25,20 @@ The UI is divided into several sections to give you full control over transcript
 
 - **WhisperLive Server:**
   - Enter a custom server IP address and port to connect to your transcription server (default is `localhost` and `9090`).
-  - Click **Reset Default** to easily revert to local settings.
+  - Click **Reset Default** to revert the IP address and port to local settings (`localhost:9090`). Other settings are preserved.
 
 - **Transcription Settings:**
   - **Audio Language:** Select the source language of the audio, or leave it on "Auto Detect". *Tip: If you select a language different from the one spoken in the audio, larger Whisper models (like large-v2 or large-v3) will often provide a very good direct translation into the selected language natively, without needing to use external translation features.*
   - **Whisper Task:** Choose between "Transcribe" (text in the original language) or "Translate" (direct Whisper translation to English).
   - **Model Size:** Pick the model size that suits your system’s hardware (from Base to Large-v3).
   - **Text Formatting:** Choose from "Raw Segments", "Joined Text", or "Advanced Paragraphs" to make the output more readable.
+  - **Transcription Profile:** Choose between three performance profiles that control how quickly text is stabilized, committed, and sent for translation/TTS:
+    - *Accurate:* Conservative mode with more lag. Waits for more context before committing text, producing cleaner and more complete sentences. Recommended for high-quality transcriptions where latency is not critical.
+    - *Balanced:* The default behavior. A middle ground between speed and accuracy.
+    - *Low Lag:* Aggressive mode that commits text as fast as possible. Text appears and stabilizes quickly, and translations/TTS trigger sooner. Best for real-time scenarios where minimal delay is prioritized over perfect sentence structure.
+  - **Hide Live Text:** When enabled, the unstable live preview text (shown in gray/italic) is hidden. Only stable, committed text (white) and translations are displayed. Useful if the constantly changing preview text is distracting.
+
+  All transcription profile and hide live text changes take effect in real time — no need to restart the capture.
 
 - **Gemini & Google Translation:**
   - **Enable Translation:** Check this to activate real-time translation.
