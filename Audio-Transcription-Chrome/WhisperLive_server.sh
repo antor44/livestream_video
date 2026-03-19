@@ -110,7 +110,7 @@ CONTAINER_NAME="whisperlive"
 # Argument parsing
 # ---------------------------------------------------------------------------
 show_help() {
-    grep '^#' "$0" | head -50 | sed 's/^# \{0,3\}//'
+    grep '^#' "$0" | head -47 | tail -n +2 | sed 's/^# \{0,3\}//'
     exit 0
 }
 
