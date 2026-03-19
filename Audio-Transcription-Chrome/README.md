@@ -45,10 +45,12 @@ The UI is divided into several sections to give you full control over transcript
 While many models such as the `gemini-flash-lite-preview` family offer generous free tiers, advanced models like `gemini-3.1-pro` are typically available only through the paid tier of the Gemini API. The paid API operates on a pay-per-use basis: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models. Under normal usage, the cost is typically no more than a few cents per day, even with relatively heavy use.
 
 **Model Recommendations for High-Quality Translate or Corrections in the Same Language:**
-*   **Paid API key recommended:** The Free Tier can work reliably for flash-lite models, recommended only when both source and destination are major languages.
-*   For reliable, high-quality subtitles or for long sessions, use at least the `gemini-3-flash` model. It provides good results for major-language translations and for improving same-language transcription.
-*   Use `gemini-3.1-pro` when either the source or destination language is non-major.
-*   *Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
+
+*   The Free Tier works reliably only for Flash models and is recommended only when both the source and destination languages are major ones.  
+*   For reliable, high-quality subtitles or long sessions, use a Paid Tier—at least a Flash-Lite model or the Gemini-3-Flash model, which provides good results for major language translations and improves same-language transcription.
+*   Use `gemini-3.1-pro` when either the source or destination language is not a major language, although you might experience more translation failures due to its longer processing times.
+
+  *Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
 ### Start Transcription:
 
