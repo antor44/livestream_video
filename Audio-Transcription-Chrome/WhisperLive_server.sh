@@ -27,6 +27,7 @@
 #   ./WhisperLive_server.sh docker
 #   ./WhisperLive_server.sh docker cuda --model large-v3
 #   ./WhisperLive_server.sh docker cuda --model large-v3 --host 0.0.0.0
+#   ./WhisperLive_server.sh docker cuda --model large-v3 --port 9091
 #   ./WhisperLive_server.sh docker trt  --model large-v2 --multilingual
 #
 # Notes on language support:
@@ -110,7 +111,7 @@ CONTAINER_NAME="whisperlive"
 # Argument parsing
 # ---------------------------------------------------------------------------
 show_help() {
-    grep '^#' "$0" | head -47 | tail -n +2 | sed 's/^# \{0,3\}//'
+    grep '^#' "$0" | head -48 | tail -n +2 | sed 's/^# \{0,3\}//'
     exit 0
 }
 
