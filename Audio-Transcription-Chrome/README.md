@@ -320,7 +320,7 @@ You should see:
 The server is now accepting WebSocket connections on `ws://localhost:9090`.
 
 > **Why `--host 0.0.0.0` inside Docker?**
-> Inside a container, `0.0.0.0` means "listen on all container interfaces" — it does not expose the service to the outside world. Docker's `-p 9090:9090` flag (used in the `docker run` command inside WhisperLive_server.sh) controls what is reachable from the host. The server is only accessible from your own machine unless you explicitly open it to the network.
+> Inside a container, `0.0.0.0` means "listen on all container interfaces" — it does not expose the service to the outside world. Docker's `-p 127.0.0.1:9090:9090` flag (used in the `docker run` command inside WhisperLive_server.sh) controls what is reachable from the host. The server is only accessible from your own machine unless you explicitly open it to the network or use `./WhisperLive_server.sh --host <ip>` (a different argument here), which specifies the Host/IP to bind to (default: 127.0.0.1); i.e., 0.0.0.0 exposes it to the LAN/internet.
 
 > **Why `--multilingual`?**
 > Without this flag the TensorRT backend defaults to English-only transcription even if the audio is in another language.
