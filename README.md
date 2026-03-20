@@ -92,29 +92,13 @@ Author: Antonio R. Version: 5.24 License: GPL 3.0
 </br>
 
 #
-# Audio Transcription
+## Related Project: Audio Transcription Browser Extension
 
-Chrome/Chromium/Microsoft Edge extension (Firefox version not supported) that allows users to capture any audio playing in the current tab and transcribe it in real time using an implementation of OpenAI Whisper, with a local server running on the user's computer. In addition to real-time transcription, the extension provides live translation, real-time text-to-speech (TTS) playback of the transcribed or translated text, and a standalone window mode that allows the transcription interface to work independently from the web page.
+If you are looking to transcribe and translate audio directly from your web browser (Chrome/Chromium/Microsoft Edge), check out my standalone extension project: **[Audio-Transcription](https://github.com/antor44/Audio-Transcription)**.
 
-The user has the option to choose from all languages supported by OpenAI’s Whisper transcription AI, including the use of Whisper's native translation to English
+It is completely independent of `playlist4whisper` and `livestream_video.sh`, based on a local WhisperLive server. It provides real-time transcription, live translation (via Google Translate & Gemini), and Text-to-Speech (TTS) capabilities natively in your browser. 
 
-This is an application totally independent of playlist4whisper and livestream_video.sh, based on WhisperLive, an implementation of OpenAI Whisper different from whisper.cpp. This browser extension is a fork of a [WhisperLive extension](https://github.com/collabora/WhisperLive) with significant aesthetic changes and powerful enhancements, designed specifically for use with a local server running WhisperLive. You need to install WhisperLive and run a bash script to launch a local server. It supports Linux, Windows through WSL2 (Chrome/Chromium/Microsoft Edge on Windows is supported for the extension part), and macOS ARM (Intel versions do not work). For help and installation instructions, see the [README](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/README.md) file in its directory.
-
-The extension's capabilities go beyond standard Whisper transcription:
-
-- **Real-Time Translation (Google Translate & Gemini):** Translate live transcriptions into dozens of target languages on the fly. You can select **Google Translate** from the models menu as a completely free option (no API key required), or use the Google Gemini API for advanced translation. If you use Gemini and the API fails, times out, or throws an error, the extension will automatically fallback to Google Translate, marking the text with the `⁺` symbol.
-
-- **Native Whisper Translation:** When selecting an Audio Language different from the source audio, larger Whisper models (like large-v2 or large-v3) often provide an excellent direct translation natively, without the need for external APIs.
-
-- **Text-to-Speech (TTS):** Automatically read the text aloud in real time with adjustable speed settings. It seamlessly reads the translated text, or if translation is disabled, it reads the original Whisper transcription. *Note: This feature uses the chrome.tts extension API. On Windows and macOS it relies on the operating system's installed voices. On Linux, audio support depends on the browser: Chrome uses a built-in eSpeak-NG engine, Edge uses Microsoft Neural online voices, and Chromium requires a TTS engine extension (e.g. Piper) to produce any audio.*
-
-- **Flexible UI Modes:** Choose between viewing the transcription in a floating in-page overlay or a dedicated Standalone popup window. The Standalone mode is especially indicated to support many more online services on pages that do not support injected overlays, such as web podcasts, and video conferencing platforms like Zoom, Google Meet, or Microsoft Teams.
-
-- **Text History & Window Customization:** The extension saves all processed text in a continuous history that you can easily copy to your clipboard. Both the overlay and standalone windows can be freely moved and resized, and you can also adjust the font size of the text for comfortable reading.
-
-- **Side-by-Side Viewing:** Display modes allow you to view the original transcription and the translation side-by-side, or isolate either one.
-
-- **Server Config:** Easily configure custom server IP addresses and ports with one-click default resets.
+👉 **[Click here to visit the extension repository for more details and installation instructions.](https://github.com/antor44/Audio-Transcription)**
 </br>
 </br>
 
@@ -125,12 +109,6 @@ The extension's capabilities go beyond standard Whisper transcription:
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
 #
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
-#
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension1.jpg)
-#
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension2.jpg)
-#
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/Audio-Transcription-Chrome/Chrome_extension3.jpg)
 #
 
 #
@@ -1383,7 +1361,7 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 
 A: This issue often occurs because standard audio segmentation can cut words in half. To mitigate this **in part**, version 5.10 introduces a **Voice Activity Detection (VAD)** option (`--vad`), based on the powerful Silero model. This feature attempts to cut the audio during moments of silence near the chunk boundary. However, it is not a perfect solution; word truncations can still happen due to inaccurate timestamps from `ffmpeg`, the inherent nature of how Whisper processes audio, and other stream-related problems.
 
-We are continuously working on advanced audio processing methods. Alternative solutions include the Chrome extension based on WhisperLive (which re-transcribes recent audio for better context) or potential future implementations of sliding window algorithms. However, the current VAD implementation provides an excellent balance of performance and accuracy without the complexity of re-transcribing audio.
+We are continuously working on advanced audio processing methods. Alternative solutions include the [Audio Transcription Chrome extension](https://github.com/antor44/Audio-Transcription) based on WhisperLive (which re-transcribes recent audio for better context) or potential future implementations of sliding window algorithms. However, the current VAD implementation provides an excellent balance of performance and accuracy without the complexity of re-transcribing audio.
 
 It's worth noting that while playlist4whisper and livestream_video.sh currently process audio in isolated chunks —which can lead to word truncation and loss of broader sentence context— this approach also inherently minimizes the impact of hallucinations and other errors common to all Whisper AI model versions and model sizes. Any such errors are typically confined to a single audio/video fragment and occur infrequently, rather than propagating extensively throughout the transcription. The proposed additions to correct these word truncation issues are essentially classic coding workarounds, akin to applying a patch to address these noticeable flaws in OpenAI's Whisper model. Despite this development effort, guaranteed results are not assured. Furthermore, it's highly probable that OpenAI will implement similar or more sophisticated solutions directly within future Whisper model versions, or any other company in another transcription AI; it's almost inevitable they will address such evident and undesirable known errors sooner rather than later. Keep in mind that a very efficient and low power consumption, multilingual transcription AI is more than necessary for a lot of electronic devices and for all robots. This is the most fundamental part of the software to translate voice commands to robot's actions. Consequently, despite the significant programming work, and probably more inefficiently, to try and mitigate these issues externally, it might ultimately be time spent on a temporary fix.
 
@@ -1401,7 +1379,7 @@ Choosing a larger Whisper model improves its accuracy. However, it's important t
 
 Alternatively, you can generate subtitles for local audio/video files. This feature supports any model size with any processor; the only limitation is the processing time. When generating subtitles, the AI takes into account the maximum tokens supported by this implementation of OpenAI's Whisper AI. It's important to note that while this feature is powerful, users might still occasionally experience minor text inconsistencies or, more rarely, a phenomenon where the transcription appears to loop on a repeated phrase. This latter behavior, along with other types of 'hallucinations' (generating text not present in the audio), are recognized limitations of current AI transcription models like Whisper.
 
-If you wish, you can try the optional Chrome extension for transcribing audio and video solely from web pages; note that its translation capabilities are limited to English. Otherwise, with the exception of subtitle generation for locally stored files, the playlist4whisper and livestream_video.sh applications should be primarily viewed as helpful tools for understanding video and audio content, capable of transcribing or translating a significant portion, though not always with complete coverage. This is still a significant capability, considering Whisper AI's extensive language support and accuracy in a variety of scenarios. However, at least with present versions, users should not expect perfectly exact results; if high precision is critical, exploring alternative solutions might be more appropriate.
+If you wish, you can try the [optional Chrome extension](https://github.com/antor44/Audio-Transcription) for transcribing audio and video solely from web pages; note that its translation capabilities are limited to English. Otherwise, with the exception of subtitle generation for locally stored files, the playlist4whisper and livestream_video.sh applications should be primarily viewed as helpful tools for understanding video and audio content, capable of transcribing or translating a significant portion, though not always with complete coverage. This is still a significant capability, considering Whisper AI's extensive language support and accuracy in a variety of scenarios. However, at least with present versions, users should not expect perfectly exact results; if high precision is critical, exploring alternative solutions might be more appropriate.
 
 **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
 
