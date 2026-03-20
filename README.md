@@ -1,12 +1,13 @@
-# playlist4whisper/livestream_video.sh and Audio Transcription for Chrome/Chromium/Microsoft Edge
+# playlist4whisper / livestream_video.sh 
 
-## playlist4whisper & livestream_video.sh
+## About the Project
 
 `playlist4whisper` manages media stream playlists, plays media, creates `.srt` subtitle files from local media files, and locally transcribes live video/audio streams with **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)** (a highly efficient implementation of OpenAI's Whisper). It includes configurable time-shift, multi-instance/multi-user support, translation, and text-to-speech functionality.
 
 `playlist4whisper` is a graphical application that allows you to easily manage and launch `livestream_video.sh`. It provides a user-friendly interface to configure all transcription and translation options, manage TV channel playlists, and store settings.
 
-*This new version of the Python application and the Bash script supports the latest versions of **whisper.cpp 1.8.x**, which introduces an internal **VAD (Voice Activity Detection)**. The code has also been updated to support changes in the whisper.cpp toolchain, such as the new `whisper-quantize` executable name.
+> [!NOTE]
+> *This new version of the Python application and the Bash script supports the latest versions of **whisper.cpp 1.8.x**, which introduces an internal **VAD (Voice Activity Detection)**. The code has also been updated to support changes in the whisper.cpp toolchain, such as the new `whisper-quantize` executable name.*
 
 ### Some Notable Features:
 
@@ -22,20 +23,21 @@
 -   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
 
+> [!WARNING]
+> **Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks with the integrated `Subtitle Video Editor`.
 
-**Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks with the integrated `Subtitle Video Editor`.
+---
 
-### Online Translation with Google Gemini API
+## Online Translation with Google Gemini API
 
 The latest version introduces high-quality online translation using Google's Gemini AI models. This feature serves as a powerful alternative to the standard translation provided by `translate-shell`.
 
 **Key Features:**
-
 *   **Superior Quality:** Gemini models often provide more accurate and context-aware translations than traditional services.
 *   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-preview` (default) or the most powerful `gemini-3.1-pro-preview`, directly from the application's UI.
 *   **API Key Integration:** The system securely manages your Google Gemini API key.
 
-#### Context Level Control
+### Context Level Control
 
 To further enhance translation quality, you can now control the amount of context the Gemini AI uses. This is crucial for achieving translations that are not only accurate but also fluent and coherent.
 
@@ -46,52 +48,51 @@ To further enhance translation quality, you can now control the amount of contex
 
 You can select your preferred context level from the new dropdown menu in the "Online translation" section of the UI.
 
-> **Important Note on Models**
->
+> [!IMPORTANT]
+> **Important Note on Models and Pricing**
+> 
 > While many models such as `gemini-3-flash-preview` or the `gemma` family offer generous free tiers, advanced models like **`gemini-3.1-pro`** are typically available only through the **paid tier** of the Gemini API.
->
+> 
 > The paid API operates on a **pay-per-use basis**: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models.
->
+> 
 > Under normal usage, the cost is typically **no more than a few cents per day**, even with relatively heavy use.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
-
 *   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
 
-*Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
+> [!NOTE]
+> *Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
 
-#### How to Enable Gemini Translation
+### How to Enable Gemini Translation
 
-##### 1. Obtain a Google Gemini API Key
-
+#### 1. Obtain a Google Gemini API Key
 *   Go to **[Google AI Studio](https://aistudio.google.com/)**.
 *   Sign in with your Google account.
 *   Click on **"Get API key"** and then **"Create API key"**.
 *   Copy the generated key immediately.
 
-##### 2. Provide the API Key to the Application
-
+#### 2. Provide the API Key to the Application
 1.  In `playlist4whisper`, click the **"API Key"** button located in the "Online translation" section.
 2.  Paste your key into the dialog box and click "OK". The key is saved in your configuration file.
 
-##### 3. Configure and Run
-
+#### 3. Configure and Run
 1.  Check the **"Online"** box to enable online translation.
 2.  Use the **"Engine"** dropdown menu to select your desired Gemini model.
 3.  Use the **"Level"** dropdown menu to select your desired context level.
 
-The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a (*) prefix.
+The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
 
+> [!NOTE]
+> Using the Gemini API is subject to Google’s pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
+> 
+> The Gemini API **free tier** is available with lower rate limits for testing purposes. Google AI Studio usage is completely free in all supported countries. The Gemini API **paid tier** provides higher rate limits, additional features, and different data handling.
 
-**Note:** Using the Gemini API is subject to Google’s pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
+<br>
 
-The Gemini API **free tier** is available with lower rate limits for testing purposes. Google AI Studio usage is completely free in all supported countries. The Gemini API **paid tier** provides higher rate limits, additional features, and different data handling.
+**Author:** Antonio R. | **Version:** 5.24 | **License:** GPL 3.0
 
-</br>
-Author: Antonio R. Version: 5.24 License: GPL 3.0
-</br>
+---
 
-#
 ## Related Project: Audio Transcription Browser Extension
 
 If you are looking to transcribe and translate audio directly from your web browser (Chrome/Chromium/Microsoft Edge), check out my standalone extension project: **[Audio-Transcription](https://github.com/antor44/Audio-Transcription)**.
@@ -99,152 +100,155 @@ If you are looking to transcribe and translate audio directly from your web brow
 It is completely independent of `playlist4whisper` and `livestream_video.sh`, based on a local WhisperLive server. It provides real-time transcription, live translation (via Google Translate & Gemini), and Text-to-Speech (TTS) capabilities natively in your browser. 
 
 👉 **[Click here to visit the extension repository for more details and installation instructions.](https://github.com/antor44/Audio-Transcription)**
-</br>
-</br>
+
+<br>
 
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
-#
 
-#
-## playlist4whisper Quick start
+---
 
-playlist4whisper and livestream_video.sh is based on whisper.cpp and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that mpv, smplayer, translate-shell, ffmpeg, vlc, python3-tk, python3-pip, imageio, imageio-ffmpeg, Pillow, jq, curl, bc, and xterm are installed. 
+## playlist4whisper Quick Start
 
-To install whisper.cpp, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with ./build/bin/whisper-cli executable being the first choice):
-```
+`playlist4whisper` and `livestream_video.sh` is based on `whisper.cpp` and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that `mpv`, `smplayer`, `translate-shell`, `ffmpeg`, `vlc`, `python3-tk`, `python3-pip`, `imageio`, `imageio-ffmpeg`, `Pillow`, `jq`, `curl`, `bc`, and `xterm` are installed. 
+
+To install `whisper.cpp`, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with `./build/bin/whisper-cli` executable being the first choice):
+
+```bash
 pip3 install pywhispercpp
 ```
-For macOS and linux with brew repository:
-```
+
+For macOS and Linux with brew repository:
+```bash
 brew install whisper-cpp
 ```
-or for OpenAI's Whisper (not fully supported, except for generating subtitles for local audio/video files):
-```
+
+Or for OpenAI's Whisper (not fully supported, except for generating subtitles for local audio/video files):
+```bash
 pip3 install openai-whisper
 ```
-For the latest version of whisper.cpp or to compile an accelerated version, follow the instructions provided at https://github.com/ggerganov/whisper.cpp
 
-Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
-```
+For the latest version of `whisper.cpp` or to compile an accelerated version, follow the instructions provided at[whisper.cpp GitHub](https://github.com/ggerganov/whisper.cpp).
+
+Finally, launch the app by entering the following command in the terminal. Make sure you are inside the `whisper.cpp` directory (`cd ~/whisper.cpp`) and that your Python environment is activated (`source ~/python-environments/whisper/bin/activate`), if required.
+
+```bash
 python3 playlist4whisper.py
 ```
-*Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
 
-*The required model files must be stored in the subdirectory ./models. They can be automatically downloaded using playlist4whisper (this feature is only supported for the compiled version of whisper.cpp), or you can follow the instructions provided at https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md
+> [!TIP]
+> **VLC Configuration:** Before using VLC go to `Tools -> Preferences` and Show setting: `All`. Then `Interface -> Main Interfaces -> Qt -> Uncheck: 'Resize interface to the native video size'`, and `'When to raise the interface' -> Never`. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
 
-*Please note that the model installed by playlist4whisper may not be optimized for an accelerated version of Whisper.cpp.
+> [!NOTE]
+> **Model Files:** The required model files must be stored in the subdirectory `./models`. They can be automatically downloaded using `playlist4whisper` (this feature is only supported for the compiled version of whisper.cpp), or you can follow the instructions provided [here](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
+>
+> *Please note that the model installed by `playlist4whisper` may not be optimized for an accelerated version of Whisper.cpp.*
+>
+> *OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper.cpp model.*
 
-*OpenAI's Whisper automatically downloads the required model if it does not exist. Keep in mind that its format is different from the whisper.cpp model.
+---
 
+## Detailed Installation for Linux
 
-#
-## Detailed installation for linux
+### 1. Download and build whisper.cpp
+Download and build `whisper.cpp` to a new directory following the instructions provided in the[documentation](https://github.com/ggerganov/whisper.cpp).
 
-
-1. Download and build whisper.cpp to a new directory following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp
-
-Download the source code of whisper.cpp from your home directory:
-
-```
+Download the source code of `whisper.cpp` from your home directory:
+```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Change the default directory to the whisper.cpp directory, which is whisper.cpp:
-```
+Change the default directory to the `whisper.cpp` directory:
+```bash
 cd whisper.cpp
 ```
-Compile whisper.cpp for CPU mode:
-```
+Compile `whisper.cpp` for CPU mode:
+```bash
 make
 ```
 Download some models:
-```
+```bash
 make tiny.en
-```
-```
 make base.en
-```
-```
 make base
 ```
-2. Download playlist4whisper and livestream_video.sh, you can use the following command:
-```
+
+### 2. Download playlist4whisper
+Download `playlist4whisper` and `livestream_video.sh`:
+```bash
 git clone https://github.com/antor44/livestream_video.git
 ```
-Stay where you executed the command, move all to whisper.cpp directory:
-```
+Stay where you executed the command, move all to `whisper.cpp` directory:
+```bash
 mv livestream_video/* ~/whisper.cpp
 ```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper.cpp.
+`playlist4whisper.py`, `livestream_video.sh`, and the default `playlist_xxx.m3u` files must be located in the same directory as `whisper.cpp`.
 
-This program depends on other Linux programs and their libraries, such as Python, whisper.cpp and mpv. For example, Ubuntu Linux users can install the following packages:
-```
+### 3. Install Dependencies
+This program depends on other Linux programs and their libraries. For example, Ubuntu Linux users can install the following packages:
+```bash
 sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip jq curl bc xterm
 ```
 
 You need to install some libraries via pip. One option is to install a python virtualenv:
-```
+```bash
 sudo apt install virtualenv
 ```
 Then:
-```
+```bash
 mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
 And finally:
-```
+```bash
 pip3 install imageio imageio-ffmpeg Pillow
 ```
-Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
+*(Remember, in every session you need to run the command `source ~/python-environments/whisper/bin/activate` before executing playlist4whisper.py).*
 
-For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
-
-The easy way to install yt-dlp and streamlink:
-```
+For YouTube `yt-dlp` is required, for Twitch and Others `streamlink` is required. The easy way to install them:
+```bash
 pip3 install yt-dlp
 pip3 install streamlink
 ```
-or to create a Python virtual environment alongside Python applications, install pipx:
-```
+Or to create a Python virtual environment alongside Python applications, install pipx:
+```bash
 sudo apt-get install pipx
 pipx install yt-dlp
 pipx install streamlink
 ```
-
 And to upgrade them:
-```
+```bash
 pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
-or 
-```
-pipx upgrade yt-dlp
-pipx upgrade streamlink
-```
 
-3. Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
-```
+### 4. Launch the App
+Make sure you are inside the `whisper.cpp` directory and that your Python environment is activated:
+```bash
 python3 playlist4whisper.py
 ```
-Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
 
-For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
-#
+> [!TIP]
+> - **VLC Users:** Go to `Tools -> Preferences`, Show setting: `All`. Then `Interface -> Main Interfaces -> Qt -> Uncheck: 'Resize interface to the native video size'`, and `'When to raise the interface' -> Never`. Ensure VLC is configured to repeat the playlist infinitely.
+> - **SMPlayer Multi-instances:** Go to `Preferences -> Interface -> Instances`, and turn off the option to use only one instance.
+
+---
+
 ## Detailed Installation for macOS
 
-You can run playlist4whisper.py on macOS by following these steps:
+You can run `playlist4whisper.py` on macOS by following these steps:
 
-1. Install Homebrew by visiting https://brew.sh/ and following the installation instructions.
+### 1. Install Homebrew
+Visit [brew.sh](https://brew.sh/) and follow the installation instructions.
 
-2. Once Homebrew is installed, open a terminal and install the required dependencies. Run the following commands:
-
-```
+### 2. Install Dependencies
+Once Homebrew is installed, open a terminal and run the following commands:
+```bash
 brew install make
 brew install cmake
 brew install python3
@@ -260,49 +264,46 @@ brew install yt-dlp
 brew install streamlink
 brew install jq
 ```
-You need to install some libraries via pip. One option is to install a python virtualenv:
-```
+
+Install a python virtualenv:
+```bash
 brew install virtualenv
 ```
 Then:
-```
+```bash
 mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
 Finally:
-```
+```bash
 pip3 install imageio imageio-ffmpeg Pillow
 ```
-Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
 
+### 3. macOS Version Compatibility Notes
+`playlist4whisper` has been successfully tested on macOS Ventura (Intel). macOS versions for Mx or ARM should work without issues, and older versions like Big Sur with some extra adjustments.
 
-3. playlist4whisper has been successfully tested on the macOS Ventura Intel version, also macOS versions for Mx or ARM should work without issues, and can also run on older versions such as Big Sur with some extra adjustments.
+> [!WARNING]
+> Homebrew has introduced significant changes in recent versions. Depending on how Python was installed or updated, you may need to adjust your system settings to detect the new Python version. 
+> 
+> For older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp. Alternatively, you can install older versions of applications (FFmpeg, VLC, SMPlayer, MPV) from other sources. If you trust the source, copy the executable packaged as a `.app` file to the Applications folder and link the path:
+> ```bash
+> ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
+> ```
+> For example, for VLC:
+> ```bash
+> ln -s /Applications/VLC.app/Contents/MacOS/VLC.app /usr/local/bin/vlc
+> ```
 
-For all versions of macOS, Homebrew has introduced significant changes in recent versions of the applications needed by playlist4whisper. First of all, there have been changes in the behavior of installing Python applications, likely to improve stability or security. Depending on how Python was installed or updated, you may need to adjust your system settings to begin using a Python environment and to detect the new Python version. Please follow the instructions provided in the terminal when installing Python3.
-
-Additionally, for older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp due to outdated default libraries or conflicts between Homebrew and macOS. Alternatively, you can install an older version of whisper.cpp, and older versions of applications such as FFmpeg (separately from FFplay and FFprobe, which are also necessary), VLC, SMPlayer, and MPV from other sources, downloading them individually. If you trust the source, just copy the executable packaged as a .app file to the Applications folder and then link the path to /usr/local/bin/[executable]. Make sure to use the executable name in lowercase for the /usr/local/bin/ part:
-```
-ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
-```
-or
-```
-ln -s /Users/[user]/[directory]/[executable] /usr/local/bin/[executable]
-```
-For example, if you installed VLC individually, if the app isn't signed you'll need to grant it permission in your system, and to make it compatible with bash scripts or default commandline:
-```
-ln -s /Applications/VLC.app/Contents/MacOS/VLC.app /usr/local/bin/vlc
-```
-
-
-4. If you encounter an xterm error that says "Failed to open input method," it could be because the xterm executable in the "/opt/X11/bin" directory isn't the first one in your $PATH variable. You can try:
-```
+### 4. Terminal Configuration (`xterm`)
+If you encounter an `xterm` error that says "Failed to open input method," it could be because the executable in `/opt/X11/bin` isn't first in your `$PATH`. You can try:
+```bash
 rm /usr/local/bin/xterm
 ln -s /opt/X11/bin/xterm /usr/local/bin/xterm
 ```
-To display the correct local characters you can create a file named ".Xresources" in your user's home directory (/Users/[user]). Inside the file, you can define specific settings to customize the appearance of the transcription text. For example:
 
-```
+To display correct local characters, create a file named `.Xresources` in your user's home directory (`/Users/[user]`). Inside the file, add:
+```text
 .xterm*background: black
 .xterm*foreground: yellow
 .xterm*font: 10x20
@@ -310,485 +311,223 @@ To display the correct local characters you can create a file named ".Xresources
 .xterm*saveLines: 10000
 .xterm*locale: true 
 ```
-In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+After saving, relaunch XQuartz. The final option `.xterm*locale: true` enables the same language settings in xterm as those in your macOS's default terminal.
 
-The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
-
-
-5. Compile whisper.cpp following the instructions provided in the documentation at https://github.com/ggerganov/whisper.cpp, or for CPU mode, just follow these instructions:
-
-From your base user directory (/Users/[user]) download the source code for whisper.cpp:
-```
+### 5. Compile whisper.cpp
+Compile `whisper.cpp` following the instructions in their documentation, or for CPU mode:
+```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
-```
-Change the default directory to the whisper.cpp directory:
-```
 cd whisper.cpp
-```
-Compile whisper.cpp for CPU mode:
-```
 make
-```
-Download some models:
-```
 make tiny.en
-```
-```
 make base.en
-```
-```
 make base
 ```
 
-To download playlist4whisper and livestream_video.sh, you can use the following command:
-```
+Download `playlist4whisper` and move it:
+```bash
 git clone https://github.com/antor44/livestream_video.git
-```
-Stay where you executed the command, move all to whisper.cpp directory:
-```
 mv livestream_video/* ~/whisper.cpp
 ```
 
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper.cpp and its subdirectory ./build/bin/ with its 'whisper-cli' executable.
-
-
-6. Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
-
-```
+### 6. Launch the App
+```bash
 python3 playlist4whisper.py
 ```
-
-Please note that on macOS, only the xterm terminal and the mpv/vlc video player are supported. Additionally, the xterm terminal automatically closes its window when Control+C is used.
-
-#
-## Detailed installation for Windows 10/11
-
-playlist4whisper can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. When using the VLC player, which is required for one of the main features, you might run into audio issues with the default settings. Nevertheless, you can also compile whisper.cpp with GPU acceleration.
-
-Open PowerShell or Windows Command Prompt in administrator mode by right-clicking and selecting "Run as administrator", and install WSL2:
-
-```
-wsl --install
-```
-
-This command will enable the features necessary to run WSL and install the Ubuntu distribution of Linux (the default distribution). Once this is done, you will need to restart.
-
-Upon the initial launch of a newly installed Linux distribution, a console window will appear and prompt you to wait while files are decompressed and stored on your machine. Subsequent launches should be completed in less than a second.
-
-After successfully installing WSL and Ubuntu, the next step is to set up a user account and password for your new Linux distribution.
-
-Open the Linux terminal, not the Windows terminal. Then update the packages in your distribution:
-
-```
-sudo apt update
-```
-```
-sudo apt upgrade
-```
-
-Install Linux programs and their libraries, such as Python, whisper.cpp and mpv. Ubuntu Linux users can install the following packages:
-
-```
-sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip jq curl bc gnome-terminal xterm
-```
-
-You need to install some libraries via pip. One option is to install a python virtualenv:
-```
-sudo apt install virtualenv
-```
-Then:
-```
-mkdir ~/python-environments
-virtualenv ~/python-environments/whisper
-source ~/python-environments/whisper/bin/activate
-```
-Finally:
-```
-pip3 install imageio imageio-ffmpeg Pillow
-```
-Remember, in every session you need to run command 'source ~/python-environments/whisper/bin/activate' before executing playlist4whisper.py
-
-For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp), for Twitch and Others streamlink is required (https://streamlink.github.io).
-
-The easy way to install yt-dlp and streamlink:
-```
-pip3 install yt-dlp
-pip3 install streamlink
-```
-or to create a Python virtual environment alongside Python applications, install pipx:
-```
-sudo apt-get install pipx
-pipx install yt-dlp
-pipx install streamlink
-```
-
-And to upgrade them:
-```
-pip3 install --upgrade yt-dlp
-pip3 install --upgrade streamlink
-```
-or 
-```
-pipx upgrade yt-dlp
-pipx upgrade streamlink
-```
-
-Download the source code of whisper.cpp:
-
-```
-git clone https://github.com/ggerganov/whisper.cpp.git
-```
-Change the default directory to the whisper.cpp directory:
-```
-cd whisper.cpp
-```
-Compile whisper.cpp for CPU mode:
-```
-make
-```
-Download some models:
-```
-make tiny.en
-```
-```
-make base.en
-```
-```
-make base
-```
-To download playlist4whisper and livestream_video.sh, you can use the following command:
-```
-git clone https://github.com/antor44/livestream_video.git
-```
-Stay where you executed the command, move all to whisper.cpp directory:
-```
-mv livestream_video/* ~/whisper.cpp
-```
-playlist4whisper.py, livestream_video.sh, and the default playlist_xxx.m3u files must be located in the same directory as whisper.cpp
-
-Finally, launch the app by entering the following command in the terminal. Make sure you are inside the whisper.cpp directory (cd ~/whisper.cpp) and that your Python environment is activated (source ~/python-environments/whisper/bin/activate), if required.
-```
-python3 playlist4whisper.py
-```
-MPV player is not working on Windows, potentially due to the need for additional configuration and/or installation of packages.
-
-#
-## Usage 
-
-**Warning: To use the Timeshift feature, ensure that VLC is configured to repeat the playlist infinitely, not just the current file.**
-
-Make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and also ensure that the Python environment for playlist4whisper is active. Then:
-
-```
-python3 playlist4whisper.py
-```
-Playlist4Whisper accepts optional command-line arguments to add any number of tabs, specifying their names and colors displayed within the application.
- The names provided by the user will be used to create the M3U playlist and JSON configuration files, which will be converted to lowercase.
-
---tabs: Accepts a list of tab names. If a tab name contains spaces, enclose it in double quotes.
-
---colors: Accepts a list of tab colors. Colors can be specified as color names (e.g., "red") or hexadecimal RGB values (e.g., "#ff0000").
- If a color is specified in hexadecimal RGB format, enclose it in double quotes.
- 
-Example:
-```
-python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
-```
-This command will create three tabs with the names "Tab1", "Tab2", "Tab3", and the colors red, green, and orange ("#ff7e00"), respectively.
-
-You can also run different "playlist4whisper" copies in separate directories, each with its own playlist and configuration files.
-#
-*Check out the section on livestream_video.sh for help with the available options.
-
-Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with './' preceding the file name.
-
-The program will load the default playlists playlist_iptv.m3u, playlist_youtube.m3u, playlist_twitch.m3u, ...
- and will store options in config_xxx.json.
- 
-The majority of online video streams should work. Ensure that your installed yt-dlp and streamlink are up-to-date.
-
-Recommended Linux video player (when playlist4whisper's timeshift with VLC is not active): SMPlayer, based on mpv, due to its capabilities to timeshift online streams for manual synchronization of live video with transcriptions.
-
-Before using VLC go to Tools->Preferences and Show setting: All. Then Interface->Main Interfaces-> Qt-> Uncheck: 'Resize interface to the native video size', and 'When to raise the interface'-> Never. Ensure that VLC is configured to repeat the playlist infinitely, not just the current file, and save the configurations.
-
-For multi-instances with SMPlayer: Go to Preferences - Interface - Instances, and turn off the option to use only one instance.
-</br>
-</br>
-#
-# livestream_video.sh
-
-
-This is a command-line program that includes the same transcription functions as `playlist4whisper` and can be run independently of the GUI. Options are set via parameters in a terminal, or you can create desktop shortcuts for each TV channel.
-
-`livestream_video.sh` is a Linux script that transcribes video livestreams by feeding `ffmpeg` output to `whisper.cpp` at regular intervals. It is based on `livestream.sh` from the `whisper.cpp` project:
-
-https://github.com/ggerganov/whisper.cpp
-
-*The Text-to-Speech (TTS) feature is performed online via the **Translate Shell** app, which utilizes a free Google service. The availability of this service is not guaranteed. Additionally, the TTS feature is designed for short audio segments and is limited to certain languages.
-
-### Some Notable Features:
-
--   **Online Translation:** Translate transcriptions in real-time using either Google Translate or the high-quality Google Gemini API.
--   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3) to balance between literal accuracy and creative, context-aware fluency. This can also be used to improve the transcription.
--   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
--   **Text-to-Speech (TTS):** Read translated text aloud for a more immersive experience with [Translate Shell](https://github.com/soimort/translate-shell).
--   **Subtitle Generation:** Automatically create `.srt` subtitle files from local media files.
--   **Timeshift:** A fully configurable timeshift feature, exclusive to the VLC player (note: not all streams are compatible).
--   **Broad Service Support:**
-    -   Native support for IPTV, YouTube, and Twitch.
-    -   Extended support for a wide range of video services through `streamlink` or `yt-dlp`, including Dailymotion, Vimeo, and many more.
-    -   List of sites supported by `streamlink` (some plugins may be outdated): [streamlink.github.io/plugins.html](https://streamlink.github.io/plugins.html)
-    -   List of sites supported by `yt-dlp` (some plugins may be outdated): [yt-dlp supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
--   **Multi-Instance Execution:** Run multiple instances of the script simultaneously. To use this feature with SMPlayer, go to `Preferences -> Interface -> Instances` and disable the option "Use only one instance."
--   **Whisper AI Options:** Full control over Whisper parameters, including language autodetection (`auto`), specific languages (`en`, `es`, `fr`, etc.), and direct translation to English (`--translate`).
--   **Quantized Models:** Support for quantized models to improve performance on CPUs.
--   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
--   **Audio Inputs:** Transcribe from any audio input, including loopback devices to capture desktop audio. Supported on Linux (PulseAudio) and macOS (AVFoundation).
-
-
-**Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks.
-
-### Online Translation with Google Gemini API
-
-The latest version introduces high-quality online translation using Google's Gemini AI models. This feature serves as a powerful alternative to the standard translation provided by `translate-shell`.
-
-**Key Features:**
-
-*   **Superior Quality:** Gemini models often provide more accurate and context-aware translations than traditional services.
-*   **Model Selection:** You can choose from several available Gemini models, such as `gemini-3-flash-preview` (default) or the more powerful `gemini-3.1-pro-preview`.
-*   **Context Control:** Use the `--gemini-level` argument to adjust how much context the AI uses, allowing you to fine-tune the translation style from literal to highly fluent.
-*   **API Key Integration:** The system securely manages your Google Gemini API key, which is required to use this feature.
-
-
-> **Important Note on Models**
->
-> While many models such as `gemini-3-flash-preview` or the `gemma` family offer generous free tiers, advanced models like **`gemini-3.1-pro`** are typically available only through the **paid tier** of the Gemini API.
->
-> The paid API operates on a **pay-per-use basis**: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models.
->
-> Under normal usage, the cost is typically **no more than a few cents per day**, even with relatively heavy use.
-
-**Model Recommendations for High-Quality Subtitles (Long Media):**
-
-*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
-
-*Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
-
-
-#### How to Enable Gemini Translation
-
-##### 1. Obtain a Google Gemini API Key
-
-*   Go to **[Google AI Studio](https://aistudio.google.com/)**.
-*   Sign in with your Google account.
-*   Click on **"Get API key"** and then **"Create API key"**.
-*   Copy the generated key immediately. It is crucial for the next step.
-
-##### 2. Provide the API Key to the Application
-
-You must make the API key available to the `livestream_video.sh` script. There are three recommended methods:
-
-###### Method A: System-Wide Environment Variable (Recommended for Desktop Users)
-
-This method ensures the key is always available, even when launching the bash script from a desktop icon.
-
-1.  Open the file `~/.profile` with a text editor (e.g., `nano ~/.profile`).
-2.  Add the following line at the end, replacing `YOUR_API_KEY_HERE` with your actual key:
-    ```bash
-    export GEMINI_API_KEY="YOUR_API_KEY_HERE"
-    ```
-3.  Save the file and log out and log back in for the changes to take effect.
-
-###### Method B: Shell-Specific Environment Variable (Recommended for Terminal Users)
-
-This is ideal if you primarily run the application from a terminal.
-
-1.  Open your shell's configuration file (`~/.bashrc` for Bash, `~/.zshrc` for Zsh).
-2.  Add the same line as in Method A:
-    ```bash
-    export GEMINI_API_KEY="YOUR_API_KEY_HERE"
-    ```
-3.  Save the file and either restart your terminal or run `source ~/.bashrc` (or `source ~/.zshrc`).
-
-###### Method C: Set in the `playlist4whisper` GUI (Easiest)
-
-The graphical application can store the key for you. This method is the most straightforward, but the key will only be used when launching the script **from the GUI**.
-
-1.  In `playlist4whisper`, click the **"API Key"** button located in the "Online translation" section.
-2.  Paste your key into the dialog box and click "OK". The key is saved in your configuration file and will be passed to the script automatically.
-
-##### 3. Use Gemini Translation via Command Line
-
-*   Add the `--trans <language_code>` flag to enable online translation.
-*   Add the `--gemini-trans` flag to use the Gemini engine.
-*   (Optional) Specify a model: `--gemini-trans gemini-2.5-pro`.
-*   (Optional) Specify a context level: `--gemini-level 3`.
-
-The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a (*) prefix.
-
-**Note:** Using the Gemini API is subject to Google's pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
+> [!NOTE]
+> On macOS, only the `xterm` terminal and the `mpv`/`vlc` video player are supported. Additionally, the `xterm` terminal automatically closes its window when `Control+C` is used.
 
 ---
 
-### Usage
+## Detailed Installation for Windows 10/11
 
-`./livestream_video.sh stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--vad] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]`
+`playlist4whisper` can run on Windows Subsystem for Linux (WSL2), which is the default virtual system on Windows 10/11 for running native Linux software. Keep in mind that WSL2 may not provide the same level of stability and smooth performance as Linux or macOS. 
 
-Example:
+Open PowerShell or Windows Command Prompt in administrator mode:
+```bash
+wsl --install
 ```
+This command will enable the features necessary to run WSL and install the Ubuntu distribution. Once this is done, you will need to restart.
+
+Open the **Linux terminal** (not Windows), update the packages, and install dependencies:
+```bash
+sudo apt update
+sudo apt upgrade
+sudo apt-get install mpv smplayer translate-shell vlc ffmpeg make cmake python3-tk python3-pip jq curl bc gnome-terminal xterm
+```
+
+Set up your Python virtual environment:
+```bash
+sudo apt install virtualenv
+mkdir ~/python-environments
+virtualenv ~/python-environments/whisper
+source ~/python-environments/whisper/bin/activate
+pip3 install imageio imageio-ffmpeg Pillow
+```
+
+Install `yt-dlp` and `streamlink`:
+```bash
+pip3 install yt-dlp streamlink
+```
+
+Download and compile `whisper.cpp`:
+```bash
+git clone https://github.com/ggerganov/whisper.cpp.git
+cd whisper.cpp
+make
+make tiny.en
+make base.en
+make base
+```
+
+Download `playlist4whisper`:
+```bash
+git clone https://github.com/antor44/livestream_video.git
+mv livestream_video/* ~/whisper.cpp
+```
+
+Launch the app:
+```bash
+python3 playlist4whisper.py
+```
+> [!NOTE]
+> MPV player is not working on Windows, potentially due to the need for additional configuration and/or installation of packages.
+
+---
+
+## Usage
+
+> [!WARNING]
+> **To use the Timeshift feature, ensure that VLC is configured to repeat the playlist infinitely, not just the current file.**
+
+Make sure that you are in the same directory as `whisper.cpp`, `playlist4whisper.py`, and `livestream_video.sh`, and also ensure that the Python environment for `playlist4whisper` is active. Then:
+```bash
+python3 playlist4whisper.py
+```
+
+`playlist4whisper` accepts optional command-line arguments to add any number of tabs:
+- `--tabs`: Accepts a list of tab names. If a tab name contains spaces, enclose it in double quotes.
+- `--colors`: Accepts a list of tab colors (e.g., "red" or "#ff0000").
+
+**Example:**
+```bash
+python playlist4whisper.py --tabs Tab1 Tab2 Tab3 --colors red green "#ff7e00"
+```
+
+*Check out the section on `livestream_video.sh` for help with the available options.
+
+Local audio/video files must be referenced with the full file path. Alternatively, if the file is in the same directory, it can be referenced with `./` preceding the file name.
+The program will load the default playlists `playlist_iptv.m3u`, `playlist_youtube.m3u`, etc., and will store options in `config_xxx.json`.
+
+---
+
+## livestream_video.sh
+
+This is a command-line program that includes the same transcription functions as `playlist4whisper` and can be run independently of the GUI. Options are set via parameters in a terminal, or you can create desktop shortcuts for each TV channel.
+
+`livestream_video.sh` is a Linux script that transcribes video livestreams by feeding `ffmpeg` output to `whisper.cpp` at regular intervals. It is based on `livestream.sh` from the `whisper.cpp` project.
+
+> [!NOTE]
+> *The Text-to-Speech (TTS) feature is performed online via the **Translate Shell** app, which utilizes a free Google service. The availability of this service is not guaranteed. Additionally, the TTS feature is designed for short audio segments and is limited to certain languages.*
+
+### Features Overview:
+-   **Online Translation:** Translate transcriptions in real-time using either Google Translate or the high-quality Google Gemini API.
+-   **Context Control for AI:** Fine-tune Gemini translations with context levels (0-3).
+-   **VAD Support:** Integrated Voice Activity Detection.
+-   **Text-to-Speech (TTS):** Read translated text aloud using Translate Shell.
+-   **Subtitle Generation:** Automatically create `.srt` subtitle files.
+-   **Timeshift:** A fully configurable timeshift feature (VLC Player only).
+-   **Broad Service Support:** IPTV, YouTube, Twitch, and anything supported by `streamlink` or `yt-dlp`.
+-   **Multi-Instance Execution:** Run multiple instances of the script simultaneously.
+-   **Whisper AI Options:** Full control over Whisper parameters, autodetection, direct translation (`--translate`), and quantized models.
+-   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
+-   **Audio Inputs:** Transcribe from any audio input, including loopback devices to capture desktop audio (`pulse:index` / `avfoundation:index`).
+
+### Usage Options
+
+**Syntax:**
+```bash
+./livestream_video.sh stream_url[or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--vad] [--subtitles] [--timeshift] [--segments segments (2<n<99)][--segment_time minutes (1<minutes<99)][--sync seconds (0 <= seconds <= (Step - 3))] [--trans trans_language output_text speak] [--gemini-trans [gemini_model]][--gemini-level [0-3]] [player player_options]
+```
+
+**Example:**
+```bash
 ./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m.m3u8 --lower --step 8 --model base --language auto --translate --vad --timeshift --segments 4 --segment_time 10 --trans es both speak --gemini-trans --gemini-level 3
 ```
 
-**Only for the bash script and only for local audio/video:** Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with './'
+>[!TIP]
+> **Only for the bash script and only for local audio/video:** Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with `./`.
+> 
+> **pulse:index or avfoundation:index:** Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume, and ambient noise.
 
-**pulse:index or avfoundation:index:** Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume and sound configuration on your operating system, and the noise around you. Please note that this is a preliminary feature. There are several seconds of delay between live sound and transcriptions, with no possibilities for synchronization.
+### Argument Options
 
-#
+**Stream Handling**
+- `--streamlink`: Forces the URL to be processed by Streamlink.
+- `--yt-dlp`: Forces the URL to be processed by yt-dlp.
+- `--[raw, upper, lower]`: Video quality options. Affects timeshift for IPTV.
 
-### **Argument Options**
+**Player**
+- `--player`: Specify player executable and options (`smplayer`, `mpv`, `mplayer`, `vlc`). Use `'none'` or `'true'` for no player.
 
-#### Stream Handling
+**Whisper AI Configuration**
+- `--step`: Size of the sound parts into which audio is divided for AI inference (seconds).
+- `--model`: Base Models (`tiny`, `base`, `small`, `medium`, `large-v1`, `v2`, `v3`, `turbo`) or Quantized Suffixes (`-q4_0`, `-q8_0`, etc.).
+- `--executable`: Specify the whisper executable to use.
+- `--language`: Transcription language (`es`, `fr`, `de`, `auto`, etc.).
+- `--translate`: Automatic English translation using Whisper AI.
+- `--subtitles`: Generate subtitles (`.srt`) from a local audio/video file.
+- `--vad`: Enable VAD (Voice Activity Detection) to find silences near the step boundary. Uses whisper.cpp's built-in Silero VAD model.
 
-`--streamlink`
-Forces the URL to be processed by Streamlink.
+**Online Translation**
+- `--trans`: Enables online translation. Must be followed by a language code (`es`, `fr`), output text (`original`, `translation`, `both`, `none`), and optionally `speak` for TTS.
+- `--gemini-trans`: Use the Google Gemini API for higher quality translation.
+- `--gemini-level`: Set the context level for Gemini translation (0-3).
 
-`--yt-dlp`
-Forces the URL to be processed by yt-dlp.
+**Timeshift Configuration (VLC Player Only)**
+- `--timeshift`: Enables the timeshift feature.
+- `--sync`: Transcription/video synchronization time in seconds.
+- `--segments`: Number of segment files for timeshift.
+- `--segment_time`: Time for each segment file.
 
-`--[raw, upper, lower]`
-Video quality options. Affects timeshift for IPTV.
-- **raw:** Downloads another video stream without any modifications for the player.
-- **upper/lower:** Downloads only one stream that is re-encoded for the player (best/worst quality). This saves data, but not all streams support it.
+---
 
-#### Player
+## More Screenshots
 
-`--player`
-Specify player executable and options. Valid players: `smplayer`, `mpv`, `mplayer`, `vlc`, etc. Use `'none'` or `'true'` for no player.
-
-#### Whisper AI Configuration
-
-`--step`
-Size of the sound parts into which audio is divided for AI inference, measured in seconds.
-
-`--model`
-Whisper Models available:
-- **Base Models:** `tiny.en`, `tiny`, `base.en`, `base`, `small.en`, `small`, `medium.en`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo`.
-- **Quantized Suffixes:** `-q2_k`, `-q3_k`, `-q4_0`, `-q4_1`, `-q4_k`, `-q5_0`, `-q5_1`, `-q5_k`, `-q6_k`, `-q8_0`.
-
-`--executable`
-Specify the whisper executable to use (full path or command name).
-
-`--language`
-Transcription language (e.g., `es`, `fr`, `de`).
-Codes of Whisper Languages available:
-
-```
- auto (Autodetect)      fa (Persian)           kk (Kazakh)            nn (Nynorsk)           ta (Tamil)
- af (Afrikaans)         fi (Finnish)           km (Khmer)             no (Norwegian)         te (Telugu)
- am (Amharic)           fo (Faroese)           kn (Kannada)           oc (Occitan)           tg (Tajik)
- ar (Arabic)            fr (French)            ko (Korean)            or (Oriya)             th (Thai)
- as (Assamese)          ga (Irish)             ku (Kurdish)           pa (Punjabi)           tl (Tagalog)
- az (Azerbaijani)       gl (Galician)          ky (Kyrgyz)            pl (Polish)            tr (Turkish)
- ba (Bashkir)           gu (Gujarati)          la (Latin)             ps (Pashto)            tt (Tatar)
- be (Belarusian)        ha (Hausa)             lb (Luxembourgish)     pt (Portuguese)        ug (Uighur)
- bg (Bulgarian)         haw (Hawaiian)         ln (Lingala)           ro (Romanian)          uk (Ukrainian)
- bn (Bengali)           he (Hebrew)            lo (Lao)               ru (Russian)           ur (Urdu)
- bo (Tibetan)           hi (Hindi)             lt (Lithuanian)        sa (Sanskrit)          uz (Uzbek)
- br (Breton)            hr (Croatian)          lv (Latvian)           sd (Sindhi)            vi (Vietnamese)
- bs (Bosnian)           ht (Haitian Creole)    mg (Malagasy)          sh (Serbo-Croatian)    vo (Volapuk)
- ca (Catalan)           hu (Hungarian)         mi (Maori)             si (Sinhala)           wa (Walloon)
- cs (Czech)             hy (Armenian)          mk (Macedonian)        sk (Slovak)            xh (Xhosa)
- cy (Welsh)             id (Indonesian)        ml (Malayalam)         sl (Slovenian)         yi (Yiddish)
- da (Danish)            is (Icelandic)         mn (Mongolian)         sn (Shona)             yo (Yoruba)
- de (German)            it (Italian)           mr (Marathi)           so (Somali)            zh (Chinese)
- el (Greek)             ja (Japanese)          ms (Malay)             sq (Albanian)          zu (Zulu)
- en (English)           jw (Javanese)          mt (Maltese)           sr (Serbian)
- eo (Esperanto)         ka (Georgian)          my (Myanmar)           su (Sundanese)
- es (Spanish)           kk (Kazakh)            ne (Nepali)            sv (Swedish)
- et (Estonian)          km (Khmer)             nl (Dutch)             sw (Swahili)
- eu (Basque)            kn (Kannada)           no (Norwegian)         tk (Turkmen)             
-```
-
-`--translate`
-Automatic English translation using Whisper AI (English only).
-
-`--subtitles`
-Generate subtitles (`.srt`) from a local audio/video file.
-
-`--vad`
-Enable VAD (Voice Activity Detection) to find silences near the step boundary and cut audio chunks there instead of at fixed intervals. Prevents cutting words mid-speech.
-Uses whisper.cpp's built-in Silero VAD model (auto-downloaded on first use).
-Not applicable in subtitle generation mode.
-
-#### Online Translation
-
-`--trans`
-Enables online translation. Must be followed by a language code.
-- `trans_language`: Translation language (e.g., `es`, `fr`, `de`).
-- `output_text`: (Optional) Output text: `original`, `translation`, `both`, `none`.
-- `speak`: (Optional) Online Text-to-Speech.
-
-`--gemini-trans`
-Use the Google Gemini API for higher quality translation.
-- `gemini_model`: (Optional) Specify a Gemini model. Defaults to `gemini-3-flash-preview`.
-
-`--gemini-level`
-Set the context level for Gemini translation (0-3). Default is 2.
-- `Level 0`: No context, translates literally.
-- `Level 1`: Minimal context (surrounding segments).
-- `Level 2`: Standard context (sliding window of multiple surrounding segments).
-- `Level 3`: Creative context (allows AI to fix/complete phrases based on context).
-
-#### Timeshift Configuration (VLC Player Only)
-
-`--timeshift`
-Enables the timeshift feature.
-
-`--sync`
-Transcription/video synchronization time in seconds (`0` <= `seconds` <= (`Step` - 3)).
-
-`--segments`
-Number of segment files for timeshift (`2` <= `n` <= `99`).
-
-`--segment_time`
-Time for each segment file (`1` <= `minutes` <= `99`).
-
-#
-
-## playlist4whisper Screenshots
+**playlist4whisper Screenshots**
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV7.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV9.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV11.jpg)
-#
-## livestream_video.sh screenshots:
+
+**livestream_video.sh Screenshots:**
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV3.jpg)
-#
+<br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV4.jpg)
 
-#
-# To-Do List
+---
+
+## To-Do List
 
 - Advanced GUI as a standalone application.
 - Support for different AI engines.
 - Sound filters.
 - ...
 
-#
-# FAQ
+---
 
-**Q: What quality of transcription can I expect when using only a low-level processor?**
+## FAQ
 
-A: This program is based on whisper.cpp, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams or media files even on low-end or old PCs, even those that are at least 10 years old. You can easily configure the application with models such as small.en or base.en, which offer excellent transcriptions for the English language. Even the tiny.en model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
+### **Q: What quality of transcription can I expect when using only a low-level processor?**
+**A:** This program is based on `whisper.cpp`, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams or media files even on low-end or old PCs, even those that are at least 10 years old. You can easily configure the application with models such as `small.en` or `base.en`, which offer excellent transcriptions for the English language. Even the `tiny.en` model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
 
-**Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
-
-A: First, this is a Linux application, and macOS and Windows are not fully supported. For Linux systems, compiling and distributing packages is the responsibility of each distribution’s maintainers, not the programmer.
+### **Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
+**A:** First, this is a Linux application, and macOS and Windows are not fully supported. For Linux systems, compiling and distributing packages is the responsibility of each distribution’s maintainers, not the programmer.
 
 Linux prioritizes security, which is best ensured through precompiled packages stored in official repositories—especially in major Linux distributions, on which many others depend.
 
@@ -798,15 +537,14 @@ Additionally, Linux distributions are very different, even Python environments, 
 
 The absence of precompiled ‘playlist4whisper’ packages on the project’s webpage is due to frequent updates and optional hardware-specific optimizations in the underlying ‘whisper.cpp’ program. By providing the source code, users can adapt to these ongoing changes and tailor performance optimizations to their hardware and preferences.
 
-Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
+Keep in mind that compiling `whisper.cpp` with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of `whisper.cpp`, including those running on powerful modern CPUs.
 
 However, compiling whisper.cpp with CUDA is not always a trivial task: the success of the build or executable will depend on factors such as the CUDA version, NVIDIA driver, compiler version, and other libraries installed on the user’s Linux operating system.
 
 Another question is that "playlist4whisper" relies on the included bash script "livestream_video.sh". This script can be executed independently, supporting accessibility technologies. It can also run on Linux terminals without a desktop environment and potentially be used as a server application in multi-instance and multi-user scenarios, making it versatile for various use cases. By providing the source code, advanced users can review or customize the programs to suit their specific requirements and environments.
 
-**Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
-
-A: Yes, several advanced methods can significantly boost performance:
+### **Q: In a low-power processor, is it possible to improve transcription in languages other than English?**
+**A:** Yes, several advanced methods can significantly boost performance:
 
 *   **GPU/NPU Acceleration:** Instead of running the AI engine on the CPU, you can compile `whisper.cpp` with hardware acceleration. This can increase execution speed by 2x or more, allowing you to use larger, more accurate models. Supported technologies include:
     *   **NVIDIA GPU:** via [cuBLAS](https://github.com/ggerganov/whisper.cpp#nvidia-gpu-support-via-cublas).
@@ -814,53 +552,46 @@ A: Yes, several advanced methods can significantly boost performance:
     *   **Intel CPU/GPU:** via [OpenVINO](https://github.com/ggerganov/whisper.cpp#openvino-support).
     *   **Apple Silicon (M1/M2/M3/M4):** via [Core ML](https://github.com/ggerganov/whisper.cpp#core-ml-support) to use the Apple Neural Engine (ANE), offering speed-ups of over 3x.
     *   **Ascend NPU:** via [CANN](https://github.com/ggerganov/whisper.cpp#ascend-npu-support).
-    *   **Moore Threads GPU:** via [MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
-   
+    *   **Moore Threads GPU:** via[MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
 *   **CPU Acceleration:** For CPU-only systems, you can still get a boost by compiling with [OpenBLAS](https://github.com/ggerganov/whisper.cpp#blas-cpu-support-via-openblas) or [POWER VSX](https://github.com/ggerganov/whisper.cpp#power-vsx-intrinsics).
-    
 *   **Quantized Models:** You can try using the quantized models option, which can improve execution speed on certain processors with minimal loss in accuracy.
-  
-*   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
+*   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the[whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
 
-Keep in mind that compiling whisper.cpp with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
+Keep in mind that compiling `whisper.cpp` with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
 
-The CPU and CPU-accelerated builds of whisper.cpp are limited by default to 4 threads, as specified in whispercpp’s default configuration. This setting helps preserve system resources, allowing other applications to run smoothly or enabling multi-instance and multi-user setups. However, modern CPUs can often achieve significantly better performance with more threads. To adjust this, edit the livestream_video.sh script and modify the two lines that define the default arguments for WHISPER_EXECUTABLE. Replace -t 4 with a higher value, such as -t 16, to allocate 16 threads per instance. For other variants of the whisper executable, also update the arguments --n_threads 4 and --threads 4 as needed.
+The CPU and CPU-accelerated builds of `whisper.cpp` are limited by default to 4 threads, as specified in whispercpp’s default configuration. This setting helps preserve system resources, allowing other applications to run smoothly or enabling multi-instance and multi-user setups. However, modern CPUs can often achieve significantly better performance with more threads. To adjust this, edit the `livestream_video.sh` script and modify the two lines that define the default arguments for `WHISPER_EXECUTABLE`. Replace `-t 4` with a higher value, such as `-t 16`, to allocate 16 threads per instance. For other variants of the whisper executable, also update the arguments `--n_threads 4` and `--threads 4` as needed.
 
-*The accelerated versions of whisper.cpp may require specific model versions to achieve better performance.
+*The accelerated versions of `whisper.cpp` may require specific model versions to achieve better performance.*
 
-**Q: How many simultaneous instances can be run on a PC?**
-
-A: On a PC or any other computer, it depends on its hardware, the models chosen for each of the executed instances, as well as the power and memory, both in CPU and GPU. There is also the possibility of hybrid execution, with several instances running on the CPU and system RAM, and others on the GPU and graphics card VRAM. It also differs if it involves real-time transcriptions, while subtitle generation for long pre-recorded files could be executed without the need for them to finish in an urgent time frame.
+### **Q: How many simultaneous instances can be run on a PC?**
+**A:** On a PC or any other computer, it depends on its hardware, the models chosen for each of the executed instances, as well as the power and memory, both in CPU and GPU. There is also the possibility of hybrid execution, with several instances running on the CPU and system RAM, and others on the GPU and graphics card VRAM. It also differs if it involves real-time transcriptions, while subtitle generation for long pre-recorded files could be executed without the need for them to finish in an urgent time frame.
 
 For older PCs such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without acceleration, models up to `base` or `small` can be run at most, perhaps 2-3 instances at a time. On modern systems, the possibilities are much greater; even with a mid-range graphics card like any NVIDIA RTX, it is possible to run many instances with larger models like `large-v2`.
 
 It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM, or into system RAM when using CPU without GPU acceleration. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
 
-##### **Critical Distinction: Short Chunks vs. Continuous Processing**
-
+**Critical Distinction: Short Chunks vs. Continuous Processing**
 Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
 
-*   ##### **Short Audio Chunks (8-10 seconds) - High Concurrency:**
-    - **Up to 10+ simultaneous instances** achievable without perceivable errors
+*   **Short Audio Chunks (8-10 seconds) - High Concurrency:**
+    - Up to 10+ simultaneous instances achievable without perceivable errors
     - Each instance continuously processes short audio chunks (8-10 seconds), with VRAM being allocated per chunk and released upon completion
     - Fast chunk processing prevents memory saturation
     - Ideal for video streaming, live transcription
-
-*   ##### **Continuous Processing (Subtitles) - Limited Concurrency:**
-    - **Only 3-4 instances** before Segmentation Faults and crashes
+*   **Continuous Processing (Subtitles) - Limited Concurrency:**
+    - Only 3-4 instances before Segmentation Faults and crashes
     - Memory accumulates without release, causing exhaustion
     - Processing time per audio minute degrades from 5-7s (1-2 instances) to 12s (3-4 instances) as GPU resources become saturated
     - Batch processing fails beyond 3-4 instances
     - However, for subtitle generation workflows, longer processing times or delayed instance launches are acceptable since real-time performance is not required
-
-*   ##### **Mixed Workload:**
+*   **Mixed Workload:**
     - 5 short-chunk base instances + only 1 long-file instance before failure
 
->**Note:** Mid-range NVIDIA RTX GPUs can likely achieve 20-30+ concurrent instances for short-chunk processing, as these GPUs process up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` includes concurrency control at the code level (meaning external load balancing cannot manage this), making unpredictable errors occur when cumulative VRAM requirements exceed physical GPU memory. Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption and eliminate paging risks.
+> [!NOTE]
+> Mid-range NVIDIA RTX GPUs can likely achieve 20-30+ concurrent instances for short-chunk processing, as these GPUs process up to 1 minute of audio in just a few seconds. However, neither `playlist4whisper.py` nor `livestream_video.sh` includes concurrency control at the code level (meaning external load balancing cannot manage this), making unpredictable errors occur when cumulative VRAM requirements exceed physical GPU memory. Use quantized models (e.g., `Q8_0`) to drastically reduce VRAM consumption and eliminate paging risks.
 
-**Q: Do quantized models run faster on NVIDIA RTX GPUs with playlist4whisper.py and livestream_video.sh, or do they only reduce VRAM usage? Does whisper.cpp leverage RTX 5000 series optimizations for 4-bit quantized models?**
-
-A: Important context first: Modern GPUs and CPUs are more than capable of running large models like `large-v2` or `large-v3` for live transcription without breaking a sweat. The main benefit of quantization is enabling more concurrent instances on the same hardware, although in many cases, performance gains can also be achieved. In scenarios with multi-instance or multi-user executions, even small gains accumulate geometrically. This is particularly evident in Whisper applications.
+### **Q: Do quantized models run faster on NVIDIA RTX GPUs with playlist4whisper.py and livestream_video.sh, or do they only reduce VRAM usage? Does whisper.cpp leverage RTX 5000 series optimizations for 4-bit quantized models?**
+**A:** Important context first: Modern GPUs and CPUs are more than capable of running large models like `large-v2` or `large-v3` for live transcription without breaking a sweat. The main benefit of quantization is enabling more concurrent instances on the same hardware, although in many cases, performance gains can also be achieved. In scenarios with multi-instance or multi-user executions, even small gains accumulate geometrically. This is particularly evident in Whisper applications.
 
 These improvements are especially valuable in business or public administration environments, translating into cost savings for hardware or cloud usage. This applies to many AI applications, not just Whisper.
 
@@ -899,7 +630,6 @@ All quantization levels maintain high transcription accuracy, with no significan
 `whisper.cpp` uses integer quantization (INT4/INT5/INT8), not floating-point. It leverages Tensor Cores on RTX 2000+ for INT8 and INT4. The RTX 5000 series (Blackwell) adds FP4 support, but `whisper.cpp` benefits from existing INT support since Turing.
 
 **NVIDIA Tensor Core Support Across RTX Generations:**
-
 | Generation | Architecture | Supported Low-Precision Formats |
 | :--- | :--- | :--- |
 | RTX 2000 | Turing | INT8, INT4 |
@@ -912,324 +642,221 @@ All quantization levels maintain high transcription accuracy, with no significan
 **Current optimization status:**
 `whisper.cpp` excels at INT8 (notable gains), but INT4 could be further optimized (modest gains). Potential remains for live transcription improvements in scripts like `playlist4whisper.py` and `livestream_video.sh`.
 
-**Note for older GPUs:**
-On NVIDIA GPUs without Tensor Cores (GTX 1000 series and older), quantized models may not show speed gains and could be slightly slower. VRAM reduction is the main advantage.
+> [!TIP]
+> **In simple terms:** Use **Q8_0** models (faster + half memory). Switch to **Q4_0** only for maximum concurrent streams when out of memory. Avoid Q5_0 unless specific needs.
 
-**In simple terms:** Use **Q8_0** models (faster + half memory). Switch to **Q4_0** only for maximum concurrent streams when out of memory. Avoid Q5_0 unless specific needs.
+### **Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
+**A:** Whisper.cpp supports various hardware accelerations (CPU, CUDA, Core ML, OpenVINO, Vulkan, BLAS, CANN, MUSA), each requiring specific compilation flags and, for some, custom model formats. The models downloaded by `playlist4whisper.py` are in the standard `ggml` format (`.bin`) and work only with CPU, CUDA, Vulkan, BLAS, CANN, and MUSA backends. **These models do not work with Core ML (Apple M1/M2/M3/M4 NPU) or OpenVINO (Intel CPU/GPU) without conversion to their specific formats.** Core ML or OpenVINO require converted models (`.mlmodelc` for Core ML, `.xml`/`.bin` IR for OpenVINO). Attempting to use a standard `.bin` with these backends will fail, as whisper.cpp expects the optimized format in the `models/` directory. Below are the steps to compile whisper.cpp for each acceleration, generate the required models, and test them with `livestream_video.sh`.
 
-**Q: How do I configure whisper.cpp for hardware accelerations (e.g., CUDA, Core ML, OpenVINO) and generate the specific models needed? Why don't the models downloaded by `playlist4whisper.py` work with all accelerations?**
-
-A: Whisper.cpp supports various hardware accelerations (CPU, CUDA, Core ML, OpenVINO, Vulkan, BLAS, CANN, MUSA), each requiring specific compilation flags and, for some, custom model formats. The models downloaded by `playlist4whisper.py` are in the standard `ggml` format (`.bin`) and work only with CPU, CUDA, Vulkan, BLAS, CANN, and MUSA backends. **These models do not work with Core ML (Apple M1/M2/M3/M4 NPU) or OpenVINO (Intel CPU/GPU) without conversion to their specific formats.** Core ML or OpenVINO require converted models (`.mlmodelc` for Core ML, `.xml`/`.bin` IR for OpenVINO). Attempting to use a standard `.bin` with these backends will fail, as whisper.cpp expects the optimized format in the `models/` directory. Below are the steps to compile whisper.cpp for each acceleration, generate the required models, and test them with `livestream_video.sh`.
-
-##### **Commands for Compilation and Model Generation**  
-
-Download the source code of whisper.cpp from your home directory:
-```
+**Commands for Compilation and Model Generation**  
+Download the source code of `whisper.cpp` from your home directory:
+```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
-```
-Change the default directory to the whisper.cpp directory, which is whisper.cpp:
-```
 cd whisper.cpp
 ```
 
-##### 1. CPU (Standard, No Acceleration)
+#### 1. CPU (Standard, No Acceleration)
 - **Compilation**:  
-```
+```bash
 cmake -B build
 cmake --build build -j --config Release
 ```
 - **Model**: Download a standard model:  
-```
+```bash
 make base.en
 ```
   - Optional: Quantize for reduced memory/faster processing:  
-```
+```bash
 ./build/bin/whisper-quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
-```
+```bash
 ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
 ```
-- **Note**: Models from `playlist4whisper.py` work directly.
+*(Models from `playlist4whisper.py` work directly).*
 
-##### 2. CUDA (NVIDIA GPU, e.g., RTX 4060 Ti)
+#### 2. CUDA (NVIDIA GPU, e.g., RTX 4060 Ti)
 - **Requirements**: Install CUDA toolkit (https://developer.nvidia.com/cuda-downloads).  
 - **Compilation**:  
-```
+```bash
 cmake -B build -DGGML_CUDA=1
 cmake --build build -j --config Release
 ```
   - For newer GPUs (e.g., RTX 5000 series):  
-```
+```bash
 cmake -B build -DGGML_CUDA=1 -DCMAKE_CUDA_ARCHITECTURES="86"
 cmake --build build -j --config Release
 ```
 - **Model**: Use the same `.bin` as for CPU:  
-```
+```bash
 make base.en
 ```
   - Optional: Quantize:  
-```
+```bash
 ./build/bin/whisper-quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
 ```
 - **Run**:  
-```
+```bash
 ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
 ```
+*(Models from `playlist4whisper.py` work directly).*
 
-- **Note**: Models from `playlist4whisper.py` work directly.
-
-##### 3. Core ML (Apple Silicon M1/M2/M3/M4 NPU)
+#### 3. Core ML (Apple Silicon M1/M2/M3/M4 NPU)
 This option enables hardware-accelerated transcription using the Neural Engine on Apple Silicon Macs.
-
-- **Requirements**:
-  - macOS Sonoma (14 or later).
-  - Xcode and command-line tools. You can install them with:
-    ```
-    xcode-select --install
-    ```
-
+- **Requirements**: macOS Sonoma (14 or later) and Xcode command-line tools (`xcode-select --install`).
 - **Python Environment (Choose one option)**:
-  To install the necessary dependencies, you can use a standard virtual environment (`venv`) or Conda.
-
   - **Option A (Recommended): Using `venv`**
-    ```
-    # Create and activate a virtual environment
+    ```bash
     python3 -m venv whisper-env
     source whisper-env/bin/activate
-    ```
-    ```
-    # Install the required packages for Core ML
     pip install ane_transformers openai-whisper coremltools
     ```
-
   - **Option B (Alternative): Using `Miniconda` or `Conda`**
-    ```
+    ```bash
     conda create -n py311-whisper python=3.11 -y
     conda activate py311-whisper
     pip install ane_transformers openai-whisper coremltools
     ```
-    
 - **Compilation**:
-  To enable Core ML, you must compile using `cmake` with the specific flag.
-  ```
+  ```bash
   cmake -B build -DWHISPER_COREML=1
   cmake --build build -j --config Release
   ```
-
 - **Generate Model**:
-  You must convert a standard Whisper model to the `.mlmodelc` format.
-  ```
-  # Run this script from the root whisper.cpp directory
+  ```bash
   sh ./models/generate-coreml-model.sh base.en
   ```
-  This creates the `models/ggml-base.en-encoder.mlmodelc` file.
-
+  *(This creates the `models/ggml-base.en-encoder.mlmodelc` file).*
 - **Run**:
-  The application will automatically detect and use the Core ML model if it's available.
-  ```
+  ```bash
   ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
   ```
-- **Note**: Models downloaded via `make` or used directly by `playlist4whisper.py` **will not work** for Core ML acceleration. You must generate the `.mlmodelc` model as shown above.
+*(Models downloaded via `make` or used directly by `playlist4whisper.py` **will not work** for Core ML acceleration. You must generate the `.mlmodelc` model).*
 
-##### 4. OpenVINO (Intel CPU/GPU)
-This option is designed to optimize performance on Intel processors and their integrated GPUs.
-
+#### 4. OpenVINO (Intel CPU/GPU)
 - **Requirements**:
-  - **Python Environment**: A dedicated virtual environment is recommended for the conversion scripts.
-    ```
-    # Navigate to the models directory
+  - Python Environment:
+    ```bash
     cd models
-    ```
-    ```
-    # Create and activate the virtual environment
     python3 -m venv openvino_conv_env
     source openvino_conv_env/bin/activate
-    ```
-    ```
-    # Install conversion dependencies
     python -m pip install --upgrade pip
     pip install -r requirements-openvino.txt
     ```
-  - **OpenVINO Toolkit**: Download and install the toolkit from the [official Intel website](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html).
-  - **Set up OpenVINO Environment**: After installation, source the setup script in your terminal.
-    ```
-    # Adjust the path to your OpenVINO installation
-    source /path/to/openvino/setupvars.sh  # Linux/macOS
-    ```
-    
+  - OpenVINO Toolkit: Install from [Intel](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html).
+  - Set up Environment: `source /path/to/openvino/setupvars.sh`
 - **Compilation**:
-  Compile `whisper.cpp` using `cmake` to enable OpenVINO support.
-  ```
-  # Return to the root whisper.cpp directory
+  ```bash
   cmake -B build -DWHISPER_OPENVINO=1
   cmake --build build -j --config Release
   ```
-
 - **Generate Model**:
-  With your conversion environment activated, run the script to convert the model.
-  ```
+  ```bash
   python convert-whisper-to-openvino.py --model base.en
   ```
-  This creates `ggml-base.en-encoder-openvino.xml` and `.bin` files in the `models/` directory.
-
 - **Run**:
-  The application will internally load the OpenVINO `.xml`/`.bin` IR files when you specify the base model name.
-  ```
+  ```bash
   ./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
   ```
-- **Note**: Models from `playlist4whisper.py` **do not work**. You must generate the OpenVINO IR model.
+*(Models from `playlist4whisper.py` **do not work**. You must generate the OpenVINO IR model).*
 
-##### 5. Vulkan (AMD/Intel/NVIDIA GPUs)
+#### 5. Vulkan (AMD/Intel/NVIDIA GPUs)
 - **Requirements**: Install drivers with Vulkan API support.  
 - **Compilation**:  
-```
+```bash
 cmake -B build -DGGML_VULKAN=1
 cmake --build build -j --config Release
 ```
-- **Model**: Use the same `.bin` as for CPU/CUDA:  
-```
-make base.en
-```
-  - Optional: Quantize:  
-```
-./build/bin/whisper-quantize models/ggml-base.en.bin models/ggml-base.en-q8_0.bin q8_0
-```
-- **Run**:  
-```
-./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
-```
-- **Note**: Models from `playlist4whisper.py` work directly.
+- **Model / Run**: Same as CPU.
 
-##### 6. BLAS (CPU with OpenBLAS)
+#### 6. BLAS (CPU with OpenBLAS)
 - **Requirements**: Install OpenBLAS (https://www.openblas.net/).  
 - **Compilation**:  
-```
+```bash
 cmake -B build -DGGML_BLAS=1
 cmake --build build -j --config Release
 ```
-- **Model**: Use the same `.bin` as for CPU:  
-```
-make base.en
-```
-- **Run**:  
-```
-./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
-```
-- **Note**: Models from `playlist4whisper.py` work directly.
+- **Model / Run**: Same as CPU.
 
-##### 7. Ascend NPU (Huawei Atlas 300T A2)
-- **Requirements**: Install CANN toolkit (latest version, check Huawei documentation).  
+#### 7. Ascend NPU (Huawei Atlas 300T A2)
+- **Requirements**: Install CANN toolkit.  
 - **Compilation**:  
-```
+```bash
 cmake -B build -DGGML_CANN=1
 cmake --build build -j --config Release
 ```
-- **Model**: Use the same `.bin` as for CPU:  
-```
-make base.en
-```
-- **Run**:  
-```
-./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
-```
-- **Note**: Models from `playlist4whisper.py` work directly.
+- **Model / Run**: Same as CPU.
 
-##### 8. MUSA (Moore Threads GPU)
-- **Requirements**: Install MUSA SDK rc4.2.0 (https://developer.mthreads.com/sdk/download/musa).  
+#### 8. MUSA (Moore Threads GPU)
+- **Requirements**: Install MUSA SDK rc4.2.0.  
 - **Compilation**:  
-```
+```bash
 cmake -B build -DGGML_MUSA=1
 cmake --build build -j --config Release
 ```
-  - For specific GPUs (e.g., MTT S80):  
-```
-cmake -B build -DGGML_MUSA=1 -DMUSA_ARCHITECTURES="21"
-cmake --build build -j --config Release
-```
-- **Model**: Use the same `.bin` as for CPU:  
-```
-make base.en
-```
-- **Run**:  
-```
-./livestream_video.sh ./samples/jfk.wav --model base.en --subtitles
-```
-- **Note**: Models from `playlist4whisper.py` work directly.
+- **Model / Run**: Same as CPU.
 
-**Q: How much data is needed to fine-tune a model?**
+### **Q: How much data is needed to fine-tune a model?**
+**A:** Fine-tuning a Whisper model might be more difficult and costly than expected; you must collect that specific information yourself. Some users report success with a relatively short amount of data, while others couldn't obtain significant improvements. It depends on the quality of the language already supported by Whisper and its similarities with other languages supported by Whisper. It also depends on the quality of the dataset for training. It's clear that having as much data as possible is better; perhaps thousands of hours of short sound chunks with their transcriptions. You might be able to fine-tune with large free datasets like Common Voice. You can find the latest version of the Common Voice dataset by checking the [Mozilla Foundation](https://commonvoice.mozilla.org) page or the [Hugging Face Hub](https://huggingface.co/mozilla-foundation). Keep in mind that OpenAI already utilized Common Voice datasets for the validation task during its training, so it's possible that some datasets or languages may not improve Whisper's models as expected. Nonetheless, some minority languages like Catalan, Esperanto and Basque have a significant number of hours in Common Voice, while one of the major languages like Spanish has a very poor dataset. If you want to fine-tune for a more specific use, then you might need a lot of effort or cost to collect enough data with the needed quality, although the dataset would be smaller for improving technical words, slang, or a specific accent of a local region for an already well-supported language.
 
-A: Fine-tuning a Whisper model might be more difficult and costly than expected; you must collect that specific information yourself. Some users report success with a relatively short amount of data, while others couldn't obtain significant improvements. It depends on the quality of the language already supported by Whisper and its similarities with other languages supported by Whisper. It also depends on the quality of the dataset for training. It's clear that having as much data as possible is better; perhaps thousands of hours of short sound chunks with their transcriptions. You might be able to fine-tune with large free datasets like Common Voice. You can find the latest version of the Common Voice dataset by checking the [Mozilla Foundation](https://commonvoice.mozilla.org) page or the [Hugging Face Hub](https://huggingface.co/mozilla-foundation). Keep in mind that OpenAI already utilized Common Voice datasets for the validation task during its training, so it's possible that some datasets or languages may not improve Whisper's models as expected. Nonetheless, some minority languages like Catalan, Esperanto and Basque have a significant number of hours in Common Voice, while one of the major languages like Spanish has a very poor dataset. If you want to fine-tune for a more specific use, then you might need a lot of effort or cost to collect enough data with the needed quality, although the dataset would be smaller for improving technical words, slang, or a specific accent of a local region for an already well-supported language.
-
-**Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
-
-A: Online translation issues with the Gemini API can stem from several factors, ranging from API availability to the inherent behavior of AI models. Here are the most common causes:
+### **Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
+**A:** Online translation issues with the Gemini API can stem from several factors, ranging from API availability to the inherent behavior of AI models. Here are the most common causes:
 
 *   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
     *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
     *   In **Live Stream** mode, it will immediately fall back to `translate-shell` for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
-
 *   **API Rate Limits:** The primary cause of failures is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers have much higher limits, the following applies to free accounts:
     *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (such as long live streams), but they may fail on high-intensity tasks (such as subtitle generation) that exceed the TPM limit.
     *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them ideal for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted during long live streams.
-
 *   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues such as **confusing languages** (especially with multilingual source text), processing previous sentences and **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** may occur.
 
-*   **Model Recommendations & Strategies (for Free Tier Users):**
-    *   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
-    *   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its large daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or, if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
-    *   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a strong balance of quality, speed, and a reasonable daily quota (1,000 requests) when using the default context level.
+**Model Recommendations & Strategies (for Free Tier Users):**
+*   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
+*   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its large daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or, if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
+*   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a strong balance of quality, speed, and a reasonable daily quota (1,000 requests) when using the default context level.
 
-*   **Model Recommendations for High-Quality Subtitles (Long Media):**
-    *   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
+**Model Recommendations for High-Quality Subtitles (Long Media):**
+*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
 
-*Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
+*(Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026).*
 
-**Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
-
-A: While the quality from the API is very high, you may notice that pasting an entire SRT file into a web chat like Google AI Studio can sometimes yield superior results. The primary reason for this is **global context**. When you paste a full SRT file into the web interface, it generally uses a powerful model like Gemini 2.5 Pro and can process the entire document as a single piece of context. This allows the AI to understand overarching themes and the relationships between distant parts of the dialogue, resulting in excellent quality translations in a wide range of languages. However, this manual method is less practical and can fail with very long texts, and occasionally generates other errors as well.
+### **Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
+**A:** While the quality from the API is very high, you may notice that pasting an entire SRT file into a web chat like Google AI Studio can sometimes yield superior results. The primary reason for this is **global context**. When you paste a full SRT file into the web interface, it generally uses a powerful model like Gemini 2.5 Pro and can process the entire document as a single piece of context. This allows the AI to understand overarching themes and the relationships between distant parts of the dialogue, resulting in excellent quality translations in a wide range of languages. However, this manual method is less practical and can fail with very long texts, and occasionally generates other errors as well.
 
 The application, on the other hand, processes the subtitle file in **segmented parts** to handle very large files robustly without failing. To maintain coherence, it provides the AI with a "sliding window" of context, including several phrases before and after the current segment being translated. For most content, the quality difference is barely noticeable. The most significant drop in quality usually occurs due to external factors like API server overload or rate limit errors. You may occasionally see minor errors, such as the repetition of words.
 
 Despite this, the script's approach is highly effective. Even with smaller models like `gemini-2.5-flash-lite`, it does an excellent job with common languages, often correcting misspelled words and accurately identifying well-known entities such as places, acronyms, companies, organizations, political parties, and the names of famous people. However, it's important to note a universal limitation: when the name of an unknown person is transcribed incorrectly (e.g., “Jon” or “Jan” instead of “John”, or “Sara” instead of “Sarah”), the AI has no way of determining the correct spelling — a challenge that even the web version of the AI cannot overcome.
 
-**Q: Why doesn't the application use the entire subtitle file for context at once, similar to the web version?**
-
-A: This is a design choice to optimize the script for reliability and performance across all models, especially for users with free tier API keys. While a feature known as **context caching** exists, which allows uploading a full document for global context, its practical application is complex.
+### **Q: Why doesn't the application use the entire subtitle file for context at once, similar to the web version?**
+**A:** This is a design choice to optimize the script for reliability and performance across all models, especially for users with free tier API keys. While a feature known as **context caching** exists, which allows uploading a full document for global context, its practical application is complex.
 
 The situation is as follows:
-
 - For the powerful **Gemini models**, context caching is primarily a **paid tier feature**.
 - For **Gemma models**, context caching is indeed available **free of charge**. However, this option was deliberately not implemented as the default for two key reasons:
-
     - **Rate Limits:** The free tier for Gemma models has a very low **Tokens Per Minute (TPM) limit**. Attempting to upload a moderately sized subtitle file to the cache would immediately fail by exceeding this limit.
     - **Translation Quality:** While Gemma is highly capable, it is not as powerful as the flagship Gemini models, especially for translating less common or nuanced languages where the larger model's extensive training data makes a significant difference.
 
 Therefore, the current "sliding window" approach was chosen as the best overall solution. It provides high-quality context, works reliably across all models without failing on rate limits, and is optimized for the free tier. Paid account users still benefit from this system as they can use more powerful models with much higher rate limits, leading to a superior result.
 
-**Q: What's the use of the loopback ports? Could I see my videos from the internet?**
+### **Q: What's the use of the loopback ports? Could I see my videos from the internet?**
+**A:** Loopback ports are needed for features like timeshift, and for upper and lower video quality options. The application uses one port to communicate with VLC for information about the currently playing video, or is used by ffmpeg to stream video to mpv or smplayer. The loopback interface is a virtual network interface per user that by default is not accessible outside your computer, although you can configure your firewall and network interfaces to control VLC and transmit video outside to the internet using VLC's streaming option. However, this would not include live transcriptions, only subtitles. Nevertheless, there are some solutions to stream your entire desktop with decent image quality over the internet, NoMachine (freeware) or Moonlight (open source license) are both great options.
 
-A: Loopback ports are needed for features like timeshift, and for upper and lower video quality options. The application uses one port to communicate with VLC for information about the currently playing video, or is used by ffmpeg to stream video to mpv or smplayer. The loopback interface is a virtual network interface per user that by default is not accessible outside your computer, although you can configure your firewall and network interfaces to control VLC and transmit video outside to the internet using VLC's streaming option. However, this would not include live transcriptions, only subtitles. Nevertheless, there are some solutions to stream your entire desktop with decent image quality over the internet, NoMachine (freeware) or Moonlight (open source license) are both great options.
-
-**Q: Some streams don't work, especially with upper and lower qualities, and sometimes timeshift doesn't work?**
-
-A: Streams can often experience interruptions or temporary cuts, and their proper functioning in playlist4whisper can also depend on the ads they insert, and in other cases on whether yt-dlp and streamlink support the frequent changes made by various online video providers.
+### **Q: Some streams don't work, especially with upper and lower qualities, and sometimes timeshift doesn't work?**
+**A:** Streams can often experience interruptions or temporary cuts, and their proper functioning in playlist4whisper can also depend on the ads they insert, and in other cases on whether yt-dlp and streamlink support the frequent changes made by various online video providers.
 
 In general, processing online videos is very difficult due to the nature of different video codecs and network protocols used on servers and their various implementations, or due to incorrect timestamps and metadata information, or because of the difficulty of recording and cutting videos with ffmpeg. To add the somewhat random nature of the artificial intelligence algorithm for transcription.
 
-**Q: How does timeshift work and where are the files stored? Can I save these videos?**
-
-A: Timeshift functions similarly to other applications, but in playlist4whisper, it involves a playlist repeated indefinitely with temporary videos or buffers. You can configure the number of these buffers and their size in minutes. For example, from just a few minutes up to a maximum of 99 videos, each lasting 99 minutes. This allows for a maximum of 163 hours of live streaming for timeshift, although at the cost of requiring a very large amount of disk space. When the chosen maximum size is reached, the oldest video file is deleted, and this process continues indefinitely until the application is stopped or an error occurs.
+### **Q: How does timeshift work and where are the files stored? Can I save these videos?**
+**A:** Timeshift functions similarly to other applications, but in playlist4whisper, it involves a playlist repeated indefinitely with temporary videos or buffers. You can configure the number of these buffers and their size in minutes. For example, from just a few minutes up to a maximum of 99 videos, each lasting 99 minutes. This allows for a maximum of 163 hours of live streaming for timeshift, although at the cost of requiring a very large amount of disk space. When the chosen maximum size is reached, the oldest video file is deleted, and this process continues indefinitely until the application is stopped or an error occurs.
 
 The videos can be navigated in VLC as if it were a playlist with multiple videos, allowing you to switch between videos or rewind and fast forward within a single video. The transcription will automatically switch to the chosen point. However, you should be cautious not to approach the current live recording moment too closely, as the player may jump to another video. Occasionally, video stream errors and transcription errors could cause the player to jump to another video in this timeshift playlist.
 
-The temporary video buffer files can be saved in another directory, they will have names similar to whisper-live_131263_3.avi, or for the last one being recorded, whisper-live_131263_buf033.avi. The files are stored in the /tmp directory in both Linux and macOS, which typically serves as the temporary directory and is usually cleared upon restarting the computer.
+The temporary video buffer files can be saved in another directory, they will have names similar to `whisper-live_131263_3.avi`, or for the last one being recorded, `whisper-live_131263_buf033.avi`. The files are stored in the `/tmp` directory in both Linux and macOS, which typically serves as the temporary directory and is usually cleared upon restarting the computer.
 
 In the `playlist4whisper` Python application, there is a dedicated **'Save Videos'** button. This opens a video saver window with a built-in player to preview the temporary files. You can select individual video buffers or choose a range of consecutive buffers to **merge** them into a single file and save it to a directory of your choice.
 
-**Q: What can Playlist4Whisper do in terms of transcribing or translating sound card or sound device inputs? Are USB devices supported in Linux?**
-
-The quality of the transcription depends on your computer's capabilities, the chosen model, volume, and sound configuration on your operating system, as well as the ambient noise. Please note that this is a preliminary feature. There is a several-second delay between live sound and transcriptions, with no possibility for synchronization.
+### **Q: What can Playlist4Whisper do in terms of transcribing or translating sound card or sound device inputs? Are USB devices supported in Linux?**
+**A:** The quality of the transcription depends on your computer's capabilities, the chosen model, volume, and sound configuration on your operating system, as well as the ambient noise. Please note that this is a preliminary feature. There is a several-second delay between live sound and transcriptions, with no possibility for synchronization.
 
 The capabilities to transcribe audio inputs or 'what you hear' on the desktop exist in numerous scenarios depending on the capabilities of sound cards, webcams, microphones, and USB-connected headphones. In Linux, USB sound cards and sound integrated into webcams, microphones, and headphones might be problematic, especially for devices that are too old or too new. Sometimes you may need to install device controllers or modules for Linux. Most USB drivers are usually available in one of three ways: within the kernel, as a compilable standalone module, or available as a pre-compiled (packaged) binary driver from your Linux distribution. However, sometimes these devices or their modules are deactivated in the Linux kernel. Although this is a rare situation, it may occur if Windows WSL2 uses a Linux kernel with deactivated device controllers, or requires some configurations. Anyway, you may encounter issues when using these devices in a Linux virtualized environment on WSL2.
 
@@ -1239,32 +866,24 @@ Sound cards or devices in duplex mode support recording and listening simultaneo
 
 Windows supports loopback sound for native applications through a virtual driver, such as VB-Cable (donationware), which is an additional piece of software similar to those used in macOS. However, Playlist4Whisper is executed in the Linux virtual environment WSL2. Sound capacities depend on each Linux application and on PulseAudio and Microsoft support for virtualized sound in WSL2. Currently, the default virtualized system in WSL2 or WSLg (Windows Subsystem for Linux GUI) can utilize PulseAudio, albeit through an RDP (Remote Desktop Protocol) loopback network connection, which is not the optimal solution.
 
-**Q: Is it possible to achieve speech translation from a microphone without delay?**
-
-A: There are few possibilities to achieve something similar to real-time or live transcriptions or speech translations. Different approaches exist for Speech-to-Speech translation systems: one involves a step-by-step process utilizing various specialized AI models, ranging from two to four steps. Another approach is a multimodal or all-in-one AI that handles all steps using a single model, like the SeamlessM4T free AI from Meta, which is currently in its early development stage. Neither approach can achieve real-time or live translations, nor anything resembling "near-live," due to the necessity of processing the input speech by dividing the recorded sound into small chunks. This is mainly due to contextual challenges or the differing nature of languages, which require the AI to understand the context of phrases or even anticipate what the speaker is going to say, akin to a wizard's alchemy. While it may be possible to introduce some shortcuts to shorten the steps, these tricks may not be suitable for a scientific solution or for accurate translation, as they could lead to reductionism or reinterpretations of what the speaker is saying.
+### **Q: Is it possible to achieve speech translation from a microphone without delay?**
+**A:** There are few possibilities to achieve something similar to real-time or live transcriptions or speech translations. Different approaches exist for Speech-to-Speech translation systems: one involves a step-by-step process utilizing various specialized AI models, ranging from two to four steps. Another approach is a multimodal or all-in-one AI that handles all steps using a single model, like the SeamlessM4T free AI from Meta, which is currently in its early development stage. Neither approach can achieve real-time or live translations, nor anything resembling "near-live," due to the necessity of processing the input speech by dividing the recorded sound into small chunks. This is mainly due to contextual challenges or the differing nature of languages, which require the AI to understand the context of phrases or even anticipate what the speaker is going to say, akin to a wizard's alchemy. While it may be possible to introduce some shortcuts to shorten the steps, these tricks may not be suitable for a scientific solution or for accurate translation, as they could lead to reductionism or reinterpretations of what the speaker is saying.
 
 Some applications use a trick to achieve a near-live result during the first transcription step, even with a Whisper AI and low-power computers, which playlist4whisper will support in the near future. This trick involves rapidly transcribing live speech, with one of the smallest models being something similar to a transcript without context or with a lot of errors, and immediately reintroducing the same sound data continuously to correct any possible errors in the last seconds transcribed. With this solution, the last words may frequently change, but it's not a significant issue for the user. However, this reintroduction trick cannot be applied to the speech translation step, as it is not serious to hear a translation of a sentence, and then the AI might repeatedly change the sentence because the initial version was incorrect.
 
 ![Live Transcription](https://github.com/antor44/livestream_video/blob/main/live-transcription.jpg)
 
-**Q: Why is the program not working?**
-
-A: There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the ./build/bin/whisper-cli executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper.cpp. The ./build/bin/whisper-cli executable from whisper.cpp needs to be placed in the subdirectory of the directory of playlist4whisper.py and the script livestream_video.sh. Before lauch playlist4whisper.py, make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and eventually too the python environment for playlist4whisper is active. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. 
+### **Q: Why is the program not working?**
+**A:** There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the `./build/bin/whisper-cli` executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper.cpp. The `./build/bin/whisper-cli` executable from whisper.cpp needs to be placed in the subdirectory of the directory of playlist4whisper.py and the script livestream_video.sh. Before lauch playlist4whisper.py, make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and eventually too the python environment for playlist4whisper is active. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. 
 
 The whsiper.cpp installation can be accomplished using terminal commands:
-
 First clone the repository:
-```
+```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
-Now change directory to the whisper-ccp folder and build the ./build/bin/whisper-cli example to transcribe an audio file using the following command.
-
-Build the './build/bin/whisper-cli' example:
-```
+Now change directory to the whisper-ccp folder and build the `./build/bin/whisper-cli` example to transcribe an audio file using the following command.
+```bash
 make
-```
-Download some models:
-```
 make tiny.en
 make base.en
 make base
@@ -1272,49 +891,35 @@ make small
 make large-v3
 ```
 Transcribe an audio file (for model base.en):
-```
+```bash
 ./build/bin/whisper-cli -f samples/jfk.wav
 ```
-For YouTube yt-dlp is required (https://github.com/yt-dlp/yt-dlp). For Twitch streamlink is required (https://streamlink.github.io).
-
-The easy way to install yt-dlp and streamlink:
-```
-pip3 install yt-dlp
-pip3 install streamlink
-```
-Or to upgrade them:
-```
+For YouTube `yt-dlp` is required. For Twitch `streamlink` is required. The easy way to install/upgrade them:
+```bash
 pip3 install --upgrade yt-dlp
 pip3 install --upgrade streamlink
 ```
 
-**Q: When I run the script, I always encounter an error related to the "whisper-cli" or "main" executable.**
+### **Q: When I run the script, I always encounter an error related to the "whisper-cli" or "main" executable.**
+**A:** There could be various reasons for this error. The "whisper-cli" executable, originally named "main" executable, is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "whisper-cli" and reside in the subdirectory `./build/bin/` of the directory where playlist4whisper.py and the bash script livestream_video.sh were copied. Ensure that both the whisper-cli executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like `make base.en` or `make tiny.en`. It's important to note that quantized models and large-v3 may not be compatible with older versions of whisper.cpp, which could lead to a "whisper-cli error". After building the whisper-cli example using the terminal command "make", you can test an audio file example using the command (for model base.en): `./build/bin/whisper-cli -f samples/jfk.wav`
 
-A: There could be various reasons for this error. The "whisper-cli" executable, originally named "main" executable, is one of the examples provided in whisper.cpp, a high-level implementation of OpenAI's Whisper AI. The executable's name should remain as the default "whisper-cli" and reside in the subdirectory "./build/bin/" of the directory where playlist4whisper.py and the bash script livestream_video.sh were copied. Ensure that both the whisper-cli executable and livestream_video.sh have executable permissions, at least for the current user. Additionally, the models you use should be stored in the "models" subdirectory, which are created by running terminal commands like "make base.en" or "make tiny.en". It's important to note that quantized models and large-v3 may not be compatible with older versions of whisper.cpp, which could lead to a "whisper-cli error". After building the whisper-cli example using the terminal command "make", you can test an audio file example using the command (for model base.en): ./build/bin/whisper-cli -f samples/jfk.wav
-
-**Q: Why does the script sometimes close or show an error? Is it not reliable or stable?**
-
-A: There could be several reasons for this. I have tested it extensively in various scenarios, even with many instances running simultaneously, and I have never encountered errors other than those related to poor network connections or issues with the source streams themselves. However, this program depends on several external programs and libraries, and it is impossible to guarantee stable operation across all possible system configurations. Also, keep in mind that macOS and Windows are not as fully supported as Linux, and I have not been able to test those operating systems as extensively.
+### **Q: Why does the script sometimes close or show an error? Is it not reliable or stable?**
+**A:** There could be several reasons for this. I have tested it extensively in various scenarios, even with many instances running simultaneously, and I have never encountered errors other than those related to poor network connections or issues with the source streams themselves. However, this program depends on several external programs and libraries, and it is impossible to guarantee stable operation across all possible system configurations. Also, keep in mind that macOS and Windows are not as fully supported as Linux, and I have not been able to test those operating systems as extensively.
 
 There are also system-level issues that may affect the program. For example, some Linux systems enable aggressive audio power-saving by default (commonly on HDA/ALSA integrated audio). In practice, on some hardware/driver combinations, this wake/suspend behavior may contribute to instability in multimedia applications like VLC, which can cause the script to fail. This is a system environment configuration issue and is not necessarily related to a bug in playlist4whisper, livestream_video.sh, or the AI models. If this is the cause, you will likely experience audio pops/clicks or glitches in other multimedia applications on the same system.
 
-**Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
+### **Q: Can I run playlist4whisper without using the terminal, from a desktop shortcut on Linux?**
+**A:** Yes, you can run it with the command "python" followed by the full path of playlist4whisper.py. In this case, before launching playlist4whisper.py, make sure that the Python environment for playlist4whisper is active. You can alternatively launch a bash script that first includes a command like `source ~/python-environments/whisper/bin/activate`. If you are using an Anaconda environment, use the command `/home/[user]/anaconda3/bin/conda run python /home/[user]/[app directory]/playlist4whisper.py`. In both cases, provide the working directory where the program is located.
 
-A: Yes, you can run it with the command "python" followed by the full path of playlist4whisper.py. In this case, before launching playlist4whisper.py, make sure that the Python environment for playlist4whisper is active. You can alternatively launch a bash script that first includes a command like 'source ~/python-environments/whisper/bin/activate'. If you are using an Anaconda environment, use the command '/home/[user]/anaconda3/bin/conda run python /home/[user]/[app directory]/playlist4whisper.py'. In both cases, provide the working directory where the program is located.
+### **Q: How can I change the size of the transcribed text snippets?**
+**A:** You can change the size of the text snippets in seconds with the "step_s" option, which determines the duration of each part into which the videos are divided for transcription.
 
-**Q: How can I change the size of the transcribed text snippets?**
+### **Q: How can I change the size and colors of the transcription text?**
+**A:** You can change the size and colors of the transcription text in the options of the terminal program you are using.
 
-A: You can change the size of the text snippets in seconds with the "step_s" option, which determines the duration of each part into which the videos are divided for transcription.
-
-**Q: How can I change the size and colors of the transcription text?**
-
-A: You can change the size and colors of the transcription text in the options of the terminal program you are using.
-
-**Q: How can I position the terminal window for transcriptions in a fixed position?**
-
-A: You can use a program for placing windows in Linux, such as devilspie, and configure a name for the terminal window and another for the main program terminal, such as Konsole or Xterm, to avoid name conflicts. For example, a configuration for the Gnome terminal in devilspie would be:
-
-```
+### **Q: How can I position the terminal window for transcriptions in a fixed position?**
+**A:** You can use a program for placing windows in Linux, such as `devilspie`, and configure a name for the terminal window and another for the main program terminal, such as Konsole or Xterm, to avoid name conflicts. For example, a configuration for the Gnome terminal in devilspie would be:
+```text
 ; generated_rule Terminal
 ( if
 ( and
@@ -1327,11 +932,9 @@ A: You can use a program for placing windows in Linux, such as devilspie, and co
 )
 ```
 
-**Q: How can I permanently change the size and colors of the transcription text on macOS? How to display the correct local characters?**
-
-To achieve this, you can create a file named ".Xresources" in your user's home directory (/Users/[user]). Inside the file, you can define specific settings to customize the appearance of the transcription text. For example:
-
-```
+### **Q: How can I permanently change the size and colors of the transcription text on macOS? How to display the correct local characters?**
+**A:** To achieve this, you can create a file named `.Xresources` in your user's home directory (`/Users/[user]`). Inside the file, you can define specific settings to customize the appearance of the transcription text. For example:
+```text
 .xterm*background: black
 .xterm*foreground: yellow
 .xterm*font: 10x20
@@ -1339,29 +942,23 @@ To achieve this, you can create a file named ".Xresources" in your user's home d
 .xterm*saveLines: 10000
 .xterm*locale: true 
 ```
-In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the ".Xresources" file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the `.Xresources` file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+The final option `.xterm*locale: true` will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
 
-The final option '.xterm*locale: true' will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
+### **Q: How can I copy the transcribed text on macOS after xterm has been closed?**
+**A:** The xterm window closes when the bash script stops. The behavior of this terminal differs in playlist4whisper due to macOS's distinct handling of closed windows. However, you can still find text files containing all the transcriptions and translations in your `/tmp` directory. Recent versions of playlist4whisper now allow you to easily save these files by clicking the 'Save Texts' button. Please note that the operating system clears the `/tmp` directory upon computer boot.
 
-**Q: How can I copy the transcribed text on macOS after xterm has been closed?**
+### **Q: How can I synchronize the video and the transcription?**
+**A:** Without the Timeshift option, you can manually synchronize the video and transcription to your desired timing by using the pause and forward/backward buttons of the video player. When Timeshift is activated, the transcription is synchronized with the sync option, which is an automatic but fixed synchronization that cannot be changed during play.
 
-The xterm window closes when the bash script stops. The behavior of this terminal differs in playlist4whisper due to macOS's distinct handling of closed windows. However, you can still find text files containing all the transcriptions and translations in your /tmp directory. Recent versions of playlist4whisper now allow you to easily save these files by clicking the 'Save Texts' button. Please note that the operating system clears the /tmp directory upon computer boot.
-
-**Q: How can I synchronize the video and the transcription?**
-
-A: Without the Timeshift option, you can manually synchronize the video and transcription to your desired timing by using the pause and forward/backward buttons of the video player. When Timeshift is activated, the transcription is synchronized with the sync option, which is an automatic but fixed synchronization that cannot be changed during play.
-
-**Q: Why does the video and transcription get desynchronized?**
-
-A: There could be several potential causes. Online video streams may not always provide reliable video synchronization or timestamps. Some versions of the programs used by playlist4whisper, like VLC player or ffmpeg, may not accurately address the timestamps of the video being played. Additionally, video and transcription applications work independently, each with its own stream of video or audio. Over time, desynchronization can fluctuate, and choosing a model that is too large for the processor's capabilities can also impact synchronization.
-
+### **Q: Why does the video and transcription get desynchronized?**
+**A:** There could be several potential causes. Online video streams may not always provide reliable video synchronization or timestamps. Some versions of the programs used by playlist4whisper, like VLC player or ffmpeg, may not accurately address the timestamps of the video being played. Additionally, video and transcription applications work independently, each with its own stream of video or audio. Over time, desynchronization can fluctuate, and choosing a model that is too large for the processor's capabilities can also impact synchronization.
 The timeshift feature alongside with an automatic video/transcription synchronization option may help address the issue, although this may lead to some issues with phrases at the beginning of each segmented video chunk.
 
-**Q: Why does the beginning and end of the transcription often get lost? Is this an AI issue?**
+### **Q: Why does the beginning and end of the transcription often get lost? Is this an AI issue?**
+**A:** This issue often occurs because standard audio segmentation can cut words in half. To mitigate this **in part**, version 5.10 introduces a **Voice Activity Detection (VAD)** option (`--vad`), based on the powerful Silero model. This feature attempts to cut the audio during moments of silence near the chunk boundary. However, it is not a perfect solution; word truncations can still happen due to inaccurate timestamps from `ffmpeg`, the inherent nature of how Whisper processes audio, and other stream-related problems.
 
-A: This issue often occurs because standard audio segmentation can cut words in half. To mitigate this **in part**, version 5.10 introduces a **Voice Activity Detection (VAD)** option (`--vad`), based on the powerful Silero model. This feature attempts to cut the audio during moments of silence near the chunk boundary. However, it is not a perfect solution; word truncations can still happen due to inaccurate timestamps from `ffmpeg`, the inherent nature of how Whisper processes audio, and other stream-related problems.
-
-We are continuously working on advanced audio processing methods. Alternative solutions include the [Audio Transcription Chrome extension](https://github.com/antor44/Audio-Transcription) based on WhisperLive (which re-transcribes recent audio for better context) or potential future implementations of sliding window algorithms. However, the current VAD implementation provides an excellent balance of performance and accuracy without the complexity of re-transcribing audio.
+We are continuously working on advanced audio processing methods. Alternative solutions include the[Audio Transcription Chrome extension](https://github.com/antor44/Audio-Transcription) based on WhisperLive (which re-transcribes recent audio for better context) or potential future implementations of sliding window algorithms. However, the current VAD implementation provides an excellent balance of performance and accuracy without the complexity of re-transcribing audio.
 
 It's worth noting that while playlist4whisper and livestream_video.sh currently process audio in isolated chunks —which can lead to word truncation and loss of broader sentence context— this approach also inherently minimizes the impact of hallucinations and other errors common to all Whisper AI model versions and model sizes. Any such errors are typically confined to a single audio/video fragment and occur infrequently, rather than propagating extensively throughout the transcription. The proposed additions to correct these word truncation issues are essentially classic coding workarounds, akin to applying a patch to address these noticeable flaws in OpenAI's Whisper model. Despite this development effort, guaranteed results are not assured. Furthermore, it's highly probable that OpenAI will implement similar or more sophisticated solutions directly within future Whisper model versions, or any other company in another transcription AI; it's almost inevitable they will address such evident and undesirable known errors sooner rather than later. Keep in mind that a very efficient and low power consumption, multilingual transcription AI is more than necessary for a lot of electronic devices and for all robots. This is the most fundamental part of the software to translate voice commands to robot's actions. Consequently, despite the significant programming work, and probably more inefficiently, to try and mitigate these issues externally, it might ultimately be time spent on a temporary fix.
 
@@ -1381,26 +978,22 @@ Alternatively, you can generate subtitles for local audio/video files. This feat
 
 If you wish, you can try the [optional Chrome extension](https://github.com/antor44/Audio-Transcription) for transcribing audio and video solely from web pages; note that its translation capabilities are limited to English. Otherwise, with the exception of subtitle generation for locally stored files, the playlist4whisper and livestream_video.sh applications should be primarily viewed as helpful tools for understanding video and audio content, capable of transcribing or translating a significant portion, though not always with complete coverage. This is still a significant capability, considering Whisper AI's extensive language support and accuracy in a variety of scenarios. However, at least with present versions, users should not expect perfectly exact results; if high precision is critical, exploring alternative solutions might be more appropriate.
 
-**Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
+### **Q: Sometimes the transcriptions are wrong or not appears, what could be the issue?**
+**A:** The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging accents or voice tones, or changes in voices during conversations can pose difficulties. In the future, the addition of sound filters options aims to minimize these issues. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
 
-A: The AI model is designed to transcribe audio from various situations, but certain factors can affect its accuracy. For instance, challenging accents or voice tones, or changes in voices during conversations can pose difficulties. In the future, the addition of sound filters options aims to minimize these issues. Additionally, the model may occasionally produce incorrect transcriptions due to gaps in its neural network connections. This can happen more frequently with smaller or quantized models, as well as with languages that have not been extensively trained.
+### **Q: Sometimes when I generate a subtitle, the text is ruined and gets stuck with a repeated phrase.**
+**A:** This is one of the well-known limitations of the current version of OpenAI's Whisper AI, known as hallucinations. This issue persists even with larger models and is even more problematic in the latest and more accurate larger-v3 model. You could try using a different model or attempt to divide the audio/video file into various chunks. The optional OpenAI Whisper executable could help reduce hallucinations when generating subtitles, you could run different executables simultaneously, each with its own 'playlist4whisper' copied into a separate directory, along with its own playlist files. However, many parameters are shared among users, and as of yet, no one has discovered "the magic formula".
 
-**Q: Sometimes when I generate a subtitle, the text is ruined and gets stuck with a repeated phrase.**
+### **Q: The transcriptions I get are not accurate?**
+**A:** The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models for other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or translate for simultaneous translation to English, it may also significantly increase processor consumption.
 
-A: This is one of the well-known limitations of the current version of OpenAI's Whisper AI, known as hallucinations. This issue persists even with larger models and is even more problematic in the latest and more accurate larger-v3 model. You could try using a different model or attempt to divide the audio/video file into various chunks. The optional OpenAI Whisper executable could help reduce hallucinations when generating subtitles, you could run different executables simultaneously, each with its own 'playlist4whisper' copied into a separate directory, along with its own playlist files. However, many parameters are shared among users, and as of yet, no one has discovered "the magic formula".
+### **Q: smplayer does not work with online TV?**
+**A:** First, check if you have passed a player option that is not compatible with smplayer. smplayer depens of mpv or mplayer, the installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option, or if you prefer smplayer, make sure it is configured to use mpv.
 
-**Q: The transcriptions I get are not accurate?**
-
-A: The quality of the transcriptions depends on several factors, especially the size of the model chosen. Larger models generally yield better results, but they also require more processing power. The English models tend to perform better than models for other languages. For languages other than English, you may need to use a larger model. If you choose the option auto for language autodetection or translate for simultaneous translation to English, it may also significantly increase processor consumption.
-
-**Q: smplayer does not work with online TV?**
-
-A: First, check if you have passed a player option that is not compatible with smplayer. smplayer depens of mpv or mplayer, the installed version of mplayer may not support online video streams, depending on how it was compiled or its configurations, or there may be conflicts with video encoding libraries used by mplayer. In general, mpv is a better option, or if you prefer smplayer, make sure it is configured to use mpv.
-
-**Q: Is this program legal to watch TV channels?**
-
-A: Yes, many of the URLs for channels found on the internet are made freely accessible by companies, governments, or public institutions for personal use only. Channels that may be restricted to a specific country or region for copyright reasons cannot be viewed, as the broadcasting company typically blocks viewers with IPs from other countries. However, playlists found on the internet may contain some channels with legality that is not entirely clear. Even if their URLs are publicly known, direct distribution or commercialization of the television channel is likely not allowed.
+### **Q: Is this program legal to watch TV channels?**
+**A:** Yes, many of the URLs for channels found on the internet are made freely accessible by companies, governments, or public institutions for personal use only. Channels that may be restricted to a specific country or region for copyright reasons cannot be viewed, as the broadcasting company typically blocks viewers with IPs from other countries. However, playlists found on the internet may contain some channels with legality that is not entirely clear. Even if their URLs are publicly known, direct distribution or commercialization of the television channel is likely not allowed.
 
 In the case of YouTube and Twitch, watching channels through standalone applications such as `yt-dlp` or `streamlink` poses a conflict with the companies, as they cannot control the advertisements you see. In other words, they are not interested in this approach and may make it difficult or prevent you from accessing their video streams.
 
 Additionally, `playlist4whisper/livestream_video.sh` does not support configuring a username and password in `yt-dlp` or `streamlink` to watch ad-free videos or live streams from paid accounts or subscribed channels. Therefore, you will be limited to watching videos and live streams that do not include advertisements that could interrupt the transmission.
+
