@@ -133,7 +133,7 @@ Or for OpenAI's Whisper (not fully supported, except for generating subtitles fo
 pip3 install openai-whisper
 ```
 
-For the latest version of `whisper.cpp` or to compile an accelerated version, follow the instructions provided at[whisper.cpp GitHub](https://github.com/ggerganov/whisper.cpp).
+For the latest version of `whisper.cpp` or to compile an accelerated version, follow the instructions provided at [whisper.cpp GitHub](https://github.com/ggerganov/whisper.cpp).
 
 Finally, launch the app by entering the following command in the terminal. Make sure you are inside the `whisper.cpp` directory (`cd ~/whisper.cpp`) and that your Python environment is activated (`source ~/python-environments/whisper/bin/activate`), if required.
 
@@ -156,7 +156,7 @@ python3 playlist4whisper.py
 ## Detailed Installation for Linux
 
 ### 1. Download and build whisper.cpp
-Download and build `whisper.cpp` to a new directory following the instructions provided in the[documentation](https://github.com/ggerganov/whisper.cpp).
+Download and build `whisper.cpp` to a new directory following the instructions provided in the [documentation](https://github.com/ggerganov/whisper.cpp).
 
 Download the source code of `whisper.cpp` from your home directory:
 ```bash
@@ -552,10 +552,10 @@ Another question is that "playlist4whisper" relies on the included bash script "
     *   **Intel CPU/GPU:** via [OpenVINO](https://github.com/ggerganov/whisper.cpp#openvino-support).
     *   **Apple Silicon (M1/M2/M3/M4):** via [Core ML](https://github.com/ggerganov/whisper.cpp#core-ml-support) to use the Apple Neural Engine (ANE), offering speed-ups of over 3x.
     *   **Ascend NPU:** via [CANN](https://github.com/ggerganov/whisper.cpp#ascend-npu-support).
-    *   **Moore Threads GPU:** via[MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
+    *   **Moore Threads GPU:** via [MUSA SDK](https://github.com/ggerganov/whisper.cpp#moore-threads-gpu-support).
 *   **CPU Acceleration:** For CPU-only systems, you can still get a boost by compiling with [OpenBLAS](https://github.com/ggerganov/whisper.cpp#blas-cpu-support-via-openblas) or [POWER VSX](https://github.com/ggerganov/whisper.cpp#power-vsx-intrinsics).
 *   **Quantized Models:** You can try using the quantized models option, which can improve execution speed on certain processors with minimal loss in accuracy.
-*   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the[whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
+*   **Fine-Tuning:** If you have AI programming experience, you can fine-tune a default model by retraining it with a dataset of voices and transcriptions in a specific language. This can also improve recognition of specific accents, slang, or dialects. You can find instructions for converting models to the required `ggml` format on the [whisper.cpp repository](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md).
 
 Keep in mind that compiling `whisper.cpp` with certain hardware accelerations—such as CUDA on any NVIDIA RTX graphics card—can result in a significant performance boost, compared to the default or CPU-optimized builds of whisper.cpp, including those running on powerful modern CPUs.
 
@@ -958,7 +958,7 @@ The timeshift feature alongside with an automatic video/transcription synchroniz
 ### **Q: Why does the beginning and end of the transcription often get lost? Is this an AI issue?**
 **A:** This issue often occurs because standard audio segmentation can cut words in half. To mitigate this **in part**, version 5.10 introduces a **Voice Activity Detection (VAD)** option (`--vad`), based on the powerful Silero model. This feature attempts to cut the audio during moments of silence near the chunk boundary. However, it is not a perfect solution; word truncations can still happen due to inaccurate timestamps from `ffmpeg`, the inherent nature of how Whisper processes audio, and other stream-related problems.
 
-We are continuously working on advanced audio processing methods. Alternative solutions include the[Audio Transcription Chrome extension](https://github.com/antor44/Audio-Transcription) based on WhisperLive (which re-transcribes recent audio for better context) or potential future implementations of sliding window algorithms. However, the current VAD implementation provides an excellent balance of performance and accuracy without the complexity of re-transcribing audio.
+We are continuously working on advanced audio processing methods. Alternative solutions include the [Audio Transcription Chrome extension](https://github.com/antor44/Audio-Transcription) based on WhisperLive (which re-transcribes recent audio for better context) or potential future implementations of sliding window algorithms. However, the current VAD implementation provides an excellent balance of performance and accuracy without the complexity of re-transcribing audio.
 
 It's worth noting that while playlist4whisper and livestream_video.sh currently process audio in isolated chunks —which can lead to word truncation and loss of broader sentence context— this approach also inherently minimizes the impact of hallucinations and other errors common to all Whisper AI model versions and model sizes. Any such errors are typically confined to a single audio/video fragment and occur infrequently, rather than propagating extensively throughout the transcription. The proposed additions to correct these word truncation issues are essentially classic coding workarounds, akin to applying a patch to address these noticeable flaws in OpenAI's Whisper model. Despite this development effort, guaranteed results are not assured. Furthermore, it's highly probable that OpenAI will implement similar or more sophisticated solutions directly within future Whisper model versions, or any other company in another transcription AI; it's almost inevitable they will address such evident and undesirable known errors sooner rather than later. Keep in mind that a very efficient and low power consumption, multilingual transcription AI is more than necessary for a lot of electronic devices and for all robots. This is the most fundamental part of the software to translate voice commands to robot's actions. Consequently, despite the significant programming work, and probably more inefficiently, to try and mitigate these issues externally, it might ultimately be time spent on a temporary fix.
 
