@@ -639,9 +639,6 @@ All quantization levels maintain high transcription accuracy, with no significan
 
 *   All RTX from 2000 support INT4/INT8 via Tensor Cores. Gains on 50xx for `whisper.cpp` come from the same INT support, not new FP4.
 
-**Current optimization status:**
-`whisper.cpp` excels at INT8 (notable gains), but INT4 could be further optimized (modest gains). Potential remains for live transcription improvements in scripts like `playlist4whisper.py` and `livestream_video.sh`.
-
 > [!TIP]
 > **In simple terms:** Use **Q8_0** models (faster + half memory). Switch to **Q4_0** only for maximum concurrent streams when out of memory. Avoid Q5_0 unless specific needs.
 
