@@ -349,6 +349,11 @@ wsl --install
 ```
 This command will enable the features necessary to run WSL and install the Ubuntu distribution. Once this is done, you will need to restart.
 
+If Ubuntu (or whatever recent Linux distribution among available ones) didn't install, then:
+```bash
+wsl.exe --install Ubuntu-24.04
+```
+
 Open the **Linux terminal** (not Windows), update the packages, and install dependencies:
 ```bash
 sudo apt update
