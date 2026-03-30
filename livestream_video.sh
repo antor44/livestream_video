@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.24 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.25 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -254,7 +254,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.24 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.25 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -1262,7 +1262,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                 any_trans_fallback=false
                 any_original_fallback=false
 
-                local is_correction=false
+                is_correction=false
                 if [[ "$TRANS_LANGUAGE" == "$LANGUAGE" ]]; then
                     is_correction=true
                 fi
