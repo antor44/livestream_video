@@ -264,8 +264,7 @@ brew install yt-dlp
 brew install streamlink
 brew install jq
 ```
-
-Install a python virtualenv:
+Reboot. Install a python virtualenv:
 ```bash
 brew install virtualenv
 ```
@@ -296,11 +295,6 @@ pip3 install imageio imageio-ffmpeg Pillow
 > ```
 
 ### 4. Terminal Configuration (`xterm`)
-If you encounter an `xterm` error that says "Failed to open input method," it could be because the executable in `/opt/X11/bin` isn't first in your `$PATH`. You can try:
-```bash
-rm /usr/local/bin/xterm
-ln -s /opt/X11/bin/xterm /usr/local/bin/xterm
-```
 
 To display correct local characters, create a file named `.Xresources` in your user's home directory (`/Users/[user]`). Inside the file, add:
 ```text
