@@ -251,8 +251,8 @@ Once Homebrew is installed, open a terminal and run the following commands:
 ```bash
 brew install make
 brew install cmake
-brew install python3
-brew install python-tk
+brew install python@3.12
+brew install python-tk@3.12
 brew install ffmpeg
 brew install xquartz
 brew install xterm
@@ -264,14 +264,14 @@ brew install yt-dlp
 brew install streamlink
 brew install jq
 ```
-Reboot. Install a python virtualenv:
+Reboot, and then install a Python virtualenv:
 ```bash
 brew install virtualenv
 ```
 Then:
 ```bash
 mkdir ~/python-environments
-virtualenv ~/python-environments/whisper
+virtualenv -p python3.12 ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
 ```
 Finally:
@@ -280,12 +280,12 @@ pip3 install imageio imageio-ffmpeg Pillow
 ```
 
 ### 3. macOS Version Compatibility Notes
-`playlist4whisper` has been successfully tested on macOS Ventura (Intel). macOS versions for Mx or ARM should work without issues, and older versions like Big Sur with some extra adjustments.
+`playlist4whisper` has been successfully tested on macOS versions for Mx or ARM without issues, on macOS Ventura (Intel), and also an older version of playlist4whisper/livestream.sg (successful version 2.60) on very old versions like Big Sur (although it requires some extra adjustments).
 
 > [!WARNING]
-> Homebrew has introduced significant changes in recent versions. Depending on how Python was installed or updated, you may need to adjust your system settings to detect the new Python version. 
+> For older versions of macOS, Homebrew has introduced significant changes in its recent versions. Depending on how Python was installed or updated, you may need to adjust your system settings to detect the new version of Python.
 > 
-> For older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp. Alternatively, you can install older versions of applications (FFmpeg, VLC, SMPlayer, MPV) from other sources. If you trust the source, copy the executable packaged as a `.app` file to the Applications folder and link the path:
+> Also, for older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp. Alternatively, you can install older versions of applications (FFmpeg, VLC, SMPlayer, MPV) from other sources. If you trust the source, copy the executable packaged as a `.app` file to the Applications folder and link the path:
 > ```bash
 > ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
 > ```
@@ -701,16 +701,23 @@ make base.en
 This option enables hardware-accelerated transcription using the Neural Engine on Apple Silicon Macs.
 - **Requirements**: macOS Sonoma (14 or later) and Xcode command-line tools (`xcode-select --install`).
 - **Python Environment (Choose one option)**:
-  - **Option A (Recommended): Using `venv`**
+  - **Option A (Recommended): Using `virtualenv`**
     ```bash
-    python3 -m venv whisper-env
+    brew install virtualenv
+    virtualenv -p python3.12 whisper-env
     source whisper-env/bin/activate
     pip install ane_transformers openai-whisper coremltools
     ```
-  - **Option B (Alternative): Using `Miniconda` or `Conda`**
+  - **Option B (Alternative): Using `venv`**
     ```bash
-    conda create -n py311-whisper python=3.11 -y
-    conda activate py311-whisper
+    python3.12 -m venv whisper-env
+    source whisper-env/bin/activate
+    pip install ane_transformers openai-whisper coremltools
+    ```
+  - **Option C (Alternative): Using `Miniconda` or `Conda`**
+    ```bash
+    conda create -n py312-whisper python=3.12 -y
+    conda activate py312-whisper
     pip install ane_transformers openai-whisper coremltools
     ```
 - **Compilation**:
