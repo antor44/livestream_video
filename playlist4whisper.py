@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.24 License: GPL 3.0
+Author: Antonio R. Version: 5.26 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -58,6 +58,34 @@ except ImportError:
     except ImportError:
         class Image: pass
         class ImageTk: pass
+
+
+# External Drag-and-Drop support via tkinterdnd2 (optional dependency)
+try:
+    from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+
+# Install an X11 error handler to prevent the app from crashing entirely
+# when tkdnd encounters a BadWindow error during a complex DnD action (like browser text).
+if platform.system() == "Linux":
+    try:
+        import ctypes
+        x11 = ctypes.CDLL("libX11.so.6")
+        
+        # Define the CFUNCTYPE for the X11 error handler: int (*)(Display *, XErrorEvent *)
+        ERROR_HANDLER_FUNC = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p)
+        
+        def _x11_error_handler(display, error_event):
+            # We simply ignore the error and return 0, preventing process termination.
+            return 0
+            
+        # Keep a reference to the C callback so it doesn't get garbage collected
+        _c_err_handler = ERROR_HANDLER_FUNC(_x11_error_handler)
+        x11.XSetErrorHandler(_c_err_handler)
+    except Exception:
+        pass
 
 
 previous_error_messages = set()
@@ -1760,6 +1788,43 @@ class MergeLanguageSelectionDialog(tk.Toplevel):
         self.geometry(f'+{int(x)}+{int(y)}')
 
 
+def setup_external_drop(tree_widget, insert_fn):
+    """
+    Register *tree_widget* as an external drop target (files from the file manager).
+    Returns True if the registration succeeded, False otherwise (missing library,
+    WSL2, compositor without XDND bridge, etc.).
+    """
+    if not DND_AVAILABLE:
+        return False
+    try:
+        # Use DND_FILES and DND_TEXT explicitly instead of DND_ALL to avoid
+        # tkdnd crashing on X_GetProperty when receiving rich-text/HTML drops from browsers.
+        tree_widget.drop_target_register(DND_FILES, DND_TEXT)
+        tree_widget.dnd_bind('<<Drop>>', lambda e: _handle_external_drop(e, tree_widget, insert_fn))
+        return True
+    except Exception:
+        # Silent failure: WSL2, unsupported Wayland compositor, etc.
+        return False
+
+
+def _handle_external_drop(event, tree_widget, insert_fn):
+    """
+    Parse the paths delivered by a drop event and call *insert_fn* for each one.
+    Handles the tk brace-quoting used for paths that contain spaces.
+    """
+    try:
+        paths = event.widget.tk.splitlist(event.data)
+    except Exception:
+        paths = [event.data.strip('{}')]
+        
+    y_pos = event.y_root - tree_widget.winfo_rooty()
+    
+    for path in paths:
+        path = path.strip()
+        if path:
+            insert_fn(path, y_pos)
+
+
 class M3uPlaylistPlayer(tk.Frame):
     """
     A custom Tkinter frame for playing M3U playlists.
@@ -1845,6 +1910,10 @@ class M3uPlaylistPlayer(tk.Frame):
         yscrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=yscrollbar.set)
         self.tree.bind("<<TreeviewSelect>>", self.load_options)
+
+        # External Drag-and-Drop: register the treeview as a drop target.
+        self._dnd_drop_supported = setup_external_drop(self.tree, self._insert_url_or_file)
+        self.dnd_hint_label = None
 
         self.container_frame = tk.Frame(self)
         self.container_frame.pack(side=tk.LEFT)
@@ -3891,6 +3960,31 @@ class M3uPlaylistPlayer(tk.Frame):
                     self.update_list_numbers()
             self._dragging_item = None
 
+    def _insert_url_or_file(self, path, y_pos):
+        """
+        Insert a single file path or URL at the specified y_pos in the playlist tree.
+        Called by the external DnD handler when the user drops a file.
+        """
+        if os.path.isfile(path):
+            name = os.path.splitext(os.path.basename(path))[0]
+        else:
+            # Treat it as a URL/stream; use the path itself as the display name
+            name = path
+
+        drop_item = self.tree.identify_row(y_pos)
+        if drop_item:
+            index = self.tree.index(drop_item)
+        else:
+            index = "end"
+
+        new_item_id = self.tree.insert("", index, values=(0, name, path))
+        self.update_list_numbers()
+
+        if new_item_id:
+            self.tree.selection_set(new_item_id)
+            self.tree.focus(new_item_id)
+            self.tree.see(new_item_id)
+
     # Function to load a playlist
     def load_playlist(self):
         filename = filedialog.askopenfilename(filetypes=[("Playlist Files", "*.m3u")])
@@ -4213,7 +4307,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.24\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.26\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -4240,7 +4334,10 @@ class MainApplication:
 
     def __init__(self, tab_names, tab_colors):
         self.error_messages = queue.Queue()
-        self.main_window = tk.Tk()
+        if DND_AVAILABLE:
+            self.main_window = TkinterDnD.Tk()
+        else:
+            self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
         self.main_window.geometry("980x800")
 
