@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.25 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.26 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -25,7 +25,7 @@
 # --- Configuration and Constants ---
 
 # Default URL to use if none is provided
-readonly URL_DEFAULT="https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8"
+readonly URL_DEFAULT="https://cbsn-mia.cbsnstream.cbsnews.com/out/v1/ac174b7938264d24ae27e56f6584bca0/master.m3u8"
 # Temporary file to store used port numbers for multi-instance support
 readonly TEMP_FILE="/tmp/used_ports-livestream_video.txt"
 
@@ -248,13 +248,13 @@ usage() {
 Usage: $0 stream_url [or /path/media_file or pulse:index or avfoundation:index] [--step step_s] [--model model] [--language language] [--executable exe_path] [--translate] [--vad] [--subtitles] [--timeshift] [--segments segments (2<n<99)] [--segment_time minutes (1<minutes<99)] [--sync seconds (0 <= seconds <= (Step - 3))] --trans trans_language [output_text speak] [--gemini-trans [gemini_model]] [--gemini-level [0-3]] [player player_options]
 
 Example:
-  $0 https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
+  $0 https://cbsn-mia.cbsnstream.cbsnews.com/out/v1/ac174b7938264d24ae27e56f6584bca0/master.m3u8 --step 8 --model base --language auto --translate --timeshift --segments 4 --segment_time 10 --trans es both speak
   $0 ./my_video.mp4 --subtitles --trans es --gemini-trans
   $0 ./my_video.mp4 --subtitles --trans fr --gemini-trans gemini-3.1-pro-preview --gemini-level 3
 
 Help:
 
-  livestream_video.sh v. 5.25 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.26 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
