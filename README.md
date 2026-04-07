@@ -89,7 +89,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 
 <br>
 
-**Author:** Antonio R. | **Version:** 5.24 | **License:** GPL 3.0
+**Author:** Antonio R. | **Version:** 5.25 | **License:** GPL 3.0
 
 ---
 
@@ -115,7 +115,7 @@ It is completely independent of `playlist4whisper` and `livestream_video.sh`, ba
 
 ## playlist4whisper Quick Start
 
-`playlist4whisper` and `livestream_video.sh` is based on `whisper.cpp` and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that `mpv`, `smplayer`, `translate-shell`, `ffmpeg`, `vlc`, `python3-tk`, `python3-pip`, `imageio`, `imageio-ffmpeg`, `Pillow`, `jq`, `curl`, `bc`, and `xterm` are installed. 
+`playlist4whisper` and `livestream_video.sh` is based on `whisper.cpp` and also supports OpenAI's Whisper. It depends on other executables and libraries. Please ensure that `mpv`, `smplayer`, `translate-shell`, `ffmpeg`, `vlc`, `python3-tk`, `python3-pip`, `imageio`, `imageio-ffmpeg`, `Pillow`, `tkinterdnd2`, `jq`, `curl`, `bc`, and `xterm` are installed. 
 
 To install `whisper.cpp`, choose one of these options (you can install all and choose any, or Whisper executables are prioritized, with `./build/bin/whisper-cli` executable being the first choice):
 
@@ -206,7 +206,8 @@ source ~/python-environments/whisper/bin/activate
 ```
 And finally:
 ```bash
-pip3 install imageio imageio-ffmpeg Pillow
+pip3 install imageio imageio-ffmpeg Pillow tkinterdnd2
+
 ```
 *(Remember, in every session you need to run the command `source ~/python-environments/whisper/bin/activate` before executing playlist4whisper.py).*
 
@@ -276,7 +277,8 @@ source ~/python-environments/whisper/bin/activate
 ```
 Finally:
 ```bash
-pip3 install imageio imageio-ffmpeg Pillow
+pip3 install imageio imageio-ffmpeg Pillow tkinterdnd2
+
 ```
 
 ### 3. macOS Version Compatibility Notes
@@ -361,7 +363,7 @@ sudo apt install virtualenv
 mkdir ~/python-environments
 virtualenv ~/python-environments/whisper
 source ~/python-environments/whisper/bin/activate
-pip3 install imageio imageio-ffmpeg Pillow
+pip3 install imageio imageio-ffmpeg Pillow tkinterdnd2
 ```
 
 Install `yt-dlp` and `streamlink`:
