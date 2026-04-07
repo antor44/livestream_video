@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.28 License: GPL 3.0
+Author: Antonio R. Version: 5.30 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -2860,8 +2860,100 @@ class M3uPlaylistPlayer(tk.Frame):
         self.gemini_level.set(gemini_level_option)
         self.gemini_level_option_menu.config(text=gemini_level_option)
 
+    def get_resolved_settings_for_url(self, url):
+        # 1. Base Global Options
+        opts = {
+            "executable": self.current_options.get("executable_option", default_executable_option),
+            "terminal": self.current_options.get("terminal_option", default_terminal_option),
+            "bash_options": self.current_options.get("bash_options", default_bash_options),
+            "playeronly": self.current_options.get("playeronly_option", default_playeronly_option),
+            "player": self.current_options.get("player_option", default_player_option),
+            "mpv_options": self.current_options.get("mpv_options", default_mpv_options),
+            "timeshiftactive": self.current_options.get("timeshiftactive_option", default_timeshiftactive_option),
+            "timeshift_options": self.current_options.get("timeshift_options", default_timeshift_options),
+            "online_translation": self.current_options.get("online_translation_option", default_online_translation_option),
+            "trans_options": self.current_options.get("trans_options", default_trans_options),
+            "engine_model": self.current_options.get("engine_model_option", default_engine_model_option),
+            "gemini_level": self.current_options.get("gemini_level_option", default_gemini_level_option),
+            "vad": False,
+            "translate": False
+        }
 
+        # 2. Per-Item Overrides (only if not in global override mode)
+        if not self.override_options.get() and url in self.current_options:
+            item_config = self.current_options[url]
+            mapping = {
+                "executable_option": "executable",
+                "terminal_option": "terminal",
+                "bash_options": "bash_options",
+                "playeronly_option": "playeronly",
+                "player_option": "player",
+                "mpv_options": "mpv_options",
+                "timeshiftactive_option": "timeshiftactive",
+                "timeshift_options": "timeshift_options",
+                "online_translation_option": "online_translation",
+                "trans_options": "trans_options",
+                "engine_model_option": "engine_model",
+                "gemini_level_option": "gemini_level"
+            }
+            for cfg_key, target_key in mapping.items():
+                if cfg_key in item_config:
+                    opts[target_key] = item_config[cfg_key]
+
+        # 3. Parse complex options into a flat result dictionary
+        res = {
+            "executable": opts["executable"],
+            "terminal": opts["terminal"],
+            "playeronly": opts["playeronly"],
+            "player": opts["player"],
+            "mpv_options": opts["mpv_options"],
+            "timeshiftactive": opts["timeshiftactive"],
+            "online_translation": opts["online_translation"],
+            "engine_model": opts["engine_model"],
+            "gemini_level": opts["gemini_level"]
+        }
+
+        # Parse bash_options
+        b_opts = opts["bash_options"].split()
+        res["step"] = "9"
+        res["model"] = "base"
+        res["language_code"] = "auto"
+        res["translate"] = False
+        res["vad"] = False
+        res["quality"] = "raw"
+        for o in b_opts:
+            if o.isdigit() and (3 <= int(o) <= 60): res["step"] = o
+            elif o == "translate": res["translate"] = True
+            elif o == "vad": res["vad"] = True
+            elif o in ["raw", "upper", "lower"]: res["quality"] = o
+            elif o in model_list: res["model"] = o
+            elif o in lang_codes: res["language_code"] = o
+
+        # Parse timeshift_options
+        ts_opts = opts["timeshift_options"].split()
+        if len(ts_opts) >= 3:
+            res["sync"] = ts_opts[0]
+            res["segments"] = ts_opts[1]
+            res["segment_time"] = ts_opts[2]
+        else:
+            d_ts = default_timeshift_options.split()
+            res["sync"] = d_ts[0]
+            res["segments"] = d_ts[1]
+            res["segment_time"] = d_ts[2]
+
+        # Parse trans_options
+        tr_opts = opts["trans_options"].split()
+        res["trans_language_code"] = "en"
+        res["output_text"] = "both"
+        res["speak"] = False
+        for o in tr_opts:
+            if o in lang_codes: res["trans_language_code"] = o
+            elif o in ["original", "translation", "both", "none"]: res["output_text"] = o
+            elif o == "speak": res["speak"] = True
+
+        return res
     def play_channel(self, event=None):
+        self.load_config()
 
         if self.subtitles == "subtitles":
             region = "cell"
@@ -2886,27 +2978,24 @@ class M3uPlaylistPlayer(tk.Frame):
                 if self.subtitles == "subtitles" and not __import__('re').match(r'^/|^\./', url):
                     continue
 
-                mpv_options = self.mpv_options_entry.get()
+                # Get resolved settings for this specific item (or global if focused)
+                s = self.get_resolved_settings_for_url(url)
 
-                language_text = self.language.get()
-                language_cleaned = language_text.split('(')[0].strip()
-
-                if self.translate.get():
-                    translate_value = " --translate"
-                else:
-                    translate_value = ""
+                mpv_options = s["mpv_options"]
+                language_cleaned = s["language_code"]
+                translate_value = " --translate" if s["translate"] else ""
 
                 if self.subtitles == "subtitles":
                     region = "cell"
                 else:
                     print("Playing channel:", url)
 
-                videoplayer = self.player.get()
-                quality = self.quality.get()
+                videoplayer = s["player"]
+                quality = s["quality"]
 
                 if self.subtitles == "" and (not url.startswith("pulse") and not url.startswith("avfoundation")):
 
-                    if self.timeshiftactive.get():
+                    if s["timeshiftactive"]:
                         if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
                                                              stderr=subprocess.DEVNULL) == 0:
                             print("Timeshift active.")
@@ -2916,7 +3005,7 @@ class M3uPlaylistPlayer(tk.Frame):
                             messagebox.showerror("Timeshift Player Not Installed", err_message)
 
                     # Try launching smplayer, mpv, or mplayer
-                    elif self.playeronly.get() or quality == "raw":
+                    elif s["playeronly"] or quality == "raw":
                         try:
                             if videoplayer == "smplayer" and videoplayer in player_installed:
                                 subprocess.Popen(["smplayer", url, mpv_options])
@@ -2928,7 +3017,7 @@ class M3uPlaylistPlayer(tk.Frame):
                                     print("Launching mpv...")
                                     threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
                             elif videoplayer == "none":
-                                if self.playeronly.get():
+                                if s["playeronly"]:
                                     mpv_options = ""
                                     err_message = "None video player selected."
                                     print(err_message)
@@ -2946,16 +3035,16 @@ class M3uPlaylistPlayer(tk.Frame):
                 if quality == "raw":
                     videoplayer = "none"
 
-                # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
-                terminal = self.terminal.get()
-                bash_options = "--step " + self.step_s.get() + " --model " + self.model.get() + " --language " + language_cleaned + \
+                # Use resolved terminal and build bash_options from resolved values
+                terminal = s["terminal"]
+                bash_options = "--step " + s["step"] + " --model " + s["model"] + " --language " + language_cleaned + \
                                translate_value + " --" + quality
 
-                if self.playeronly.get():
+                if s["playeronly"]:
                     bash_options = bash_options + " --playeronly"
-                if self.timeshiftactive.get():
-                    bash_options = bash_options + " --timeshift --sync " + self.sync.get() + " --segments " + self.segments.get() + " --segment_time " + self.segment_time.get()
-                if self.vad.get():
+                if s["timeshiftactive"]:
+                    bash_options = bash_options + " --timeshift --sync " + s["sync"] + " --segments " + s["segments"] + " --segment_time " + s["segment_time"]
+                if s["vad"]:
                     bash_options = bash_options + " --vad"
                 if self.spec == "streamlink":
                     bash_options = bash_options + " --streamlink"
@@ -2966,60 +3055,58 @@ class M3uPlaylistPlayer(tk.Frame):
 
                 # --- Online Translation Logic ---
                 env = None
-                if self.online_translation.get():
+                if s["online_translation"]:
                     if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
-                        trans_language_text = self.trans_language.get()
-                        trans_language_cleaned = trans_language_text.split('(')[0].strip()
-                        speak_value = " speak" if self.speak.get() else ""
-                        bash_options += f" --trans {trans_language_cleaned} {self.output_text.get()}{speak_value}"
+                        trans_language_cleaned = s["trans_language_code"]
+                        speak_value = " speak" if s["speak"] else ""
+                        bash_options += f" --trans {trans_language_cleaned} {s['output_text']}{speak_value}"
 
-                        selected_engine = self.engine_model.get()
+                        selected_engine = s["engine_model"]
 
                         if selected_engine != "Google Translate":
-                            # Get API key from the main config dictionary
-                            self.load_config() # Ensure config is up-to-date
+                            # No need to load_config here, we already have s
                             api_key = self.current_options.get("gemini_api_key", "")
 
                             if not api_key:
                                 messagebox.showwarning("API Key Missing", f"A Gemini model ('{selected_engine}') is selected, but the API key is not set. Translation will fall back to Google Translate.")
                             else:
                                 bash_options += f" --gemini-trans {selected_engine}"
-                                bash_options += f" --gemini-level {self.gemini_level.get()}"
+                                bash_options += f" --gemini-level {s['gemini_level']}"
                                 env = os.environ.copy()
                                 env["GEMINI_API_KEY"] = api_key
-                                print(f"Online translation active with Gemini model: {selected_engine}, level: {self.gemini_level.get()}.")
+                                print(f"Online translation active with Gemini model: {selected_engine}, level: {s['gemini_level']}.")
                         else:
                             print("Online translation active with Google Translate.")
                     else:
                         err_message = ("translate-shell Not Installed", f"Warning: Online translation program 'trans' was not found. Please install it.")
                         self.error_messages.put(err_message)
 
-                if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
-                    url = '"' + url + '"'
+                if not s["playeronly"] or s["timeshiftactive"] or self.subtitles == "subtitles":
+                    url_cmd = '"' + url + '"'
 
-                    executable = self.executable.get()
+                    executable = s["executable"]
                     if shutil.which(executable) is None:
                         err_message = ("Whisper executable Not Installed", f"Warning: Whisper executable {executable} was not found. Please install it" \
                                             f" or choose other.")
                         self.error_messages.put(err_message)
                     executable_option = f"--executable {executable}"
 
-                    if self.timeshiftactive.get() or self.subtitles == "subtitles":
-                        mpv_options = f"--player vlc {mpv_options}"
+                    if s["timeshiftactive"] or self.subtitles == "subtitles":
+                        mpv_options_cmd = f"--player vlc {mpv_options}"
                     elif videoplayer == "smplayer" and videoplayer in player_installed:
-                        mpv_options = f"--player smplayer {mpv_options}"
+                        mpv_options_cmd = f"--player smplayer {mpv_options}"
                     elif videoplayer == "mpv" and videoplayer in player_installed:
-                        mpv_options = f"--player mpv {mpv_options}"
+                        mpv_options_cmd = f"--player mpv {mpv_options}"
                     elif videoplayer == "none":
-                        mpv_options = f"--player none"
+                        mpv_options_cmd = f"--player none"
                     else:
-                        mpv_options = ""
+                        mpv_options_cmd = ""
                         err_message = f"No {videoplayer} video player found."
                         print(err_message)
                         messagebox.showerror("Error", err_message)
 
                     if os.path.exists(self.bash_script):
-                        command_to_run = f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}"
+                        command_to_run = f"{self.bash_script} {url_cmd} {bash_options} {executable_option} {mpv_options_cmd}"
                         print("Script Options:", command_to_run)
                         try:
                             popen_kwargs = {"env": env} if env else {}
@@ -4327,7 +4414,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.28\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.30\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
