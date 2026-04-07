@@ -22,6 +22,7 @@
 -   **Broad Service Support:** Access a wide range of video services through `streamlink` or `yt-dlp`.
 -   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
+-   **Advanced Database Features**: Support for multiple playlists in the same window or in separate instances with different whisper.cpp versions and configurations, including customizable names and tab border colors. Playlists support wildcard searches, as well as loading, saving, and appending other playlists. Playlist elements support editing, reordering, and drag-and-drop.
 
 > [!WARNING]
 > **Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks with the integrated `Subtitle Video Editor`.
@@ -89,7 +90,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 
 <br>
 
-**Author:** Antonio R. | **Version:** 5.25 | **License:** GPL 3.0
+**Author:** Antonio R. | **Version:** 5.26 | **License:** GPL 3.0
 
 ---
 
@@ -453,7 +454,7 @@ This is a command-line program that includes the same transcription functions as
 
 **Example:**
 ```bash
-./livestream_video.sh https://cbsn-det.cbsnstream.cbsnews.com/out/v1/169f5c001bc74fa7a179b19c20fea069/master.m.m3u8 --lower --step 8 --model base --language auto --translate --vad --timeshift --segments 4 --segment_time 10 --trans es both speak --gemini-trans --gemini-level 3
+./livestream_video.sh https://cbsn-mia.cbsnstream.cbsnews.com/out/v1/ac174b7938264d24ae27e56f6584bca0/master.m3u8 --lower --step 8 --model base --language auto --translate --vad --timeshift --segments 4 --segment_time 10 --trans es both speak --gemini-trans --gemini-level 3
 ```
 
 >[!TIP]
