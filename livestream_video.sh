@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.26 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.28 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -254,7 +254,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.26 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v. 5.28 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -491,6 +491,10 @@ find_vad_cut_point() {
 # Takes the path to the temporary WAV file as its first argument.
 process_audio_chunk() {
     local wav_file="$1"
+
+    if [[ ! -s "$wav_file" ]] || [[ $(stat -c%s "$wav_file" 2>/dev/null || stat -f%z "$wav_file" 2>/dev/null) -lt 1000 ]]; then
+        return
+    fi
 
     # The processing pipe is designed to be robust across whisper.cpp versions
     if [[ "$WHISPER_EXECUTABLE" == "./build/bin/whisper-cli" ]] || [[ "$WHISPER_EXECUTABLE" == "./main" ]] || [[ "$WHISPER_EXECUTABLE" == "whisper-cpp" ]]; then
@@ -1867,7 +1871,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                     if [[ "$VAD_SPLIT" == "vad" ]]; then
                         vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$STEP_S" 3)
                         if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $STEP_S" | bc -l) )); then
-                            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                            ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && [ -f /tmp/whisper-live_${MYPID}_trim.wav ] && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
                             chunk_duration=$vad_cut
                             vad_did_cut=1
                         fi
@@ -1920,7 +1924,7 @@ if [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 0 ]]; then
                         if [[ "$VAD_SPLIT" == "vad" ]]; then
                             vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_duration" 3)
                             if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $chunk_duration" | bc -l) )); then
-                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && [ -f /tmp/whisper-live_${MYPID}_trim.wav ] && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
                                 chunk_duration=$vad_cut
                                 vad_did_cut=1
                             fi
@@ -1996,7 +2000,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                         if [[ "$VAD_SPLIT" == "vad" ]]; then
                             vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$STEP_S" 3)
                             if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $STEP_S" | bc -l) )); then
-                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && [ -f /tmp/whisper-live_${MYPID}_trim.wav ] && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
                                 chunk_duration=$vad_cut
                                 vad_did_cut=1
                             fi
@@ -2039,7 +2043,7 @@ elif [[ $TIMESHIFT == "timeshift" ]] && [[ $LOCAL_FILE -eq 1 ]]; then # local vi
                         if [[ "$VAD_SPLIT" == "vad" ]]; then
                             vad_cut=$(find_vad_cut_point "/tmp/whisper-live_${MYPID}.wav" "$chunk_duration" 3)
                             if (( $(echo "$vad_cut > 1.0 && $vad_cut <= $chunk_duration" | bc -l) )); then
-                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && [ -f /tmp/whisper-live_${MYPID}_trim.wav ] && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
                                 chunk_duration=$vad_cut
                                 vad_did_cut=1
                             fi
@@ -2302,7 +2306,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
 
     printf "Buffering audio. Please wait...\n\n"
     # Delay added to prevent errors
-    sleep $(($STEP_S))
+    sleep 4
 
     # do not stop script on error
     set +e
@@ -2341,7 +2345,7 @@ elif [[ "$PLAYER_ONLY" == "" ]]; then # No timeshift
             
             # If a valid cut is found and it is shorter than the extracted duration
             if (( $(echo "$vad_cut > 1.0 && $vad_cut < $chunk_actual_duration" | bc -l) )); then
-                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
+                ffmpeg -loglevel quiet -v error -noaccurate_seek -i /tmp/whisper-live_${MYPID}.wav -y -ar 16000 -ac 1 -c:a pcm_s16le -ss 0 -to "$vad_cut" /tmp/whisper-live_${MYPID}_trim.wav && [ -f /tmp/whisper-live_${MYPID}_trim.wav ] && mv /tmp/whisper-live_${MYPID}_trim.wav /tmp/whisper-live_${MYPID}.wav
                 
                 chunk_actual_duration=$vad_cut
                 vad_did_cut=1
