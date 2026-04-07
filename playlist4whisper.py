@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.26 License: GPL 3.0
+Author: Antonio R. Version: 5.28 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -2331,6 +2331,9 @@ class M3uPlaylistPlayer(tk.Frame):
         self.add_label = tk.Label(self.options_frame5, text="", padx=1)
         self.add_label.pack(side=tk.LEFT)
 
+        self.launch_button = tk.Button(self.options_frame5, text="Launch", command=self.play_channel, padx=4)
+        self.launch_button.pack(side=tk.LEFT)
+
         self.add_button = tk.Button(self.options_frame5, text="Add URL", command=self.add_channel, padx=4)
         self.add_button.pack(side=tk.LEFT)
 
@@ -2862,186 +2865,200 @@ class M3uPlaylistPlayer(tk.Frame):
 
         if self.subtitles == "subtitles":
             region = "cell"
-        else:
+            items_to_play = self.tree.selection()
+        elif event:
             region = self.tree.identify_region(event.x, event.y)
-
-        if region == "cell":
-            item = self.tree.selection()[0]
-            url = self.tree.item(item, "values")[2]
-
-            mpv_options = self.mpv_options_entry.get()
-
-            language_text = self.language.get()
-            language_cleaned = language_text.split('(')[0].strip()
-
-            if self.translate.get():
-                translate_value = " --translate"
+            if region == "cell":
+                item_at_cursor = self.tree.identify_row(event.y)
+                if item_at_cursor in self.tree.selection():
+                    items_to_play = self.tree.selection()
+                else:
+                    items_to_play = [item_at_cursor]
             else:
-                translate_value = ""
+                items_to_play = []
+        else:
+            region = "cell"
+            items_to_play = self.tree.selection()
 
-            if self.subtitles == "subtitles":
-                region = "cell"
-            else:
-                print("Playing channel:", url)
+        if region == "cell" and items_to_play:
+            for item in items_to_play:
+                url = self.tree.item(item, "values")[2]
+                if self.subtitles == "subtitles" and not __import__('re').match(r'^/|^\./', url):
+                    continue
 
-            videoplayer = self.player.get()
-            quality = self.quality.get()
+                mpv_options = self.mpv_options_entry.get()
 
-            if self.subtitles == "" and (not url.startswith("pulse") and not url.startswith("avfoundation")):
+                language_text = self.language.get()
+                language_cleaned = language_text.split('(')[0].strip()
 
-                if self.timeshiftactive.get():
-                    if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
-                                                         stderr=subprocess.DEVNULL) == 0:
-                        print("Timeshift active.")
-                    else:
-                        err_message= f"Warning: Video player VLC was not found. Please install it."
-                        print(err_message)
-                        messagebox.showerror("Timeshift Player Not Installed", err_message)
+                if self.translate.get():
+                    translate_value = " --translate"
+                else:
+                    translate_value = ""
 
-                # Try launching smplayer, mpv, or mplayer
-                elif self.playeronly.get() or quality == "raw":
-                    try:
-                        if videoplayer == "smplayer" and videoplayer in player_installed:
-                            subprocess.Popen(["smplayer", url, mpv_options])
-                            print("Launching smplayer...")
-                        elif videoplayer == "mpv" and videoplayer in player_installed:
-                            temp_file = tempfile.NamedTemporaryFile(delete=False)
-                            with open(temp_file.name, "w") as log_file:
-                                process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
-                                print("Launching mpv...")
-                                threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
-                        elif videoplayer == "none":
-                            if self.playeronly.get():
+                if self.subtitles == "subtitles":
+                    region = "cell"
+                else:
+                    print("Playing channel:", url)
+
+                videoplayer = self.player.get()
+                quality = self.quality.get()
+
+                if self.subtitles == "" and (not url.startswith("pulse") and not url.startswith("avfoundation")):
+
+                    if self.timeshiftactive.get():
+                        if subprocess.call(["vlc", "--version"], stdout=subprocess.DEVNULL,
+                                                             stderr=subprocess.DEVNULL) == 0:
+                            print("Timeshift active.")
+                        else:
+                            err_message= f"Warning: Video player VLC was not found. Please install it."
+                            print(err_message)
+                            messagebox.showerror("Timeshift Player Not Installed", err_message)
+
+                    # Try launching smplayer, mpv, or mplayer
+                    elif self.playeronly.get() or quality == "raw":
+                        try:
+                            if videoplayer == "smplayer" and videoplayer in player_installed:
+                                subprocess.Popen(["smplayer", url, mpv_options])
+                                print("Launching smplayer...")
+                            elif videoplayer == "mpv" and videoplayer in player_installed:
+                                temp_file = tempfile.NamedTemporaryFile(delete=False)
+                                with open(temp_file.name, "w") as log_file:
+                                    process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
+                                    print("Launching mpv...")
+                                    threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
+                            elif videoplayer == "none":
+                                if self.playeronly.get():
+                                    mpv_options = ""
+                                    err_message = "None video player selected."
+                                    print(err_message)
+                                    messagebox.showerror("Error", err_message)
+                            else:
                                 mpv_options = ""
-                                err_message = "None video player selected."
+                                err_message = f"No {videoplayer} video player found."
                                 print(err_message)
                                 messagebox.showerror("Error", err_message)
+                        except Exception as e:
+                            error_message = f"Error occurred while launching {videoplayer}: {str(e)}"
+                            print(error_message)
+                            messagebox.showerror("Error", error_message)
+
+                if quality == "raw":
+                    videoplayer = "none"
+
+                # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
+                terminal = self.terminal.get()
+                bash_options = "--step " + self.step_s.get() + " --model " + self.model.get() + " --language " + language_cleaned + \
+                               translate_value + " --" + quality
+
+                if self.playeronly.get():
+                    bash_options = bash_options + " --playeronly"
+                if self.timeshiftactive.get():
+                    bash_options = bash_options + " --timeshift --sync " + self.sync.get() + " --segments " + self.segments.get() + " --segment_time " + self.segment_time.get()
+                if self.vad.get():
+                    bash_options = bash_options + " --vad"
+                if self.spec == "streamlink":
+                    bash_options = bash_options + " --streamlink"
+                if self.spec == "yt-dlp":
+                    bash_options = bash_options + " --yt-dlp"
+                if self.subtitles == "subtitles":
+                    bash_options = bash_options + " --subtitles"
+
+                # --- Online Translation Logic ---
+                env = None
+                if self.online_translation.get():
+                    if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
+                        trans_language_text = self.trans_language.get()
+                        trans_language_cleaned = trans_language_text.split('(')[0].strip()
+                        speak_value = " speak" if self.speak.get() else ""
+                        bash_options += f" --trans {trans_language_cleaned} {self.output_text.get()}{speak_value}"
+
+                        selected_engine = self.engine_model.get()
+
+                        if selected_engine != "Google Translate":
+                            # Get API key from the main config dictionary
+                            self.load_config() # Ensure config is up-to-date
+                            api_key = self.current_options.get("gemini_api_key", "")
+
+                            if not api_key:
+                                messagebox.showwarning("API Key Missing", f"A Gemini model ('{selected_engine}') is selected, but the API key is not set. Translation will fall back to Google Translate.")
+                            else:
+                                bash_options += f" --gemini-trans {selected_engine}"
+                                bash_options += f" --gemini-level {self.gemini_level.get()}"
+                                env = os.environ.copy()
+                                env["GEMINI_API_KEY"] = api_key
+                                print(f"Online translation active with Gemini model: {selected_engine}, level: {self.gemini_level.get()}.")
                         else:
-                            mpv_options = ""
-                            err_message = f"No {videoplayer} video player found."
-                            print(err_message)
-                            messagebox.showerror("Error", err_message)
-                    except Exception as e:
-                        error_message = f"Error occurred while launching {videoplayer}: {str(e)}"
-                        print(error_message)
-                        messagebox.showerror("Error", error_message)
-
-            if quality == "raw":
-                videoplayer = "none"
-
-            # Try launching gnome-terminal, konsole, lxterm, mlterm, xfce4-terminal, xterm
-            terminal = self.terminal.get()
-            bash_options = "--step " + self.step_s.get() + " --model " + self.model.get() + " --language " + language_cleaned + \
-                           translate_value + " --" + quality
-
-            if self.playeronly.get():
-                bash_options = bash_options + " --playeronly"
-            if self.timeshiftactive.get():
-                bash_options = bash_options + " --timeshift --sync " + self.sync.get() + " --segments " + self.segments.get() + " --segment_time " + self.segment_time.get()
-            if self.vad.get():
-                bash_options = bash_options + " --vad"
-            if self.spec == "streamlink":
-                bash_options = bash_options + " --streamlink"
-            if self.spec == "yt-dlp":
-                bash_options = bash_options + " --yt-dlp"
-            if self.subtitles == "subtitles":
-                bash_options = bash_options + " --subtitles"
-
-            # --- Online Translation Logic ---
-            env = None
-            if self.online_translation.get():
-                if subprocess.call(["trans", "-V"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
-                    trans_language_text = self.trans_language.get()
-                    trans_language_cleaned = trans_language_text.split('(')[0].strip()
-                    speak_value = " speak" if self.speak.get() else ""
-                    bash_options += f" --trans {trans_language_cleaned} {self.output_text.get()}{speak_value}"
-
-                    selected_engine = self.engine_model.get()
-
-                    if selected_engine != "Google Translate":
-                        # Get API key from the main config dictionary
-                        self.load_config() # Ensure config is up-to-date
-                        api_key = self.current_options.get("gemini_api_key", "")
-
-                        if not api_key:
-                            messagebox.showwarning("API Key Missing", f"A Gemini model ('{selected_engine}') is selected, but the API key is not set. Translation will fall back to Google Translate.")
-                        else:
-                            bash_options += f" --gemini-trans {selected_engine}"
-                            bash_options += f" --gemini-level {self.gemini_level.get()}"
-                            env = os.environ.copy()
-                            env["GEMINI_API_KEY"] = api_key
-                            print(f"Online translation active with Gemini model: {selected_engine}, level: {self.gemini_level.get()}.")
+                            print("Online translation active with Google Translate.")
                     else:
-                        print("Online translation active with Google Translate.")
-                else:
-                    err_message = ("translate-shell Not Installed", f"Warning: Online translation program 'trans' was not found. Please install it.")
-                    self.error_messages.put(err_message)
+                        err_message = ("translate-shell Not Installed", f"Warning: Online translation program 'trans' was not found. Please install it.")
+                        self.error_messages.put(err_message)
 
-            if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
-                url = '"' + url + '"'
+                if not self.playeronly.get() or self.timeshiftactive.get() or self.subtitles == "subtitles":
+                    url = '"' + url + '"'
 
-                executable = self.executable.get()
-                if shutil.which(executable) is None:
-                    err_message = ("Whisper executable Not Installed", f"Warning: Whisper executable {executable} was not found. Please install it" \
-                                        f" or choose other.")
-                    self.error_messages.put(err_message)
-                executable_option = f"--executable {executable}"
+                    executable = self.executable.get()
+                    if shutil.which(executable) is None:
+                        err_message = ("Whisper executable Not Installed", f"Warning: Whisper executable {executable} was not found. Please install it" \
+                                            f" or choose other.")
+                        self.error_messages.put(err_message)
+                    executable_option = f"--executable {executable}"
 
-                if self.timeshiftactive.get() or self.subtitles == "subtitles":
-                    mpv_options = f"--player vlc {mpv_options}"
-                elif videoplayer == "smplayer" and videoplayer in player_installed:
-                    mpv_options = f"--player smplayer {mpv_options}"
-                elif videoplayer == "mpv" and videoplayer in player_installed:
-                    mpv_options = f"--player mpv {mpv_options}"
-                elif videoplayer == "none":
-                    mpv_options = f"--player none"
-                else:
-                    mpv_options = ""
-                    err_message = f"No {videoplayer} video player found."
-                    print(err_message)
-                    messagebox.showerror("Error", err_message)
+                    if self.timeshiftactive.get() or self.subtitles == "subtitles":
+                        mpv_options = f"--player vlc {mpv_options}"
+                    elif videoplayer == "smplayer" and videoplayer in player_installed:
+                        mpv_options = f"--player smplayer {mpv_options}"
+                    elif videoplayer == "mpv" and videoplayer in player_installed:
+                        mpv_options = f"--player mpv {mpv_options}"
+                    elif videoplayer == "none":
+                        mpv_options = f"--player none"
+                    else:
+                        mpv_options = ""
+                        err_message = f"No {videoplayer} video player found."
+                        print(err_message)
+                        messagebox.showerror("Error", err_message)
 
-                if os.path.exists(self.bash_script):
-                    command_to_run = f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}"
-                    print("Script Options:", command_to_run)
-                    try:
-                        popen_kwargs = {"env": env} if env else {}
+                    if os.path.exists(self.bash_script):
+                        command_to_run = f"{self.bash_script} {url} {bash_options} {executable_option} {mpv_options}"
+                        print("Script Options:", command_to_run)
+                        try:
+                            popen_kwargs = {"env": env} if env else {}
 
-                        if terminal == "gnome-terminal" and subprocess.run(
-                                ["gnome-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c",
-                                              f"{command_to_run}; exec /bin/bash -i"], **popen_kwargs)
-                        elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
-                            subprocess.Popen(["konsole", "--noclose", "-e", command_to_run], **popen_kwargs)
-                        elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["lxterm", "-hold", "-e", command_to_run], **popen_kwargs)
-                        elif terminal == "mate-terminal" and subprocess.run(
-                                ["mate-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["mate-terminal", "-e", command_to_run], **popen_kwargs)
-                        elif terminal == "mlterm":
-                            result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
-                            mlterm_output = result.stdout
-                            if "mlterm" in mlterm_output:
-                                subprocess.Popen(["bash", "-c", f"mlterm -e {command_to_run} & sleep 2 ; disown"], **popen_kwargs)
-                        elif terminal == "xfce4-terminal" and subprocess.run(
-                                ["xfce4-terminal", "--version"]).returncode == 0:
-                            subprocess.Popen(["xfce4-terminal", "--hold", "-e", command_to_run], **popen_kwargs)
-                        elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
-                            subprocess.Popen(["xterm", "-e", command_to_run], **popen_kwargs)
-                        else:
-                            err_message= "No compatible terminal found."
-                            print(err_message)
-                            messagebox.showerror("Error", err_message)
-                    except OSError as e:
-                        print("Error executing command:", e)
-                        messagebox.showerror("Error", "Error executing command.")
-                else:
-                    err_message="Script does not exist."
-                    print(err_message)
-                    messagebox.showerror("Error", err_message)
+                            if terminal == "gnome-terminal" and subprocess.run(
+                                    ["gnome-terminal", "--version"]).returncode == 0:
+                                subprocess.Popen(["gnome-terminal", "--tab", "--", "/bin/bash", "-c",
+                                                  f"{command_to_run}; exec /bin/bash -i"], **popen_kwargs)
+                            elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
+                                subprocess.Popen(["konsole", "--noclose", "-e", command_to_run], **popen_kwargs)
+                            elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
+                                subprocess.Popen(["lxterm", "-hold", "-e", command_to_run], **popen_kwargs)
+                            elif terminal == "mate-terminal" and subprocess.run(
+                                    ["mate-terminal", "--version"]).returncode == 0:
+                                subprocess.Popen(["mate-terminal", "-e", command_to_run], **popen_kwargs)
+                            elif terminal == "mlterm":
+                                result = subprocess.run(["mlterm", "--version"], capture_output=True, text=True)
+                                mlterm_output = result.stdout
+                                if "mlterm" in mlterm_output:
+                                    subprocess.Popen(["bash", "-c", f"mlterm -e {command_to_run} & sleep 2 ; disown"], **popen_kwargs)
+                            elif terminal == "xfce4-terminal" and subprocess.run(
+                                    ["xfce4-terminal", "--version"]).returncode == 0:
+                                subprocess.Popen(["xfce4-terminal", "--hold", "-e", command_to_run], **popen_kwargs)
+                            elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
+                                subprocess.Popen(["xterm", "-e", command_to_run], **popen_kwargs)
+                            else:
+                                err_message= "No compatible terminal found."
+                                print(err_message)
+                                messagebox.showerror("Error", err_message)
+                        except OSError as e:
+                            print("Error executing command:", e)
+                            messagebox.showerror("Error", "Error executing command.")
+                    else:
+                        err_message="Script does not exist."
+                        print(err_message)
+                        messagebox.showerror("Error", err_message)
 
 
-    # Function to Save texts
+        # Function to Save texts
     def get_overwrite_action(self, filename):
         action = messagebox.askquestion("Overwrite File",
                                         f"The file {filename} already exists. Do you want to overwrite it?",
@@ -3202,7 +3219,7 @@ class M3uPlaylistPlayer(tk.Frame):
     def paste(self, entry, event=None):
         if entry.selection_present():
             entry.delete(tk.SEL_FIRST, tk.SEL_LAST)
-        
+
         try:
             clipboard_text = self.master.clipboard_get()
         except tk.TclError:
@@ -3533,21 +3550,24 @@ class M3uPlaylistPlayer(tk.Frame):
             messagebox.showerror("Error", "No audio source selected.")
 
 
-    # Function to generate subtitles
+# Function to generate subtitles
     def generate_subtitles(self):
         selection = self.tree.selection()
         if selection:
-            item = self.tree.selection()[0]
-            url = self.tree.item(item, "values")[2]
-            if re.match(r'^/|^\./', url):
+            valid = False
+            for item in selection:
+                if re.match(r'^/|^\./', self.tree.item(item, "values")[2]):
+                    valid = True
+                    break
+            if valid:
                 self.subtitles="subtitles"
                 self.play_channel()
                 self.subtitles=""
-                err_message = f"Please wait while generating subtitles for {url}"
+                err_message = f"Please wait while generating subtitles for selected files."
                 print(err_message)
                 messagebox.showinfo("Generating Subtitles", err_message)
             else:
-                messagebox.showerror("Error", "Select a valid local file to generate subtitles.")
+                messagebox.showerror("Error", "Select at least one valid local file to generate subtitles.")
         else:
             messagebox.showerror("Error", "Select a file to generate subtitles.")
 
@@ -4307,7 +4327,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.26\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.28\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
