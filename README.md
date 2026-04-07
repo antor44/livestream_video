@@ -90,7 +90,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 
 <br>
 
-**Author:** Antonio R. | **Version:** 5.26 | **License:** GPL 3.0
+**Author:** Antonio R. | **Version:** 5.28 | **License:** GPL 3.0
 
 ---
 
