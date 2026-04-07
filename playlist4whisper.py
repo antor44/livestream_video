@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.30 License: GPL 3.0
+Author: Antonio R. Version: 5.32 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -2543,9 +2543,9 @@ class M3uPlaylistPlayer(tk.Frame):
 
                 elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
                     if suffix:
-                        subprocess.Popen(["lxterm", "-e", f"make {base_model}; {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}"])
+                        subprocess.Popen(["lxterm", "-e", "bash", "-c", f"make {base_model}; {quantize_executable} ./models/ggml-{base_model}.bin ./models/ggml-{model_name}.bin {suffix.lstrip('-')}"])
                     else:
-                        subprocess.Popen(["lxterm", "-e", f"make {model_name}"])
+                        subprocess.Popen(["lxterm", "-e", "bash", "-c", f"make {model_name}"])
 
                 elif terminal == "mate-terminal" and subprocess.run(["mate-terminal", "--version"]).returncode == 0:
                     if suffix:
@@ -2584,7 +2584,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     else:
                         script_content = f"make {model_name}"
 
-                    subprocess.Popen(["xfce4-terminal", "-e", f"bash -c '{script_content}'"])
+                    subprocess.Popen(["xfce4-terminal", "-x", "bash", "-c", script_content])
 
                 elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
                     if suffix:
@@ -2595,7 +2595,7 @@ class M3uPlaylistPlayer(tk.Frame):
                     else:
                         script_content = f"make {model_name}"
 
-                    subprocess.Popen(["xterm", "-e", f"bash -c '{script_content}'"])
+                    subprocess.Popen(["xterm", "-e", "bash", "-c", script_content])
 
                 else:
                     err_message = "No compatible terminal found."
@@ -3008,12 +3008,12 @@ class M3uPlaylistPlayer(tk.Frame):
                     elif s["playeronly"] or quality == "raw":
                         try:
                             if videoplayer == "smplayer" and videoplayer in player_installed:
-                                subprocess.Popen(["smplayer", url, mpv_options])
+                                subprocess.Popen(["smplayer", url] + mpv_options.split())
                                 print("Launching smplayer...")
                             elif videoplayer == "mpv" and videoplayer in player_installed:
                                 temp_file = tempfile.NamedTemporaryFile(delete=False)
                                 with open(temp_file.name, "w") as log_file:
-                                    process = subprocess.Popen(["mpv", url, mpv_options], stdout=log_file, stderr=log_file)
+                                    process = subprocess.Popen(["mpv", url] + mpv_options.split(), stdout=log_file, stderr=log_file)
                                     print("Launching mpv...")
                                     threading.Thread(target=wait_and_check_process, args=(process, log_file, url, mpv_options)).start()
                             elif videoplayer == "none":
@@ -3118,7 +3118,7 @@ class M3uPlaylistPlayer(tk.Frame):
                             elif terminal == "konsole" and subprocess.run(["konsole", "--version"]).returncode == 0:
                                 subprocess.Popen(["konsole", "--noclose", "-e", command_to_run], **popen_kwargs)
                             elif terminal == "lxterm" and subprocess.run(["lxterm", "-version"]).returncode == 0:
-                                subprocess.Popen(["lxterm", "-hold", "-e", command_to_run], **popen_kwargs)
+                                subprocess.Popen(["lxterm", "-hold", "-e", "bash", "-c", command_to_run], **popen_kwargs)
                             elif terminal == "mate-terminal" and subprocess.run(
                                     ["mate-terminal", "--version"]).returncode == 0:
                                 subprocess.Popen(["mate-terminal", "-e", command_to_run], **popen_kwargs)
@@ -3129,9 +3129,9 @@ class M3uPlaylistPlayer(tk.Frame):
                                     subprocess.Popen(["bash", "-c", f"mlterm -e {command_to_run} & sleep 2 ; disown"], **popen_kwargs)
                             elif terminal == "xfce4-terminal" and subprocess.run(
                                     ["xfce4-terminal", "--version"]).returncode == 0:
-                                subprocess.Popen(["xfce4-terminal", "--hold", "-e", command_to_run], **popen_kwargs)
+                                subprocess.Popen(["xfce4-terminal", "--hold", "-x", "bash", "-c", command_to_run], **popen_kwargs)
                             elif terminal == "xterm" and subprocess.run(["xterm", "-version"]).returncode == 0:
-                                subprocess.Popen(["xterm", "-e", command_to_run], **popen_kwargs)
+                                subprocess.Popen(["xterm", "-e", "bash", "-c", command_to_run], **popen_kwargs)
                             else:
                                 err_message= "No compatible terminal found."
                                 print(err_message)
@@ -4414,7 +4414,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.30\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.32\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
