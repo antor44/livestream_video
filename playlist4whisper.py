@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.32 License: GPL 3.0
+Author: Antonio R. Version: 5.34 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -1892,7 +1892,16 @@ class M3uPlaylistPlayer(tk.Frame):
         self.search_space2 = tk.Label(self.search_frame, text="", padx=8)
         self.search_space2.pack(side=tk.LEFT)
 
+        self.about_button_top = tk.Button(self.search_frame, text="About",
+                                          command=self.show_about_window, padx=4)
+        self.about_button_top.pack(side=tk.RIGHT, padx=(0, 6))
+
         # Treeview for playlist
+        # Status bar for persistent unsaved-changes warnings
+        self.status_bar = tk.Label(self, text="", anchor="w", relief="sunken", padx=6,
+                                   fg="darkgreen", font=("TkDefaultFont", 9))
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.tree = ttk.Treeview(self, columns=("list_number", "name", "url"), show="headings")
         self.tree.heading("list_number", text="#")
         self.tree.heading("name", text="Channel")
@@ -2306,11 +2315,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.override_checkbox.pack(side=tk.TOP)
 
         # Playlist buttons on right side of bottom
-        self.options_frame4 = tk.Frame(self.bottom_frame)
-        self.options_frame4.pack(side=tk.LEFT, expand=True, padx=1)
-
-        self.playlist_label = tk.Label(self.options_frame4, text="Playlist")
-        self.playlist_label.pack(side=tk.TOP)
+        self.options_frame4 = tk.LabelFrame(self.bottom_frame, text="Playlist", padx=3, pady=2)
+        self.options_frame4.pack(side=tk.LEFT, expand=True, padx=4, pady=2)
 
         self.load_button = tk.Button(self.options_frame4, text="Load", command=self.load_playlist, padx=4)
         self.load_button.pack(side=tk.LEFT)
@@ -2322,11 +2328,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.save_button.pack(side=tk.LEFT)
 
 
-        self.options_frame5 = tk.Frame(self.container_frame)
-        self.options_frame5.pack(side=tk.LEFT, expand=True, pady=2)
-
-        self.channel_label = tk.Label(self.options_frame5, text="Channel/Media File/Audio source")
-        self.channel_label.pack(side=tk.TOP)
+        self.options_frame5 = tk.LabelFrame(self.container_frame, text="Elements", padx=3, pady=2)
+        self.options_frame5.pack(side=tk.LEFT, expand=True, padx=4, pady=2)
 
         self.add_label = tk.Label(self.options_frame5, text="", padx=1)
         self.add_label.pack(side=tk.LEFT)
@@ -2355,11 +2358,8 @@ class M3uPlaylistPlayer(tk.Frame):
         self.move_down_button = tk.Button(self.options_frame5, text="Move down", command=self.move_down_channel, padx=4)
         self.move_down_button.pack(side=tk.LEFT)
 
-        self.options_frame6 = tk.Frame(self.container_frame)
-        self.options_frame6.pack(side=tk.LEFT, expand=True, pady=2)
-
-        self.subtitles_label = tk.Label(self.options_frame6, text="Subtitles")
-        self.subtitles_label.pack(side=tk.TOP)
+        self.options_frame6 = tk.LabelFrame(self.container_frame, text="Subtitles", padx=3, pady=2)
+        self.options_frame6.pack(side=tk.LEFT, expand=True, padx=4, pady=2)
 
         self.subtitles_label2 = tk.Label(self.options_frame6, text="", padx=1)
         self.subtitles_label2.pack(side=tk.LEFT)
@@ -2373,21 +2373,17 @@ class M3uPlaylistPlayer(tk.Frame):
         self.merge_subs_button = tk.Button(self.options_frame6, text="Merge Subs", command=self.merge_subtitles, padx=4)
         self.merge_subs_button.pack(side=tk.LEFT)
 
-        self.options_frame7 = tk.Frame(self.container_frame)
-        self.options_frame7.pack(side=tk.LEFT, expand=True, pady=2)
 
-        self.about_label = tk.Label(self.options_frame7, text="")
-        self.about_label.pack(side=tk.TOP)
 
-        self.about_label2 = tk.Label(self.options_frame7, text="", padx=4)
-        self.about_label2.pack(side=tk.LEFT)
 
-        self.about_button = tk.Button(self.options_frame7, text="About", command=self.show_about_window, padx=4)
-        self.about_button.pack(side=tk.LEFT)
+    def set_status(self, message, kind="warning"):
+        # Display a persistent status message. kind="warning" = amber, kind="ok" = green.
+        color = "#b85c00" if kind == "warning" else "darkgreen"
+        self.status_bar.config(text=f"  [!]  {message}", fg=color)
 
-        self.about_space = tk.Label(self.options_frame7, text="", padx=4)
-        self.about_space.pack(side=tk.LEFT)
-
+    def clear_status(self):
+        # Clear the status bar (call after a successful save).
+        self.status_bar.config(text="")
 
     def set_gemini_api_key(self):
         """Opens a dialog to set the Gemini API Key for the current tab or all tabs."""
@@ -3947,24 +3943,21 @@ class M3uPlaylistPlayer(tk.Frame):
     def delete_channel(self):
         selection = self.tree.selection()
         if selection:
-            current_index = self.tree.index(selection[0])
-            self.tree.delete(selection[0])
-            self.update_list_numbers()
+            # Remember the index of the first selected item to restore cursor position
+            first_index = self.tree.index(selection[0])
+            for item in selection:
+                self.tree.delete(item)
+            self.update_list_numbers(from_index=first_index)
 
-            # Find the next item after the deleted one
-            next_index = current_index
             all_items = self.tree.get_children()
             total_items = len(all_items)
-
-            if next_index < total_items:
-                next_item = all_items[next_index]
-                self.tree.selection_set(next_item)
+            if total_items > 0:
+                next_index = min(first_index, total_items - 1)
+                self.tree.selection_set(all_items[next_index])
             else:
-                # No more items left, so clear any existing selection
                 self.tree.selection_remove()
 
-            err_message=("Success", "Channel(s) deleted successfully. Don't forget to save the playlist.")
-            self.error_messages.put(err_message)
+            self.set_status("Channel(s) deleted. Don't forget to save the playlist.")
         else:
             messagebox.showerror("Error", "Select a channel to delete.")
 
@@ -3994,15 +3987,18 @@ class M3uPlaylistPlayer(tk.Frame):
     def move_up_channel(self):
         selection = self.tree.selection()
         if selection:
-            index = self.tree.index(selection[0])
-            if index > 0:
-                self.tree.move(selection[0], "", index - 1)
-                self.update_list_numbers()
-
-                err_message=("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
-                self.error_messages.put(err_message)
-            else:
+            # Sort selected items by their current position (ascending)
+            sorted_items = sorted(selection, key=lambda i: self.tree.index(i))
+            first_idx = self.tree.index(sorted_items[0])
+            if first_idx == 0:
                 messagebox.showinfo("Info", "The selected channel is already at the top.")
+                return
+            for item in sorted_items:
+                idx = self.tree.index(item)
+                self.tree.move(item, "", idx - 1)
+            self.update_list_numbers(from_index=first_idx - 1)
+
+            self.set_status("Channel(s) moved. Don't forget to save the playlist.")
         else:
             messagebox.showerror("Error", "Select a channel to move.")
 
@@ -4010,25 +4006,27 @@ class M3uPlaylistPlayer(tk.Frame):
     def move_down_channel(self):
         selection = self.tree.selection()
         if selection:
-            index = self.tree.index(selection[0])
             total_items = len(self.tree.get_children())
-
-            if index < total_items - 1:  # Check if not the last item
-                self.tree.move(selection[0], "", index + 1)
-                self.update_list_numbers()
-
-                err_message=("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
-                self.error_messages.put(err_message)
-            else:
+            # Sort selected items by their current position (descending)
+            sorted_items = sorted(selection, key=lambda i: self.tree.index(i), reverse=True)
+            if self.tree.index(sorted_items[0]) == total_items - 1:
                 messagebox.showinfo("Info", "The selected channel is already at the bottom.")
+                return
+            for item in sorted_items:
+                idx = self.tree.index(item)
+                self.tree.move(item, "", idx + 1)
+            self.update_list_numbers(from_index=self.tree.index(sorted_items[-1]) - 1)
+
+            self.set_status("Channel(s) moved. Don't forget to save the playlist.")
         else:
             messagebox.showerror("Error", "Select a channel to move.")
 
 
-    # Function to iterate over all items and update their list_number
-    def update_list_numbers(self):
-        for i, item in enumerate(self.tree.get_children()):
-            self.tree.item(item, values=(i + 1,) + tuple(self.tree.item(item)['values'][1:]))
+    # Function to update list_number column; from_index lets callers skip unchanged rows
+    def update_list_numbers(self, from_index=0):
+        all_items = self.tree.get_children()
+        for i in range(from_index, len(all_items)):
+            self.tree.set(all_items[i], "list_number", i + 1)
 
 
     # New method to record the item being dragged on mouse press
@@ -4054,17 +4052,30 @@ class M3uPlaylistPlayer(tk.Frame):
     # New method to perform the item move on mouse release
     def on_treeview_button_release(self, event):
         if self._dragging_item:
-            self.remove_drag_label()  # Ensure drag label is always removed
-            # Identify the drop target at the y-coordinate of the release event
+            self.remove_drag_label()
             drop_item = self.tree.identify_row(event.y)
-            # Only move the item if a valid drop_item is found; otherwise do nothing
             if drop_item:
-                drop_index = self.tree.index(drop_item)
-                if drop_item != self._dragging_item:
-                    err_message = ("Success", "Channel(s) moved successfully. Don't forget to save the playlist.")
-                    self.error_messages.put(err_message)
-                    self.tree.move(self._dragging_item, '', drop_index)
+                selection = self.tree.selection()
+                is_multi = selection and self._dragging_item in selection and len(selection) > 1
+
+                if not is_multi:
+                    # Single-item drag: one tree.move() call, same as original
+                    if drop_item != self._dragging_item:
+                        self.tree.move(self._dragging_item, '', self.tree.index(drop_item))
+                        self.update_list_numbers()
+                        self.set_status("Channel(s) moved. Don't forget to save the playlist.")
+                elif drop_item not in selection:
+                    # Multi-item drag: rebuild order only when needed
+                    all_items = list(self.tree.get_children())
+                    dragged_set = set(selection)
+                    dragged_sorted = sorted(selection, key=lambda i: all_items.index(i))
+                    remaining = [i for i in all_items if i not in dragged_set]
+                    drop_pos = remaining.index(drop_item)
+                    new_order = remaining[:drop_pos] + dragged_sorted + remaining[drop_pos:]
+                    for pos, item in enumerate(new_order):
+                        self.tree.move(item, '', pos)
                     self.update_list_numbers()
+                    self.set_status("Channel(s) moved. Don't forget to save the playlist.")
             self._dragging_item = None
 
     def _insert_url_or_file(self, path, y_pos):
@@ -4117,6 +4128,7 @@ class M3uPlaylistPlayer(tk.Frame):
                 for item in self.tree.get_children():
                     list_number, name, url = self.tree.item(item, "values")
                     file.write(f"#EXTINF:-1,{name}\n{url}\n")
+            self.clear_status()
 
     # New helper method to update the search counter label
     def _update_search_counter(self):
@@ -4414,7 +4426,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.32\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.34\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
@@ -4446,7 +4458,7 @@ class MainApplication:
         else:
             self.main_window = tk.Tk()
         self.main_window.title("playlist4whisper")
-        self.main_window.geometry("980x800")
+        self.main_window.geometry("990x820")
 
         # Store tab info for later use
         self.tab_names = tab_names
