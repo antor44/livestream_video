@@ -288,9 +288,9 @@ pip3 install imageio imageio-ffmpeg Pillow tkinterdnd2
 > [!WARNING]
 > For older versions of macOS, Homebrew has introduced significant changes in its recent versions. Depending on how Python was installed or updated, you may need to adjust your system settings to detect the new version of Python.
 > 
-> Also, for older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp. Alternatively, you can install older versions of applications (FFmpeg+FFplay+FFprobe, VLC, SMPlayer, MPV) from other sources. If you trust the source, copy the executable packaged as a `.app` file to the Applications folder and link the path:
+> Also, for older macOS versions like Big Sur, you may encounter issues when installing Homebrew applications and compiling whisper.cpp. Alternatively, you can install older versions of applications (FFmpeg+FFplay+FFprobe, VLC, SMPlayer, MPV) from other sources. If you trust the source, copy the .app file to the Applications folder and link the path (in lowercase):
 > ```bash
-> ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable]
+> ln -s /Applications/[executable].app/Contents/MacOS/[executable] /usr/local/bin/[executable_lowercase]
 > ```
 > For example, for VLC:
 > ```bash
