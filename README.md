@@ -22,7 +22,7 @@
 -   **Broad Service Support:** Access a wide range of video services through `streamlink` or `yt-dlp`.
 -   **VAD Support:** Integrated Voice Activity Detection based on the powerful, license-free Silero model (auto-downloaded on first use) to improve transcription segmentation by cutting audio during silences.
 -   **Multi-Platform:** Compatible with Linux, macOS, and Windows (via WSL2).
--   **Advanced Database Features**: Support for multiple playlists in the same window or in separate instances with different whisper.cpp versions and configurations, including customizable names and tab border colors. Playlists support wildcard searches, as well as loading, saving, and appending other playlists. Playlist elements support editing, reordering, and drag-and-drop (files and URLs, either in links or plain text).
+-   **Advanced Database Features**: Support for multiple playlists in the same window or in separate instances with different whisper.cpp versions and configurations, including customizable names and tab border colors. Playlists support wildcard searches, as well as loading, saving, and appending other playlists. Playlist elements support editing, moving, and drag-and-drop (files and URLs, as links or plain text).
 
 > [!WARNING]
 > **Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks with the integrated `Subtitle Video Editor`.
