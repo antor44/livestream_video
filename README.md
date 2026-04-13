@@ -882,21 +882,17 @@ Some applications use a trick to achieve a near-live result during the first tra
 ![Live Transcription](https://github.com/antor44/livestream_video/blob/main/live-transcription.jpg)
 
 ### **Q: Why is the program not working?**
-**A:** There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the `./build/bin/whisper-cli` executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper.cpp. The `./build/bin/whisper-cli` executable from whisper.cpp needs to be placed in the subdirectory of the directory of playlist4whisper.py and the script livestream_video.sh. Before lauch playlist4whisper.py, make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and eventually too the python environment for playlist4whisper is active. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. 
+**A:** There could be various reasons why the script/program is not functioning correctly. It relies on other Linux programs and their libraries, such as whisper.cpp and mpv. To compile the `./build/bin/whisper-cli` executable, your operating system must have the necessary tools and development libraries installed, including those related to the chosen acceleration options. If you are not familiar with compilation, errors can often occur due to missing development libraries in your operating system. You will need to install only the necessary development libraries and the specific or compatible versions used by whisper.cpp. The `./build/bin/whisper-cli` executable from `whisper.cpp` must be placed in that exact subdirectory within the directory containing `playlist4whisper.py` and `livestream_video.sh`. Before lauch playlist4whisper.py, make sure that you are in the same directory as whisper.cpp, playlist4whisper.py, and livestream_video.sh, and eventually too the python environment for playlist4whisper is active. Additionally, it is crucial to have the Whisper model files in the "models" directory, following the correct format and name used by Whisper.cpp. 
 
-The whsiper.cpp installation can be accomplished using terminal commands:
+The whisper.cpp installation can be accomplished using terminal commands:
 First clone the repository:
 ```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
 ```
 Now change directory to the whisper-ccp folder and build the `./build/bin/whisper-cli` example to transcribe an audio file using the following command.
 ```bash
-make
-make tiny.en
-make base.en
-make base
-make small
-make large-v3
+cmake -B build
+cmake --build build -j --config Release
 ```
 Transcribe an audio file (for model base.en):
 ```bash
