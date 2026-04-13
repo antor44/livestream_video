@@ -169,13 +169,11 @@ cd whisper.cpp
 ```
 Compile `whisper.cpp` for CPU mode:
 ```bash
-make
-```
-Download some models:
-```bash
-make tiny.en
-make base.en
-make base
+# build the project
+cmake -B build
+cmake --build build -j --config Release
+# transcribe an audio file
+./build/bin/whisper-cli -f samples/jfk.wav
 ```
 
 ### 2. Download playlist4whisper
@@ -315,10 +313,11 @@ Compile `whisper.cpp` following the instructions in their documentation, or for 
 ```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
 cd whisper.cpp
-make
-make tiny.en
-make base.en
-make base
+# build the project
+cmake -B build
+cmake --build build -j --config Release
+# transcribe an audio file
+./build/bin/whisper-cli -f samples/jfk.wav
 ```
 
 Download `playlist4whisper` and move it:
@@ -348,7 +347,7 @@ This command will enable the features necessary to run WSL and install the Ubunt
 
 If Ubuntu (or whatever recent Linux distribution among available ones) didn't install, then:
 ```bash
-wsl.exe --install Ubuntu-24.04
+wsl.exe --install Ubuntu
 ```
 
 Open the **Linux terminal** (not Windows), update the packages, and install dependencies:
@@ -376,10 +375,11 @@ Download and compile `whisper.cpp`:
 ```bash
 git clone https://github.com/ggerganov/whisper.cpp.git
 cd whisper.cpp
-make
-make tiny.en
-make base.en
-make base
+# build the project
+cmake -B build
+cmake --build build -j --config Release
+# transcribe an audio file
+./build/bin/whisper-cli -f samples/jfk.wav
 ```
 
 Download `playlist4whisper`:
