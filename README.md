@@ -1005,3 +1005,15 @@ In the case of YouTube and Twitch, watching channels through standalone applicat
 
 Additionally, `playlist4whisper/livestream_video.sh` does not support configuring a username and password in `yt-dlp` or `streamlink` to watch ad-free videos or live streams from paid accounts or subscribed channels. Therefore, you will be limited to watching videos and live streams that do not include advertisements that could interrupt the transmission.
 
+---
+
+## Licensing and Attribution
+
+This project is distributed under the **GNU General Public License v3.0 or later** (GPL-3.0-or-later). See the `LICENSE` file for details.
+
+### Third-Party Code
+The script `livestream_video.sh` was originally derived from an example script provided in the [whisper.cpp](https://github.com/ggml-org/whisper.cpp) repository (based on an idea by @semiformal-net). 
+
+The upstream `whisper.cpp` project and its examples are distributed under the **MIT License**. In compliance with its terms, the required copyright and permission notices for the derived script are preserved in the script header and detailed in the `THIRD_PARTY_NOTICES.md` file included in this repository.
+
+The Python application `playlist4whisper.py` is original software distributed under the GPL-3.0-or-later license.
