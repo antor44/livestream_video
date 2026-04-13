@@ -460,7 +460,7 @@ This is a command-line program that includes the same transcription functions as
 >[!TIP]
 > **Only for the bash script and only for local audio/video:** Files must be enclosed in double quotation marks, with the full path. If the file is in the same directory, it should be preceded with `./`.
 > 
-> **pulse:index or avfoundation:index:** Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume, and ambient noise.
+> **pulse:index or avfoundation:index:** Live transcription from the selected device index. Pulse for PulseAudio for Linux and Windows WSL2, AVFoundation for macOS. The quality of the transcription depends on your computer's capabilities, the chosen model, volume, and ambient noise. Please note that this is a preliminary feature. There is a several-second delay between live sound and transcriptions, with no possibility for synchronization.
 
 ### Argument Options
 
