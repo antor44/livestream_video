@@ -281,7 +281,7 @@ pip3 install imageio imageio-ffmpeg Pillow tkinterdnd2
 ```
 
 ### 3. macOS Version Compatibility Notes
-`playlist4whisper` has been successfully tested on macOS versions for Mx or ARM without issues, on macOS Ventura (Intel), and also an older version of playlist4whisper/livestream.sg (successful version 2.60 + whisper.cpp v. 1.42) on very old versions like Big Sur (although it requires some extra adjustments).
+`playlist4whisper` has been successfully tested on macOS versions for Mx or ARM without issues, on macOS Ventura (Intel), and also an older version of playlist4whisper/livestream.sh (successful version 2.60 + whisper.cpp v. 1.42) on very old versions like Big Sur (although it requires some extra adjustments).
 
 > [!WARNING]
 > For older versions of macOS, Homebrew has introduced significant changes in its recent versions. Depending on how Python was installed or updated, you may need to adjust your system settings to detect the new version of Python.
