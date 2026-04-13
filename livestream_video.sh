@@ -1,10 +1,15 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.28 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v. 5.34 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
-# Copyright (c) 2023 Antonio R.
+# Copyright (c) 2023-2026 Antonio R.
+#
+# This file includes material derived from an example script in the upstream
+# whisper.cpp repository (idea by @semiformal-net, ref: issue #185),
+# licensed under the MIT License.
+# Upstream copyright: Copyright (c) 2023-2024 The whisper.cpp authors
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,6 +23,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional third-party licensing information is provided in THIRD_PARTY_NOTICES.md
 #
 # https://github.com/antor44/livestream_video
 
