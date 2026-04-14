@@ -570,7 +570,7 @@ The CPU and CPU-accelerated builds of `whisper.cpp` are limited by default to 4 
 
 For older PCs such as Intel i7/Xeon processors from the Haswell series, for real-time transcriptions with CPU without acceleration, models up to `base` or `small` can be run at most, perhaps 2-3 instances at a time. On modern systems, the possibilities are much greater; even with a mid-range graphics card like any NVIDIA RTX, it is possible to run many instances with larger models like `large-v2`.
 
-It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM, or into system RAM when using CPU without GPU acceleration. This differs from architectures like `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
+It is important to clarify that `playlist4whisper.py` and `livestream_video.sh` are currently based on `whisper.cpp`, which requires each process to load its own full copy of the model into VRAM, or into system RAM when using CPU without GPU acceleration. This differs from architectures like `TensorRT` and `faster-whisper`, which can serve multiple concurrent clients from a single loaded model—a feature that may be supported in future versions.
 
 **Critical Distinction: Short Chunks vs. Continuous Processing**
 Real-world testing on an **NVIDIA RTX 16GB** with the `large-v2` model reveals two dramatically different scenarios:
@@ -599,7 +599,7 @@ These improvements are especially valuable in business or public administration 
 
 For `playlist4whisper.py` and `livestream_video.sh`, currently only `whisper.cpp` can be used as a backend. It's a stable, lightweight implementation with few dependencies and broad architecture support. I've never encountered stability issues in long-running or multi-instance executions. It allows using fine-tuned models for accents, slang, or technical terms—useful in diverse linguistic contexts like mixing languages or regional variations.
 
-If `faster-whisper` (based on CTranslate2) could be integrated, it would excel in raw concurrency (up to 16 instances with one model in memory), but `whisper.cpp` remains reliable for now.
+If `TensorRT`or `faster-whisper` (based on CTranslate2) could be integrated, it would excel in raw concurrency (16 or more instances with one large model in memory), but `whisper.cpp` remains reliable for now.
 
 With `whisper.cpp` (current backend) on NVIDIA RTX GPUs:
 Quantized models reduce VRAM consumption AND often improve processing speed thanks to Tensor Core support for INT8/INT4.
