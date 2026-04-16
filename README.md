@@ -104,11 +104,11 @@ It is completely independent of `playlist4whisper` and `livestream_video.sh`, ba
 
 <br>
 
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV6.jpg)
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV12.jpg)
 <br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV5.jpg)
 <br>
-![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV13.jpg)
 <br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV10.jpg)
 
@@ -297,7 +297,7 @@ pip3 install imageio imageio-ffmpeg Pillow tkinterdnd2
 
 ### 4. Terminal Configuration (`xterm`)
 
-To display correct local characters, create a file named `.Xresources` in your user's home directory (`/Users/[user]`). Inside the file, add:
+To display text in a specific size and color, create a file named `.Xresources` in your home directory (/Users/[user]). Inside the file, add:
 ```text
 .xterm*background: black
 .xterm*foreground: yellow
@@ -306,7 +306,9 @@ To display correct local characters, create a file named `.Xresources` in your u
 .xterm*saveLines: 10000
 .xterm*locale: true 
 ```
-After saving, relaunch XQuartz. The final option `.xterm*locale: true` enables the same language settings in xterm as those in your macOS's default terminal.
+In this example, the settings modify the background color to black, the foreground color to yellow, the font size to 10x20, the terminal's geometry to 80x10, and the number of lines to save to 10,000. After saving these changes in the `.Xresources` file, you need to relaunch XQuartz for the new settings to take effect. Once you launch an xterm terminal, you will see the desired customization of the transcription text.
+
+The final option `.xterm*locale: true` will enable the same language settings in xterm as those in your macOS's default terminal. Although you may need to make changes and/or install additional components to display characters in other languages.
 
 ### 5. Compile whisper.cpp
 Compile `whisper.cpp` following the instructions in their documentation, or for CPU mode:
@@ -500,6 +502,8 @@ This is a command-line program that includes the same transcription functions as
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV2.jpg)
 <br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV8.jpg)
+<br>
+![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV1.jpg)
 <br>
 ![Screenshot](https://github.com/antor44/livestream_video/blob/main/whisper_TV7.jpg)
 <br>
@@ -834,17 +838,6 @@ You can find an example of fine-tuning for one of the major languages, Hindi, a 
 The application, on the other hand, processes the subtitle file in **segmented parts** to handle very large files robustly without failing. To maintain coherence, it provides the AI with a "sliding window" of context, including several phrases before and after the current segment being translated. For most content, the quality difference is barely noticeable. The most significant drop in quality usually occurs due to external factors like API server overload or rate limit errors. You may occasionally see minor errors, such as the repetition of words.
 
 Despite this, the script's approach is highly effective. Even with smaller models like `gemini-2.5-flash-lite`, it does an excellent job with common languages, often correcting misspelled words and accurately identifying well-known entities such as places, acronyms, companies, organizations, political parties, and the names of famous people. However, it's important to note a universal limitation: when the name of an unknown person is transcribed incorrectly (e.g., “Jon” or “Jan” instead of “John”, or “Sara” instead of “Sarah”), the AI has no way of determining the correct spelling — a challenge that even the web version of the AI cannot overcome.
-
-### **Q: Why doesn't the application use the entire subtitle file for context at once, similar to the web version?**
-**A:** This is a design choice to optimize the script for reliability and performance across all models, especially for users with free tier API keys. While a feature known as **context caching** exists, which allows uploading a full document for global context, its practical application is complex.
-
-The situation is as follows:
-- For the powerful **Gemini models**, context caching is primarily a **paid tier feature**.
-- For **Gemma models**, context caching is indeed available **free of charge**. However, this option was deliberately not implemented as the default for two key reasons:
-    - **Rate Limits:** The free tier for Gemma models has a very low **Tokens Per Minute (TPM) limit**. Attempting to upload a moderately sized subtitle file to the cache would immediately fail by exceeding this limit.
-    - **Translation Quality:** While Gemma is highly capable, it is not as powerful as the flagship Gemini models, especially for translating less common or nuanced languages where the larger model's extensive training data makes a significant difference.
-
-Therefore, the current "sliding window" approach was chosen as the best overall solution. It provides high-quality context, works reliably across all models without failing on rate limits, and is optimized for the free tier. Paid account users still benefit from this system as they can use more powerful models with much higher rate limits, leading to a superior result.
 
 ### **Q: What's the use of the loopback ports? Could I see my videos from the internet?**
 **A:** Loopback ports are needed for features like timeshift, and for upper and lower video quality options. The application uses one port to communicate with VLC for information about the currently playing video, or is used by ffmpeg to stream video to mpv or smplayer. The loopback interface is a virtual network interface per user that by default is not accessible outside your computer, although you can configure your firewall and network interfaces to control VLC and transmit video outside to the internet using VLC's streaming option. However, this would not include live transcriptions, only subtitles. Nevertheless, there are some solutions to stream your entire desktop with decent image quality over the internet, NoMachine (freeware) or Moonlight (open source license) are both great options.
