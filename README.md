@@ -26,7 +26,14 @@
 
 > [!WARNING]
 > **Important Note on Subtitle Generation:** Sometimes models make too many errors or get stuck repeating words or phrases; even the most powerful model, such as the larger-v3 model, can be especially problematic. You can try using a different model or splitting the audio/video file into smaller chunks with the integrated `Subtitle Video Editor`.
+> 
 
+> [!WARNING]
+> To avoid generational quality loss when merging video parts, the video segments are concatenated without a full re-encode. This approach is efficient and preserves the original media data, but it may cause timestamp discontinuities or synchronization drift in some players and processing tools.
+>
+> If the final video is made up of many segments, this drift can accumulate over time and may reach several seconds in some cases. This is especially important when reprocessing the merged file with tools that depend on precise timing information, such as `whisper.cpp` for subtitle generation.
+>
+> If this happens, you may need to merge the parts again yourself while re-encoding the final output file to rebuild clean timestamps.
 ---
 
 ## Online Translation with Google Gemini API
