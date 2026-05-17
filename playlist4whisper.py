@@ -6,7 +6,7 @@ multi-instance and multi-user execution, allows for changing options per channel
 online translation, and Text-to-Speech with translate-shell. All of these tasks can be performed efficiently
 even with low-level processors. Additionally, it generates subtitles from audio/video files.
 
-Author: Antonio R. Version: 5.34 License: GPL 3.0
+Author: Antonio R. Version: 5.40 License: GPL 3.0
 
 Copyright (c) 2023 Antonio R.
 
@@ -279,7 +279,7 @@ whisper_executables = ["./build/bin/whisper-cli", "./main", "whisper-cpp", "pwcp
 
 terminal = ["gnome-terminal", "konsole", "lxterm", "mate-terminal", "mlterm", "xfce4-terminal", "xterm"]
 player = ["none", "smplayer", "mpv"]
-gemini_models = ["gemini-3.1-pro-preview", "gemini-3.1-flash-lite-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemma-3-27b-it", "gemma-3-12b-it", "gemma-3-4b-it"]
+gemini_models = ["gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemma-4-31b-it", "gemma-4-26b-a4b-it"]
 models = ["tiny.en", "tiny", "base.en", "base", "small.en", "small", "medium.en", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"]
 suffixes = ["-q2_k", "-q3_k", "-q4_0", "-q4_1", "-q4_k", "-q5_0", "-q5_1", "-q5_k", "-q6_k", "-q8_0"]
 model_path = "./models/ggml-{}.bin"
@@ -3102,7 +3102,11 @@ class M3uPlaylistPlayer(tk.Frame):
                         messagebox.showerror("Error", err_message)
 
                     if os.path.exists(self.bash_script):
-                        command_to_run = f"{self.bash_script} {url_cmd} {bash_options} {executable_option} {mpv_options_cmd}"
+                        api_export_cmd = ""
+                        if env and "GEMINI_API_KEY" in env:
+                            api_export_cmd = f"GEMINI_API_KEY='{env['GEMINI_API_KEY']}' "
+
+                        command_to_run = f"{api_export_cmd}{self.bash_script} {url_cmd} {bash_options} {executable_option} {mpv_options_cmd}"
                         print("Script Options:", command_to_run)
                         try:
                             popen_kwargs = {"env": env} if env else {}
@@ -4426,7 +4430,7 @@ class M3uPlaylistPlayer(tk.Frame):
     @staticmethod
     def show_about_window():
         messagebox.showinfo("About",
-                                         "playlist4whisper Version: 5.34\n\nCopyright (C) 2023 Antonio R.\n\n"
+                                         "playlist4whisper Version: 5.40\n\nCopyright (C) 2023 Antonio R.\n\n"
                                          "Playlist for livestream_video.sh, "
                                          "it plays online videos and transcribes them. "
                                          "A simple GUI using Python and Tkinter library. "
