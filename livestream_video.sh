@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# livestream_video.sh v. 5.34 - Plays audio/video files or video streams, transcribing the audio using AI.
+# livestream_video.sh v.5.40 - Plays audio/video files or video streams, transcribing the audio using AI.
 # Supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
 # Generates subtitles from audio/video files.
 #
@@ -129,14 +129,10 @@ readonly OUTPUT_TEXT_LIST=( "original" "translation" "both" "none" )
 # Available Gemini models for translation
 AVAILABLE_GEMINI_MODELS=(
     "gemini-3.1-pro-preview"
-    "gemini-3.1-flash-lite-preview"
-    "gemini-3-flash-preview" 
-    "gemini-2.5-pro"
-    "gemini-2.5-flash"
-    "gemini-2.5-flash-lite"
-    "gemma-3-27b-it"
-    "gemma-3-12b-it"
-    "gemma-3-4b-it"
+    "gemini-3-flash-preview"
+    "gemini-3.1-flash-lite"
+    "gemma-4-31b-it"
+    "gemma-4-26b-a4b-it"
 )
 
 # --- Function Definitions ---
@@ -261,7 +257,7 @@ Example:
 
 Help:
 
-  livestream_video.sh v. 5.28 - plays audio/video files or video streams, transcribing the audio using AI technology.
+  livestream_video.sh v.5.40 - plays audio/video files or video streams, transcribing the audio using AI technology.
   The application supports timeshift, multi-instance/user, per-channel/global options, online translation, and TTS.
   Generates subtitles from audio/video files.
 
@@ -623,27 +619,19 @@ process_audio_chunk() {
                 --arg prompt_text "$full_prompt" \
                 '{
                     "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
-                    "safetySettings":[
-                        { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
-                        { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
-                        { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
-                        { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
-                    ]
+                    "generationConfig": {
+                        "temperature": 0.1,
+                        "thinkingConfig": { "thinkingLevel": "MINIMAL" }
+                    }
                 }')
         else
             local thinking_config_json=""
             case "$GEMINI_TRANS_MODEL" in
-                gemini-3*pro* | gemini-3.1*pro*)
+                *pro*)
                     thinking_config_json='{ "thinkingLevel": "low" }'
                     ;;
-                gemini-3*flash* | gemini-3.1*flash*)
+                *flash*)
                     thinking_config_json='{ "thinkingLevel": "minimal" }'
-                    ;;
-                gemini-2.5*flash*)
-                    thinking_config_json='{ "thinkingBudget": 0 }'
-                    ;;
-                gemini-2.5*pro*)
-                    thinking_config_json='{ "thinkingBudget": 128 }'
                     ;;
             esac
             
@@ -651,9 +639,9 @@ process_audio_chunk() {
             if [[ -n "$thinking_config_json" ]]; then
                 generation_config_json=$(jq -n \
                     --argjson tc "$thinking_config_json" \
-                    '{ "temperature": 0.2, "maxOutputTokens": 1024, "thinkingConfig": $tc }')
+                    '{ "temperature": 0.1, "maxOutputTokens": 1024, "thinkingConfig": $tc }')
             else
-                generation_config_json='{ "temperature": 0.2, "maxOutputTokens": 1024 }'
+                generation_config_json='{ "temperature": 0.1, "maxOutputTokens": 1024 }'
             fi
 
             json_payload=$(jq -n \
@@ -673,18 +661,25 @@ process_audio_chunk() {
 
         # API call
         local api_response_raw
-        api_response_raw=$(curl --silent --no-buffer --max-time 2.5 -X POST \
+        api_response_raw=$(curl --silent --no-buffer --max-time 8 -X POST \
             -H 'Content-Type: application/json' \
             -d "$json_payload" \
             "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
 
         if [[ $? -eq 0 ]]; then
-            local extracted_translation
-            extracted_translation=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""' | tr -d '\r\n')
+            local api_error
+            api_error=$(echo "$api_response_raw" | jq -r '.error.message // ""')
+            
+            if [[ -n "$api_error" ]]; then
+                echo "${ICON_ERROR} Gemini API Error: $(echo "${api_error}" | head -n 1)"
+            else
+                local extracted_translation
+                extracted_translation=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts // [] | map(select(has("thought") | not)) | .[0].text // ""' | tr -d '\r\n')
 
-            if [[ -n "$extracted_translation" ]]; then
-                translated_text="$extracted_translation"
-                use_trans_fallback=false
+                if [[ -n "$extracted_translation" ]]; then
+                    translated_text="$extracted_translation"
+                    use_trans_fallback=false
+                fi
             fi
         fi
     fi
@@ -1350,28 +1345,24 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             --arg prompt_text "$full_prompt" \
                             '{
                                 "contents": [ { "parts":[ { "text": $prompt_text } ] } ],
-                                "safetySettings":[
-                                    { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" },
-                                    { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" },
-                                    { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" },
-                                    { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" }
-                                ]
+                                "generationConfig": {
+                                    "temperature": 0.1,
+                                    "thinkingConfig": { "thinkingLevel": "MINIMAL" }
+                                }
                             }')
                         max_batch_timeout=30
                         max_mini_timeout=15
                     else
                         thinking_config_json=""
                         case "$GEMINI_TRANS_MODEL" in
-                            gemini-3*pro* | gemini-3.1*pro*) thinking_config_json='{ "thinkingLevel": "low" }' ;;
-                            gemini-3*flash* | gemini-3.1*flash*) thinking_config_json='{ "thinkingLevel": "minimal" }' ;;
-                            gemini-2.5*flash*) thinking_config_json='{ "thinkingBudget": 0 }' ;;
-                            gemini-2.5*pro*) thinking_config_json='{ "thinkingBudget": 128 }' ;;
+                            *pro*) thinking_config_json='{ "thinkingLevel": "low" }' ;;
+                            *flash*) thinking_config_json='{ "thinkingLevel": "minimal" }' ;;
                         esac
 
                         if [[ -n "$thinking_config_json" ]]; then
-                            generation_config_json=$(jq -n --argjson tc "$thinking_config_json" '{ "temperature": 0.2, "maxOutputTokens": 4096, "thinkingConfig": $tc }')
+                            generation_config_json=$(jq -n --argjson tc "$thinking_config_json" '{ "temperature": 0.1, "maxOutputTokens": 4096, "thinkingConfig": $tc }')
                         else
-                            generation_config_json=$(jq -n '{ "temperature": 0.2, "maxOutputTokens": 4096 }')
+                            generation_config_json=$(jq -n '{ "temperature": 0.1, "maxOutputTokens": 4096 }')
                         fi
 
                         json_payload=$(jq -n \
@@ -1415,7 +1406,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             continue
                         fi
 
-                        translated_text_block=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
+                        translated_text_block=$(echo "$api_response_raw" | jq -r '.candidates[0].content.parts // [] | map(select(has("thought") | not)) | .[0].text // ""')
 
                         declare -a all_translations_in_batch=()
                         while IFS= read -r line; do
@@ -1469,7 +1460,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             
                             mini_json_payload=""
                             if [[ "$GEMINI_TRANS_MODEL" == *"gemma"* ]]; then
-                                mini_json_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts":[ { "text": $prompt_text } ] } ], "safetySettings":[ { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE" }, { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE" } ] }')
+                                mini_json_payload=$(jq -n --arg prompt_text "$mini_prompt" '{ "contents": [ { "parts":[ { "text": $prompt_text } ] } ], "generationConfig": { "temperature": 0.1, "thinkingConfig": { "thinkingLevel": "MINIMAL" } } }')
                             else
                                 mini_json_payload=$(jq -n \
                                     --arg prompt_text "$mini_prompt" \
@@ -1488,7 +1479,7 @@ if [[ $SUBTITLES == "subtitles" ]] && [[ $LOCAL_FILE -eq 1 ]]; then
                             
                             mini_response_raw=$(curl --silent --no-buffer --max-time ${max_mini_timeout} -X POST -H 'Content-Type: application/json' -d "$mini_json_payload" "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRANS_MODEL}:generateContent?key=$GEMINI_API_KEY")
 
-                            translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts[0].text // ""')
+                            translated_mini_block=$(echo "$mini_response_raw" | jq -r '.candidates[0].content.parts // [] | map(select(has("thought") | not)) | .[0].text // ""')
 
                             declare -a translated_mini_lines=()
                             while IFS= read -r line; do
