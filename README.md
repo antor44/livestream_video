@@ -66,7 +66,7 @@ You can select your preferred context level from the new dropdown menu in the "O
 > Under normal usage, the cost is typically **no more than a few cents per day**, even with relatively heavy use.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
-*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
+*   **Paid API key recommended:** The Gemma-4 models on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
 
 > [!NOTE]
 > *Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
@@ -97,7 +97,7 @@ The script will now use the Gemini API for translations. If the API key is not f
 
 <br>
 
-**Author:** Antonio R. | **Version:** 5.34 | **License:** GPL 3.0
+**Author:** Antonio R. | **Version:** 5.40 | **License:** GPL 3.0
 
 ---
 
@@ -820,24 +820,21 @@ You can find an example of fine-tuning for one of the major languages, Hindi, a 
 
 ### **Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
 **A:** Online translation issues with the Gemini API can stem from several factors, ranging from API availability to the inherent behavior of AI models. Here are the most common causes:
-
 *   **API Unavailability:** The service may be temporarily unavailable or experiencing high traffic. The script handles this differently depending on the mode:
     *   In **Subtitle Generation**, it will retry a few times before falling back to `translate-shell`.
     *   In **Live Stream** mode, it will immediately fall back to `translate-shell` for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
 *   **API Rate Limits:** The primary cause of failures is exceeding the usage limits imposed by Google, which are **particularly strict on the free tier**. While paid tiers have much higher limits, the following applies to free accounts:
-    *   **Gemma 3 models** have a very high daily limit on the free tier (**14,400 RPD**) but a very low per-minute limit (**15,000 TPM**). This makes them excellent for **prolonged, low-intensity use** (such as long live streams), but they may fail on high-intensity tasks (such as subtitle generation) that exceed the TPM limit.
-    *   **Gemini 2.5 models** on the free tier have the opposite profile: a low daily limit (e.g., **1,000 RPD for Flash-Lite**) but a high per-minute limit (**250,000 TPM**). This makes them ideal for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted during long live streams.
+    *   **Gemma 4 models** have a very high daily limit on the free tier (**RPD**) but a very low per-minute limit (**TPM**). This makes them excellent for **prolonged, low-intensity use** (such as long live streams), but they may fail on high-intensity tasks (such as subtitle generation) that exceed the TPM limit.
+    *   **Gemini 3 Flash models** on the free tier have the opposite profile: a low daily limit but a high per-minute limit. This makes them ideal for **short, high-intensity tasks** like generating subtitles, but their daily quota can be exhausted during long live streams.
 *   **Inherent AI Translation Errors:** Even with a stable connection and within rate limits, all Gemini API models can occasionally produce translation errors. Users should be aware that issues such as **confusing languages** (especially with multilingual source text), processing previous sentences and **modifying timestamps** in subtitle files, or **occasionally repeating previous phrases** may occur.
 
 **Model Recommendations & Strategies (for Free Tier Users):**
-*   **For Subtitle Generation:** Use a **Gemini 2.5 model** (`gemini-2.5-flash` or `gemini-2.5-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
-*   **For Prolonged Live Streams (Hours):** Use a **Gemma 3 model**. Its large daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or, if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
-*   **For Moderate Live Streams (Casual Use):** The **`gemini-2.5-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a strong balance of quality, speed, and a reasonable daily quota (1,000 requests) when using the default context level.
+*   **For Subtitle Generation:** Use a **Gemini 3 Flash model** (`gemini-3-flash-preview` or `gemini-3-flash-lite`). Their high TPM can handle the processing burst required for an entire file.
+*   **For Prolonged Live Streams (Hours):** Use a **Gemma 4 model**. Its large daily request quota is ideal for long-running sessions. To avoid hitting the low TPM limit during dense dialogue, it is highly recommended to use a lower context level. You can do this by selecting "Level 0" or "Level 1" from the "Gemini Level" menu in the `playlist4whisper` application, or, if using the `livestream_video.sh` script independently, by adding `--gemini-level 0` or `--gemini-level 1` to your command.
+*   **For Moderate Live Streams (Casual Use):** The **`gemini-3-flash-lite`** model (or the recent **`gemini-3-flash-preview`** model) is the best all-around choice, offering a strong balance of quality, speed, and a reasonable daily quota when using the default context level.
 
 **Model Recommendations for High-Quality Subtitles (Long Media):**
-*   **Paid API key recommended:** The Gemma-27 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
-
-*(Note: Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026).*
+*   **Paid API key recommended:** The Gemma 4 model on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini 3.1 Pro** when either the source or destination language is non-major.
 
 ### **Q: Why do subtitles translated via the Gemini API sometimes differ in quality from the web version in Google AI Studio?**
 **A:** While the quality from the API is very high, you may notice that pasting an entire SRT file into a web chat like Google AI Studio can sometimes yield superior results. The primary reason for this is **global context**. When you paste a full SRT file into the web interface, it generally uses a powerful model like Gemini 2.5 Pro and can process the entire document as a single piece of context. This allows the AI to understand overarching themes and the relationships between distant parts of the dialogue, resulting in excellent quality translations in a wide range of languages. However, this manual method is less practical and can fail with very long texts, and occasionally generates other errors as well.
