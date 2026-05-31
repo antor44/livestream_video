@@ -54,41 +54,7 @@ To further enhance translation quality, you can now control the amount of contex
 *   **Level 2 (Standard - Default):** Uses a wider "window" of several surrounding segments. Excellent for understanding the flow of conversation.
 *   **Level 3 (Creative):** Uses the same wide context as Level 2 but gives the AI permission to intelligently fix or complete fragmented sentences, which is ideal for live streams where words might be cut off.
 
-You can select your preferred context level from the new dropdown menu in the "Online translation" section of the UI.
-
-> [!IMPORTANT]
-> **Important Note on Models and Pricing**
-> 
-> While many models such as `gemini-3-flash-preview` or the `gemma` family offer generous free tiers, advanced models like **`gemini-3.1-pro`** are typically available only through the **paid tier** of the Gemini API.
-> 
-> The paid API operates on a **pay-per-use basis**: if you don't use it, you don't pay. Please check your billing status if you plan to use Pro models or expect intensive usage of Flash models.
-> 
-> Under normal usage, the cost is typically **no more than a few cents per day**, even with relatively heavy use.
-
-**Model Recommendations for High-Quality Subtitles (Long Media):**
-*   **Paid API key recommended:** The Gemma-4 models on the Free Tier can work when both source and destination are major languages, but for reliable, high-quality subtitles on large media files (films, long audio, or videos longer than a few minutes), use **Level 2** — or the more creative **Level 3** — with at least the **Gemini-3-Flash** model. It provides good results for major-language translations and for improving same-language transcription. Use **Gemini Pro 3.1** when either the source or destination language is non-major.
-
-> [!NOTE]
-> *Google plans to discontinue Gemini 2.5 Pro and Flash 2.5 models on June 17, 2026.*
-
-### How to Enable Gemini Translation
-
-#### 1. Obtain a Google Gemini API Key
-*   Go to **[Google AI Studio](https://aistudio.google.com/)**.
-*   Sign in with your Google account.
-*   Click on **"Get API key"** and then **"Create API key"**.
-*   Copy the generated key immediately.
-
-#### 2. Provide the API Key to the Application
-1.  In `playlist4whisper`, click the **"API Key"** button located in the "Online translation" section.
-2.  Paste your key into the dialog box and click "OK". The key is saved in your configuration file.
-
-#### 3. Configure and Run
-1.  Check the **"Online"** box to enable online translation.
-2.  Use the **"Engine"** dropdown menu to select your desired Gemini model.
-3.  Use the **"Level"** dropdown menu to select your desired context level.
-
-The script will now use the Gemini API for translations. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
+You can select your preferred context level from the new dropdown menu in the "Online translation" section of the UI. If the API key is not found, it will automatically fall back to the standard `translate-shell` engine. In Live Stream mode, it will immediately fall back to translate-shell for a failed block to maintain real-time flow, indicated by a `(*)` prefix.
 
 > [!NOTE]
 > Using the Gemini API is subject to Google’s pricing and usage policies. Please consult the [Google AI Platform pricing page](https://ai.google.dev/pricing) for details.
@@ -500,6 +466,70 @@ This is a command-line program that includes the same transcription functions as
 - `--sync`: Transcription/video synchronization time in seconds.
 - `--segments`: Number of segment files for timeshift.
 - `--segment_time`: Time for each segment file.
+
+---
+
+## 🌐 Online Translation with Google Gemini API
+
+This application introduces high-quality online translation and grammar correction using Google's Gemini AI models. This feature serves as a powerful alternative to the standard translation provided by `translate-shell`.
+
+### 1. ⚠️ Privacy Warning: Free Tier vs. Paid Tier
+Google AI Studio offers a generous Free Tier, but it comes with a critical privacy trade-off:
+*   **Free Tier:** By using the free API, you agree to Google's terms, which allow them to collect and use your translated text (anonymously) to train and improve their AI models. 
+*   **Paid Tier (Pay-As-You-Go):** When you set up a billing account, **your data is strictly private**. Google explicitly states that Paid API data is *not* used to train their models. 
+
+**For processing private, copyrighted, or sensitive media files, enabling the Paid Tier is highly recommended.** The Paid API operates strictly on a pay-per-use basis: if you don't use it, you pay nothing. Under normal usage, translating or correcting subtitles costs just fractions of a cent per video.
+
+### 2. Model Recommendations & Rate Limits
+Different tasks require different models. Based on current Google AI Studio limits, here is how you should configure the app:
+
+*   **For Subtitle Generation (Local Files):**
+    *   *Recommended Model:* **`gemini-3-flash-preview`** (or `gemini-3.1-flash-lite`).
+    *   *Why:* Subtitle generation processes the entire file in rapid bursts. The Flash models offer a very high burst limit (up to 1,000 Requests Per Minute), preventing the API from timing out while processing your video.
+*   **For Prolonged Live Streams (IPTV / Twitch / YouTube):**
+    *   *Recommended Model:* The **`gemma-4`** family (e.g., `gemma-4-26b-a4b-it`).
+    *   *Why:* Live streams run for hours, doing slow, steady requests. Gemma-4 models have a massive daily quota (over 14,000 Requests Per Day) on the Free Tier, making them perfect for long sessions. *Tip: Use Context Level 0 or 1 to avoid hitting their low per-minute rate limit (30 RPM).*
+*   **For High-Quality / Minority Languages:**
+    *   *Recommended Model:* **`gemini-3.1-pro`**.
+    *   *Why:* Pro models offer the absolute best translation quality and context awareness, especially when either the source or destination language is not widely spoken. A Paid Tier account is generally recommended to avoid rate limits with Pro models.
+
+### 3. How to Obtain and Set Your API Key
+To use these features, you need a Google Gemini API Key.
+
+**Step 1: Obtain the Key**
+1. Go to **[Google AI Studio](https://aistudio.google.com/)**.
+2. Sign in with your Google account.
+3. Click on **"Get API key"** and then **"Create API key"**.
+4. Copy the generated key immediately.
+
+**Step 2: Provide the Key to the Application**
+You must make the API key available to the script. There are three methods:
+
+*   **Method A: System-Wide Environment Variable (Recommended for Desktop Users)**
+    Open `~/.profile` with a text editor and add the following line at the end:
+    ```bash
+    export GEMINI_API_KEY="YOUR_API_KEY_HERE"
+    ```
+    *(Log out and log back in for changes to take effect).*
+
+*   **Method B: Shell-Specific (Recommended for Terminal Users)**
+    Open your `~/.bashrc` (or `~/.zshrc`) and add the same line:
+    ```bash
+    export GEMINI_API_KEY="YOUR_API_KEY_HERE"
+    ```
+    *(Run `source ~/.bashrc` to apply immediately).*
+
+*   **Method C: Set in the GUI (Easiest)**
+    In the `playlist4whisper` GUI, click the **"API Key"** button located in the "Online translation" section. Paste your key and click "OK". The GUI will automatically pass the key to the bash script.
+
+### 4. Using Gemini Translation via Command Line
+If you are running the `livestream_video.sh` script directly from the terminal, use these flags:
+*   Add `--trans <language_code>` (e.g., `--trans en`) to enable translation.
+*   Add `--gemini-trans` to force the use of the Gemini engine instead of `translate-shell`.
+*   *(Optional)* Specify a model: `--gemini-trans gemini-3-flash-preview`.
+*   *(Optional)* Specify a context level: `--gemini-level 2`.
+
+*Note: If the Gemini API fails, times out, or the key is missing, the script is designed to automatically fallback to the standard `translate-shell` engine to ensure your live stream translation is never interrupted.*
 
 ---
 
