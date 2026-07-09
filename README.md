@@ -567,7 +567,22 @@ If you are running the `livestream_video.sh` script directly from the terminal, 
 ## FAQ
 
 ### **Q: What quality of transcription can I expect when using only a low-level processor?**
+
 **A:** This program is based on `whisper.cpp`, which is a highly optimized implementation of OpenAI's Whisper AI. The performance of the transcription largely depends on this software. For English language, you can expect very good transcriptions of video streams or media files even on low-end or old PCs, even those that are at least 10 years old. You can easily configure the application with models such as `small.en` or `base.en`, which offer excellent transcriptions for the English language. Even the `tiny.en` model, despite its small size, provides great results. However, transcriptions of other major languages are not as good with small models, and minority languages do not perform well at all. For these, you will need a better CPU or a supported GPU.
+
+Another option is to fine-tune a model to improve transcription for a non-English language.
+
+### **Q: How much data is needed to fine-tune a model?**
+
+**A:** Fine-tuning a Whisper model can be harder and more expensive than expected, and the amount of data required depends on the target language and use case. Some users get good results with a relatively small dataset, while others see little or no improvement. Results depend on how well Whisper already supports the language, how similar it is to other languages it knows, and the quality of the training data. In general, more high-quality data is better. Ideally, this means thousands of hours of short audio clips with accurate transcriptions.
+
+You may be able to fine-tune with free datasets such as Common Voice. You can find the latest version of the Common Voice dataset on the [Mozilla Foundation](https://commonvoice.mozilla.org) page. Keep in mind that OpenAI already used Common Voice data for validation during training, so some languages or datasets may not improve Whisper as much as expected. Even so, languages such as Catalan, Esperanto, and Basque have a significant amount of data in Common Voice, while some major languages such as Spanish have a surprisingly weak dataset. If your goal is a specialized use case, you may need substantial effort to collect enough high-quality data, even if the dataset is much smaller than for general language training. This is especially true when improving technical vocabulary, slang, or a regional accent in a language that is already reasonably well supported.
+
+A good example is Hindi: it was not especially well supported by Whisper at first, but after sufficient fine-tuning it now comes much closer to English in accuracy and efficiency. In practice, that means much better transcription even with the smallest models on low-powered processors or mobile devices. For more information, see the Collabora article: [https://www.collabora.com/news-and-blog/news-and-events/breaking-language-barriers-20-moving-closer-production-ready-hindi-asr.html](https://www.collabora.com/news-and-blog/news-and-events/breaking-language-barriers-20-moving-closer-production-ready-hindi-asr.html)
+
+The Hindi fine-tuned model was trained using a relatively accessible consumer GPU, specifically an Nvidia RTX 4090. That suggests the most important factors are the training data and how it is processed, rather than raw training power alone.
+
+Once you have a fine-tuned model, you can use it in a WhisperLive server by adding the model path to the server startup arguments.
 
 ### **Q: Why isn't there a precompiled and packaged distribution for the program "playlist4whisper"?**
 **A:** First, this is a Linux application, and macOS and Windows are not fully supported. For Linux systems, compiling and distributing packages is the responsibility of each distribution’s maintainers, not the programmer.
@@ -842,11 +857,6 @@ cmake -B build -DGGML_MUSA=1
 cmake --build build -j --config Release
 ```
 - **Model / Run**: Same as CPU.
-
-### **Q: How much data is needed to fine-tune a model?**
-**A:** Fine-tuning a Whisper model might be more difficult and costly than expected; you must collect that specific information yourself. Some users report success with a relatively short amount of data, while others couldn't obtain significant improvements. It depends on the quality of the language already supported by Whisper and its similarities with other languages supported by Whisper. It also depends on the quality of the dataset for training. It's clear that having as much data as possible is better; perhaps thousands of hours of short sound chunks with their transcriptions. You might be able to fine-tune with large free datasets like Common Voice. You can find the latest version of the Common Voice dataset by checking the [Mozilla Foundation](https://commonvoice.mozilla.org) page or the [Hugging Face Hub](https://huggingface.co/mozilla-foundation). Keep in mind that OpenAI already utilized Common Voice datasets for the validation task during its training, so it's possible that some datasets or languages may not improve Whisper's models as expected. Nonetheless, some minority languages like Catalan, Esperanto and Basque have a significant number of hours in Common Voice, while one of the major languages like Spanish has a very poor dataset. If you want to fine-tune for a more specific use, then you might need a lot of effort or cost to collect enough data with the needed quality, although the dataset would be smaller for improving technical words, slang, or a specific accent of a local region for an already well-supported language.
-
-You can find an example of fine-tuning for one of the major languages, Hindi, a language not very well supported by WhisperAI but which, with sufficient fine-tuning training, now comes very close to the accuracy and efficiency of English. That is, it achieves much better transcriptions, even with the smallest models on very low-powered processors or on mobile devices. For more information, you can visit the Collabora website (the company behind the WhisperLive server): https://www.collabora.com/news-and-blog/news-and-events/breaking-language-barriers-20-moving-closer-production-ready-hindi-asr.html
 
 ### **Q: Why do I sometimes get errors or poor-quality translations with Gemini AI?**
 **A:** Online translation issues with the Gemini API can stem from several factors, ranging from API availability to the inherent behavior of AI models. Here are the most common causes:
